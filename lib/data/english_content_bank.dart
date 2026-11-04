@@ -1,6 +1,19 @@
+import 'blackbook_vocabulary_bank.dart';
 import '../models/english_models.dart';
 
 class EnglishContentBank {
+
+  // =========================================================================
+  // BLACKBOOK 2026 VOCABULARY ENGINE GETTERS
+  // =========================================================================
+  static List<BlackbookOwsItem> get blackbookOws => BlackbookVocabularyBank.topOws;
+  static List<BlackbookIdiomItem> get blackbookIdioms => BlackbookVocabularyBank.topIdioms;
+  static List<BlackbookSynAntItem> get blackbookSynAnt => BlackbookVocabularyBank.topSynAnt;
+  static List<BlackbookHomonymPair> get blackbookHomonyms => BlackbookVocabularyBank.topHomonyms;
+  static List<BlackbookSpellingItem> get blackbookSpellings => BlackbookVocabularyBank.topSpellings;
+  static List<BlackbookRootWordItem> get blackbookRoots => BlackbookVocabularyBank.rootWords;
+  static List<EnglishExerciseQuestion> get blackbookPractice => BlackbookVocabularyBank.blackbookPracticeQuestions;
+
   // =========================================================================
   // 1. 100 REAL EXAM FIXED PREPOSITIONS (Q151 to Q250) WITH VERIFIED SOLUTIONS
   // =========================================================================

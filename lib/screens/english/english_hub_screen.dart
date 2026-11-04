@@ -9,6 +9,7 @@ import '../../widgets/swiggy_flipkart_section_bar.dart';
 import '../../services/english_tts_service.dart';
 import 'english_quiz_screen.dart';
 import 'english_topic_detail_screen.dart';
+import 'blackbook_master_screen.dart';
 
 class EnglishHubScreen extends StatefulWidget {
   const EnglishHubScreen({super.key});
@@ -356,6 +357,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
             physics: const BouncingScrollPhysics(),
             children: [
               _filterChip('all', '📖 18 Word Vaults (${allTopics.length})', _vocabSubCategory == 'all', (val) => setState(() => _vocabSubCategory = 'all')),
+              _filterChip('blackbook', '🔥 Blackbook 2026', _vocabSubCategory == 'blackbook', (val) => setState(() => _vocabSubCategory = 'blackbook')),
               _filterChip('ows', '💡 One Word Substitution (${owsList.length})', _vocabSubCategory == 'ows', (val) => setState(() => _vocabSubCategory = 'ows')),
               _filterChip('spelling', '✏️ Spelling Test (${spellingList.length})', _vocabSubCategory == 'spelling', (val) => setState(() => _vocabSubCategory = 'spelling')),
               _filterChip('synonyms', '🎯 Synonyms Drill (${synList.length})', _vocabSubCategory == 'synonyms', (val) => setState(() => _vocabSubCategory = 'synonyms')),
@@ -368,7 +370,9 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
         // Subcategory View Switcher
         Expanded(
           child: Builder(builder: (context) {
-            if (_vocabSubCategory == 'ows') {
+            if (_vocabSubCategory == 'blackbook') {
+              return _buildBlackbookHubOverview(state);
+            } else if (_vocabSubCategory == 'ows') {
               return _buildExerciseList(
                 state: state,
                 title: 'One Word Substitution (OWS)',
@@ -420,6 +424,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
 
             return Column(
               children: [
+                _buildBlackbookPromoBanner(),
                 // Search & Flashcard Row
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),

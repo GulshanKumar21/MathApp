@@ -152,3 +152,140 @@ class EnglishMistake {
     timestamp: DateTime.tryParse(map['timestamp']?.toString() ?? '') ?? DateTime.now(),
   );
 }
+
+
+// =========================================================================
+// BLACKBOOK OF ENGLISH VOCABULARY 2026 EDITION MODELS
+// =========================================================================
+
+class BlackbookOwsItem {
+  final int id;
+  final String phrase;
+  final String word;
+  final String partOfSpeech;
+  final String hindiMeaning;
+  final int repetitionCount;
+  final String category;
+  final bool isSpellingTrap;
+  final bool isSynAnt;
+
+  const BlackbookOwsItem({
+    required this.id,
+    required this.phrase,
+    required this.word,
+    this.partOfSpeech = 'N.',
+    required this.hindiMeaning,
+    required this.repetitionCount,
+    this.category = 'General',
+    this.isSpellingTrap = false,
+    this.isSynAnt = false,
+  });
+}
+
+class BlackbookIdiomItem {
+  final int id;
+  final String idiom;
+  final String englishMeaning;
+  final String hindiMeaning;
+  final int repetitionCount;
+  final String category;
+  final String example;
+
+  const BlackbookIdiomItem({
+    required this.id,
+    required this.idiom,
+    required this.englishMeaning,
+    required this.hindiMeaning,
+    required this.repetitionCount,
+    this.category = 'General',
+    this.example = '',
+  });
+}
+
+class BlackbookSynAntItem {
+  final int id;
+  final String word;
+  final String partOfSpeech;
+  final String definition;
+  final String hindiMeaning;
+  final int repetitionCount;
+  final List<String> synonyms;
+  final List<String> antonyms;
+
+  const BlackbookSynAntItem({
+    required this.id,
+    required this.word,
+    this.partOfSpeech = 'Adj.',
+    this.definition = '',
+    required this.hindiMeaning,
+    required this.repetitionCount,
+    required this.synonyms,
+    required this.antonyms,
+  });
+}
+
+class BlackbookHomonymPair {
+  final int id;
+  final String word1;
+  final String pos1;
+  final String meaning1;
+  final String hindi1;
+  final String word2;
+  final String pos2;
+  final String meaning2;
+  final String hindi2;
+  final String? word3;
+  final String? pos3;
+  final String? meaning3;
+  final String? hindi3;
+  final int repetitionCount;
+
+  const BlackbookHomonymPair({
+    required this.id,
+    required this.word1,
+    required this.pos1,
+    required this.meaning1,
+    required this.hindi1,
+    required this.word2,
+    required this.pos2,
+    required this.meaning2,
+    required this.hindi2,
+    this.word3,
+    this.pos3,
+    this.meaning3,
+    this.hindi3,
+    this.repetitionCount = 2,
+  });
+}
+
+class BlackbookSpellingItem {
+  final int id;
+  final String correctWord;
+  final String hindiMeaning;
+  final int repetitionCount;
+  final List<String> wrongOptions;
+  final String trickyPart;
+
+  const BlackbookSpellingItem({
+    required this.id,
+    required this.correctWord,
+    required this.hindiMeaning,
+    required this.repetitionCount,
+    required this.wrongOptions,
+    this.trickyPart = '',
+  });
+}
+
+class BlackbookRootWordItem {
+  final String root;
+  final String meaning;
+  final String origin;
+  final List<Map<String, String>> derivatives;
+
+  const BlackbookRootWordItem({
+    required this.root,
+    required this.meaning,
+    this.origin = 'Greek/Latin',
+    required this.derivatives,
+  });
+}
