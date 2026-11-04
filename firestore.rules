@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Questions Collection (Admin manage karta hai, Sabhi students read kar sakte hain)
+    match /questions/{questionId} {
+      allow read: if true; // Sabhi students (Free aur PRO) practice ke liye questions read kar sakein
+      allow write: if request.auth != null; // Sirf authenticated Admin ya authorised user modify kar sake
+    }
+
+    // 2. Announcements / Notifications (Admin push notice)
+    match /broadcasts/{broadcastId} {
+      allow read: if true; // Sabhi students announcements dekh sakein
+      allow write: if request.auth != null; // Sirf Admin broadcast create kar sake
+    }
+
+    // 3. Leaderboard Collection (All-India Speed Rankings)
+    match /leaderboard/{userId} {
+      allow read: if true; // Public leaderboard viewing
+      allow write: if request.auth != null; // Student apna high-score update kar sake
+    }
+
+    // 4. Users Private Profile & Mistakes Sync
+    match /users/{userId} {
+      // Sirf wahi user apna data read/write kar sakta hai jiska account hai
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // User ki specific mistake notebook
+      match /mistakes/{mistakeId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // User ki practice history
+      match /history/{historyId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // 5. Payments Ledger (₹29 One-time transactions)
+    match /payments/{paymentId} {
+      allow read, write: if request.auth != null; // Secure transaction verification
+    }
+  }
+}

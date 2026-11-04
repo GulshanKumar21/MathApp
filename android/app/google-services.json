@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "564461086319",
+    "project_id": "speedmath-practice",
+    "storage_bucket": "speedmath-practice.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:564461086319:android:f2d13f08c4a7151a2b4f9a",
+        "android_client_info": {
+          "package_name": "com.mathspeed.app.math_speed_practice"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCO90r0ePHzINltVvi9sJcBlS7x_1Enkcg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
