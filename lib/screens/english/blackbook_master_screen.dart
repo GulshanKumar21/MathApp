@@ -1299,7 +1299,7 @@ class _BlackbookMasterScreenState extends State<BlackbookMasterScreen> with Sing
     int correctCount = 0;
     _userQuizAnswers.forEach((qId, selIdx) {
       final q = questions.firstWhere((item) => item.id == qId);
-      if (q.correctOptionIndex == selIdx) correctCount++;
+      if (q.correctIndex == selIdx) correctCount++;
     });
 
     return Column(
@@ -1355,7 +1355,7 @@ class _BlackbookMasterScreenState extends State<BlackbookMasterScreen> with Sing
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: isAnswered
-                        ? (userSelection == q.correctOptionIndex
+                        ? (userSelection == q.correctIndex
                             ? const Color(0xFF10B981).withValues(alpha: 0.5)
                             : const Color(0xFFEF4444).withValues(alpha: 0.5))
                         : Colors.white.withValues(alpha: 0.08),
@@ -1374,17 +1374,17 @@ class _BlackbookMasterScreenState extends State<BlackbookMasterScreen> with Sing
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            'Q${index + 1} • ${q.type.name.toUpperCase()}',
+                            'Q${index + 1} • ${q.type.toUpperCase()}',
                             style: const TextStyle(color: Color(0xFFA5B4FC), fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                         ),
                         const Spacer(),
                         if (isAnswered)
                           Icon(
-                            userSelection == q.correctOptionIndex
+                            userSelection == q.correctIndex
                                 ? Icons.check_circle_rounded
                                 : Icons.cancel_rounded,
-                            color: userSelection == q.correctOptionIndex
+                            color: userSelection == q.correctIndex
                                 ? const Color(0xFF10B981)
                                 : const Color(0xFFEF4444),
                             size: 18,
@@ -1410,7 +1410,7 @@ class _BlackbookMasterScreenState extends State<BlackbookMasterScreen> with Sing
                       Color textColor = Colors.white70;
 
                       if (isAnswered) {
-                        if (optIdx == q.correctOptionIndex) {
+                        if (optIdx == q.correctIndex) {
                           optBg = const Color(0xFF10B981).withValues(alpha: 0.2);
                           optBorder = const Color(0xFF10B981);
                           textColor = const Color(0xFF34D399);
@@ -1433,13 +1433,13 @@ class _BlackbookMasterScreenState extends State<BlackbookMasterScreen> with Sing
                                   HapticFeedback.selectionClick();
 
                                   // Record to AppStateProvider for Mistake Notebook
-                                  final isCorrect = optIdx == q.correctOptionIndex;
+                                  final isCorrect = optIdx == q.correctIndex;
                                   state.recordEnglishAnswer(
                                     isCorrect: isCorrect,
                                     questionId: q.id,
                                     questionText: q.questionText,
                                     options: q.options,
-                                    correctIndex: q.correctOptionIndex,
+                                    correctIndex: q.correctIndex,
                                     selectedIndex: optIdx,
                                     explanation: q.explanation,
                                   );

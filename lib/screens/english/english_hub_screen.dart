@@ -1964,4 +1964,299 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
       ],
     );
   }
+
+  // =========================================================================
+  // BLACKBOOK 2026 PROMO BANNER & HUB OVERVIEW
+  // =========================================================================
+  Widget _buildBlackbookPromoBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5), width: 1.3),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.local_fire_department_rounded, color: Colors.white, size: 16),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Blackbook 2026 Edition',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        SizedBox(width: 5),
+                        Text(
+                          'NEW',
+                          style: TextStyle(
+                            color: Color(0xFFF59E0B),
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      'Nikhil Gupta • Top 200 OWS, Idioms, Syn-Ant & Roots',
+                      style: TextStyle(
+                        color: Colors.white60,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const BlackbookMasterScreen()),
+                  );
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Open Hub',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      SizedBox(width: 3),
+                      Icon(Icons.arrow_forward_ios_rounded, color: Colors.black, size: 10),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Shortcut chips to direct sections
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                _buildQuickSectionChip('💡 Top OWS', 0, const Color(0xFF10B981)),
+                const SizedBox(width: 5),
+                _buildQuickSectionChip('🏮 Idioms', 1, const Color(0xFFF59E0B)),
+                const SizedBox(width: 5),
+                _buildQuickSectionChip('🔄 Syn/Ant Matrix', 2, const Color(0xFF06B6D4)),
+                const SizedBox(width: 5),
+                _buildQuickSectionChip('⚖️ Homonyms', 3, const Color(0xFF8B5CF6)),
+                const SizedBox(width: 5),
+                _buildQuickSectionChip('🎯 Spelling Traps', 4, const Color(0xFFEC4899)),
+                const SizedBox(width: 5),
+                _buildQuickSectionChip('📝 SSC Quiz', 6, const Color(0xFF6366F1)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickSectionChip(String label, int tabIdx, Color color) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => BlackbookMasterScreen(initialTabIndex: tabIdx)),
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.35)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 10.5,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBlackbookHubOverview(AppStateProvider state) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      physics: const BouncingScrollPhysics(),
+      children: [
+        _buildBlackbookPromoBanner(),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.workspace_premium_rounded, color: Color(0xFFF59E0B), size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'Complete Blackbook 2026 Sections',
+                    style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _buildBlackbookCategoryRow(
+                icon: Icons.lightbulb_rounded,
+                title: 'Part A: One Word Substitution (OWS)',
+                subtitle: 'Top 200 high-frequency words with #R count, Hindi & Audio',
+                tabIdx: 0,
+                color: const Color(0xFF10B981),
+              ),
+              const Divider(color: Colors.white12, height: 16),
+              _buildBlackbookCategoryRow(
+                icon: Icons.palette_rounded,
+                title: 'Part B: Idioms & Phrases',
+                subtitle: 'Top 200 repeated idioms with exact Hindi & exam meanings',
+                tabIdx: 1,
+                color: const Color(0xFFF59E0B),
+              ),
+              const Divider(color: Colors.white12, height: 16),
+              _buildBlackbookCategoryRow(
+                icon: Icons.compare_arrows_rounded,
+                title: 'Part C: Dual Synonyms & Antonyms',
+                subtitle: 'Dual column matrix with SSC repetition frequency',
+                tabIdx: 2,
+                color: const Color(0xFF06B6D4),
+              ),
+              const Divider(color: Colors.white12, height: 16),
+              _buildBlackbookCategoryRow(
+                icon: Icons.splitscreen_rounded,
+                title: 'Part D: Confusing Words & Homonyms',
+                subtitle: 'Pair comparison cards (Affect vs Effect, Complement vs Compliment)',
+                tabIdx: 3,
+                color: const Color(0xFF8B5CF6),
+              ),
+              const Divider(color: Colors.white12, height: 16),
+              _buildBlackbookCategoryRow(
+                icon: Icons.spellcheck_rounded,
+                title: 'Part E: 200 Most Repeated Spellings',
+                subtitle: 'Tricky double letters highlighted with correct vs incorrect traps',
+                tabIdx: 4,
+                color: const Color(0xFFEC4899),
+              ),
+              const Divider(color: Colors.white12, height: 16),
+              _buildBlackbookCategoryRow(
+                icon: Icons.account_tree_rounded,
+                title: 'Part F: Root Words & Etymology',
+                subtitle: 'Greek/Latin roots (phil, mis, bene, mal, omni) with derivatives',
+                tabIdx: 5,
+                color: const Color(0xFF14B8A6),
+              ),
+              const Divider(color: Colors.white12, height: 16),
+              _buildBlackbookCategoryRow(
+                icon: Icons.quiz_rounded,
+                title: 'Part G: SSC Exam Practice Quiz Arena',
+                subtitle: 'MCQ questions with instant solution & Mistake Notebook recording',
+                tabIdx: 6,
+                color: const Color(0xFF6366F1),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBlackbookCategoryRow({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required int tabIdx,
+    required Color color,
+  }) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => BlackbookMasterScreen(initialTabIndex: tabIdx)),
+        );
+      },
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.bold)),
+                  Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white30, size: 12),
+          ],
+        ),
+      ),
+    );
+  }
 }
