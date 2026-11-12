@@ -7,6 +7,24 @@ import '../models/english_models.dart';
 
 /// Singleton service that loads, merges, deduplicates, and serves PrepVanta's
 /// full A-to-Z English Vocabulary Dictionary from compressed bundled assets.
+
+/// Topic-wise MCQ bundle generated from all extracted vocabulary datasets.
+class VocabTopicQuizBundle {
+  final String key;
+  final String title;
+  final String subtitle;
+  final String categoryTag;
+  final List<EnglishExerciseQuestion> questions;
+
+  const VocabTopicQuizBundle({
+    required this.key,
+    required this.title,
+    required this.subtitle,
+    required this.categoryTag,
+    required this.questions,
+  });
+}
+
 class VocabDictionaryService {
   static final VocabDictionaryService _instance = VocabDictionaryService._internal();
   factory VocabDictionaryService() => _instance;
@@ -238,6 +256,7 @@ class VocabDictionaryService {
       }
       _quiz = quizList;
       _isLoaded = true;
+      clearTopicCache();
     } catch (e) {
       debugPrint('VocabDictionaryService load fallback note: $e');
       _ows = _fallbackOws;
@@ -310,4 +329,391 @@ class VocabDictionaryService {
 
     return [...prefixMatches, ...wordContainsMatches, ...secondaryMatches];
   }
+
+  final Map<String, List<EnglishExerciseQuestion>> _topicQuestionCache = {};
+
+  /// Clears cached generated topic questions (called after reload).
+  void clearTopicCache() => _topicQuestionCache.clear();
+
+  /// Returns all available topic-wise MCQ bundles covering 100% of extracted items.
+  List<VocabTopicQuizBundle> getTopicWiseQuizBundles() {
+    final sscOws = getQuestionsForTopic('ssc_ows');
+    final otherOws = getQuestionsForTopic('other_ows');
+    final synonyms = getQuestionsForTopic('synonyms');
+    final antonyms = getQuestionsForTopic('antonyms');
+    final spelling = getQuestionsForTopic('spelling');
+    final sscIdioms = getQuestionsForTopic('ssc_idioms');
+    final proverbs = getQuestionsForTopic('proverbs_idioms');
+    final phrasal = getQuestionsForTopic('phrasal_preps');
+    final homonyms = getQuestionsForTopic('homonyms');
+    final editorial = getQuestionsForTopic('editorial_foreign');
+
+    return [
+      VocabTopicQuizBundle(
+        key: 'ssc_ows',
+        title: 'SSC One Word Substitution',
+        subtitle: '${sscOws.length} repeated exam OWS MCQs with Hindi meanings',
+        categoryTag: 'OWS',
+        questions: sscOws,
+      ),
+      VocabTopicQuizBundle(
+        key: 'other_ows',
+        title: 'Other Exams OWS',
+        subtitle: '${otherOws.length} Banking, CDS & State exam OWS MCQs',
+        categoryTag: 'OWS',
+        questions: otherOws,
+      ),
+      VocabTopicQuizBundle(
+        key: 'synonyms',
+        title: 'Synonyms Mastery',
+        subtitle: '${synonyms.length} high-frequency Synonym MCQs',
+        categoryTag: 'SYNONYMS',
+        questions: synonyms,
+      ),
+      VocabTopicQuizBundle(
+        key: 'antonyms',
+        title: 'Antonyms Mastery',
+        subtitle: '${antonyms.length} high-frequency Antonym MCQs',
+        categoryTag: 'ANTONYMS',
+        questions: antonyms,
+      ),
+      VocabTopicQuizBundle(
+        key: 'spelling',
+        title: 'Spelling Test & Traps',
+        subtitle: '${spelling.length} commonly misspelt word MCQs',
+        categoryTag: 'SPELLING',
+        questions: spelling,
+      ),
+      VocabTopicQuizBundle(
+        key: 'ssc_idioms',
+        title: 'SSC Idioms & Phrases',
+        subtitle: '${sscIdioms.length} high-frequency SSC Idiom MCQs',
+        categoryTag: 'IDIOMS',
+        questions: sscIdioms,
+      ),
+      VocabTopicQuizBundle(
+        key: 'proverbs_idioms',
+        title: 'Proverbs & Exam Idioms',
+        subtitle: '${proverbs.length} Proverbs & extra Idiom MCQs',
+        categoryTag: 'PROVERBS',
+        questions: proverbs,
+      ),
+      VocabTopicQuizBundle(
+        key: 'phrasal_preps',
+        title: 'Phrasal Verbs & Fixed Prepositions',
+        subtitle: '${phrasal.length} Phrasal Verb & Preposition MCQs',
+        categoryTag: 'BOOSTERS',
+        questions: phrasal,
+      ),
+      VocabTopicQuizBundle(
+        key: 'homonyms',
+        title: 'Homonyms & Confusing Words',
+        subtitle: '${homonyms.length} look-alike & sound-alike word MCQs',
+        categoryTag: 'HOMONYMS',
+        questions: homonyms,
+      ),
+      VocabTopicQuizBundle(
+        key: 'editorial_foreign',
+        title: 'Editorial & Foreign Vocab',
+        subtitle: '${editorial.length} advanced Editorial & Foreign word MCQs',
+        categoryTag: 'EDITORIAL',
+        questions: editorial,
+      ),
+    ].where((b) => b.questions.isNotEmpty).toList();
+  }
+
+  /// Generates & caches all exam MCQs for a given topic key cleanly.
+  List<EnglishExerciseQuestion> getQuestionsForTopic(String topicKey) {
+    final cacheKey = '${_isLoaded ? "L" : "F"}_$topicKey';
+    final cached = _topicQuestionCache[cacheKey];
+    if (cached != null) return cached;
+
+    late final List<EnglishExerciseQuestion> built;
+    switch (topicKey) {
+      case 'ssc_ows':
+        built = _buildOwsQuestions(
+          ows.where((e) => !e.category.toLowerCase().contains('other')).toList(),
+          includeCuratedQuiz: true,
+        );
+        break;
+      case 'other_ows':
+        built = _buildOwsQuestions(
+          ows.where((e) => e.category.toLowerCase().contains('other')).toList(),
+        );
+        break;
+      case 'ssc_idioms':
+        built = _buildIdiomQuestions(
+          idioms.where((e) => e.category.toLowerCase().contains('ssc')).toList(),
+          includeCuratedQuiz: true,
+        );
+        break;
+      case 'proverbs_idioms':
+        built = _buildIdiomQuestions(
+          idioms.where((e) => !e.category.toLowerCase().contains('ssc')).toList(),
+        );
+        break;
+      case 'spelling':
+        built = _buildSpellingQuestions(spellings, includeCuratedQuiz: true);
+        break;
+      case 'synonyms':
+        built = _buildSynAntQuestions(synAnt, isSynonym: true);
+        break;
+      case 'antonyms':
+        built = _buildSynAntQuestions(synAnt, isSynonym: false);
+        break;
+      case 'phrasal_preps':
+        built = _buildBoosterQuestions(
+          boosters.where((b) => b.section == 'Phrasal Verbs' || b.section == 'Fixed Prepositions').toList(),
+        );
+        break;
+      case 'editorial_foreign':
+        built = _buildBoosterQuestions(
+          boosters.where((b) => b.section != 'Phrasal Verbs' && b.section != 'Fixed Prepositions').toList(),
+        );
+        break;
+      case 'homonyms':
+        built = _buildHomonymQuestions(homonyms);
+        break;
+      case 'all':
+      default:
+        built = [
+          ...getQuestionsForTopic('ssc_ows'),
+          ...getQuestionsForTopic('other_ows'),
+          ...getQuestionsForTopic('ssc_idioms'),
+          ...getQuestionsForTopic('proverbs_idioms'),
+          ...getQuestionsForTopic('spelling'),
+          ...getQuestionsForTopic('synonyms'),
+          ...getQuestionsForTopic('antonyms'),
+          ...getQuestionsForTopic('phrasal_preps'),
+          ...getQuestionsForTopic('homonyms'),
+          ...getQuestionsForTopic('editorial_foreign'),
+        ];
+        break;
+    }
+
+    _topicQuestionCache[cacheKey] = built;
+    return built;
+  }
+
+  List<String> _deterministicOptions(String correct, List<String> pool, int seed) {
+    final Set<String> opts = {correct};
+    final int n = pool.length;
+    if (n > 0) {
+      int step = (seed % 7) + 1;
+      for (int k = 0; k < 20 && opts.length < 4; k++) {
+        final cand = pool[(seed + k * step) % n].trim();
+        if (cand.isNotEmpty && cand.toLowerCase() != correct.toLowerCase()) {
+          opts.add(cand);
+        }
+      }
+    }
+    int pad = 1;
+    while (opts.length < 4) {
+      opts.add('$correct ($pad)');
+      pad++;
+    }
+    final list = opts.take(4).toList();
+    // Deterministic permutation by seed
+    final rot = seed % 4;
+    return [...list.skip(rot), ...list.take(rot)];
+  }
+
+  List<EnglishExerciseQuestion> _buildOwsQuestions(
+    List<BlackbookOwsItem> source, {
+    bool includeCuratedQuiz = false,
+  }) {
+    final List<EnglishExerciseQuestion> out = [];
+    final seen = <String>{};
+    if (includeCuratedQuiz) {
+      for (final q in quiz.where((x) => x.type.toUpperCase() == 'OWS')) {
+        if (seen.add(q.questionText.trim().toLowerCase())) out.add(q);
+      }
+    }
+    final pool = ows.map((e) => e.word).where((w) => w.isNotEmpty).toList();
+    for (int i = 0; i < source.length; i++) {
+      final item = source[i];
+      if (item.phrase.trim().isEmpty || item.word.trim().isEmpty) continue;
+      final prompt = 'One word for: "${item.phrase.trim()}"';
+      if (!seen.add(prompt.toLowerCase())) continue;
+      final options = _deterministicOptions(item.word.trim(), pool, item.id + i);
+      final correctIdx = options.indexOf(item.word.trim());
+      out.add(EnglishExerciseQuestion(
+        id: 'ows_gen_${item.id}',
+        questionText: prompt,
+        options: options,
+        correctIndex: correctIdx < 0 ? 0 : correctIdx,
+        type: 'OWS',
+        explanation: '${item.word} (${item.partOfSpeech}) — ${item.hindiMeaning.isNotEmpty ? item.hindiMeaning : item.phrase}',
+      ));
+    }
+    return out;
+  }
+
+  List<EnglishExerciseQuestion> _buildIdiomQuestions(
+    List<BlackbookIdiomItem> source, {
+    bool includeCuratedQuiz = false,
+  }) {
+    final List<EnglishExerciseQuestion> out = [];
+    final seen = <String>{};
+    if (includeCuratedQuiz) {
+      for (final q in quiz.where((x) => x.type.toUpperCase().contains('IDIOM'))) {
+        if (seen.add(q.questionText.trim().toLowerCase())) out.add(q);
+      }
+    }
+    final pool = idioms.map((e) => e.englishMeaning).where((m) => m.isNotEmpty).toList();
+    for (int i = 0; i < source.length; i++) {
+      final item = source[i];
+      if (item.idiom.trim().isEmpty || item.englishMeaning.trim().isEmpty) continue;
+      final prompt = 'Meaning of idiom: "${item.idiom.trim()}"';
+      if (!seen.add(prompt.toLowerCase())) continue;
+      final options = _deterministicOptions(item.englishMeaning.trim(), pool, item.id + i);
+      final correctIdx = options.indexOf(item.englishMeaning.trim());
+      out.add(EnglishExerciseQuestion(
+        id: 'idm_gen_${item.id}',
+        questionText: prompt,
+        options: options,
+        correctIndex: correctIdx < 0 ? 0 : correctIdx,
+        type: 'Idiom',
+        explanation: '${item.idiom}: ${item.englishMeaning}${item.hindiMeaning.isNotEmpty ? " (${item.hindiMeaning})" : ""}',
+      ));
+    }
+    return out;
+  }
+
+  List<EnglishExerciseQuestion> _buildSpellingQuestions(
+    List<BlackbookSpellingItem> source, {
+    bool includeCuratedQuiz = false,
+  }) {
+    final List<EnglishExerciseQuestion> out = [];
+    final seen = <String>{};
+    if (includeCuratedQuiz) {
+      for (final q in quiz.where((x) => x.type.toUpperCase().contains('SPELL'))) {
+        if (seen.add(q.questionText.trim().toLowerCase())) out.add(q);
+      }
+    }
+    for (int i = 0; i < source.length; i++) {
+      final item = source[i];
+      final correct = item.correctWord.trim();
+      if (correct.length < 3) continue;
+      final prompt = 'Select the correctly spelt word (${item.hindiMeaning.isNotEmpty ? item.hindiMeaning : "Vocabulary"})';
+      if (!seen.add('${prompt}_$correct'.toLowerCase())) continue;
+      final wrongs = item.wrongOptions.where((w) => w.trim().isNotEmpty && w.trim().toLowerCase() != correct.toLowerCase()).toList();
+      final traps = wrongs.length >= 3 ? wrongs.take(3).toList() : _generateSpellingTraps(correct, wrongs);
+      final opts = _deterministicOptions(correct, traps, item.id + i);
+      final correctIdx = opts.indexOf(correct);
+      out.add(EnglishExerciseQuestion(
+        id: 'spl_gen_${item.id}',
+        questionText: prompt,
+        options: opts,
+        correctIndex: correctIdx < 0 ? 0 : correctIdx,
+        type: 'Spelling',
+        explanation: 'Correct spelling: $correct${item.hindiMeaning.isNotEmpty ? " (${item.hindiMeaning})" : ""}${item.trickyPart.isNotEmpty ? " • Trap: ${item.trickyPart}" : ""}',
+      ));
+    }
+    return out;
+  }
+
+  List<String> _generateSpellingTraps(String word, List<String> seedWrongs) {
+    final Set<String> traps = {...seedWrongs};
+    final lower = word.toLowerCase();
+    // Trap 1: swap common vowels
+    final rules = [
+      ['ei', 'ie'], ['ie', 'ei'], ['a', 'e'], ['e', 'i'], ['i', 'e'], ['o', 'u'], ['c', 's'], ['s', 'c'],
+    ];
+    for (final r in rules) {
+      if (traps.length >= 3) break;
+      if (lower.contains(r[0])) {
+        final mutated = word.replaceFirst(RegExp(r[0], caseSensitive: false), r[1]);
+        if (mutated.toLowerCase() != lower) traps.add(mutated);
+      }
+    }
+    // Trap 2: duplicate or drop double letter
+    for (int i = 1; i < word.length - 1 && traps.length < 3; i++) {
+      if (word[i] == word[i - 1]) {
+        traps.add(word.substring(0, i) + word.substring(i + 1));
+      } else if (RegExp(r'[bcdfghjklmnpqrstvwxyz]', caseSensitive: false).hasMatch(word[i])) {
+        traps.add(word.substring(0, i + 1) + word[i] + word.substring(i + 1));
+      }
+    }
+    if (traps.length < 3 && word.length > 3) {
+      traps.add('${word.substring(0, word.length - 1)}e${word[word.length - 1]}');
+    }
+    while (traps.length < 3) {
+      traps.add('${word}s');
+      if (traps.length < 3) traps.add('${word}e');
+      if (traps.length < 3) traps.add('in$word');
+    }
+    return traps.take(3).toList();
+  }
+
+  List<EnglishExerciseQuestion> _buildSynAntQuestions(
+    List<BlackbookSynAntItem> source, {
+    required bool isSynonym,
+  }) {
+    final List<EnglishExerciseQuestion> out = [];
+    final wordPool = source.map((e) => e.word).where((w) => w.isNotEmpty).toList();
+    for (int i = 0; i < source.length; i++) {
+      final item = source[i];
+      final targetList = isSynonym ? item.synonyms : item.antonyms;
+      if (targetList.isEmpty || item.word.trim().isEmpty) continue;
+      final ans = targetList.first.trim();
+      if (ans.isEmpty || ans.toLowerCase() == item.word.trim().toLowerCase()) continue;
+      final label = isSynonym ? 'SYNONYM' : 'ANTONYM';
+      final opts = _deterministicOptions(ans, wordPool, item.id + i + (isSynonym ? 11 : 97));
+      final correctIdx = opts.indexOf(ans);
+      out.add(EnglishExerciseQuestion(
+        id: '${isSynonym ? "syn" : "ant"}_gen_${item.id}',
+        questionText: 'Choose the $label of: ${item.word} (${item.partOfSpeech})',
+        options: opts,
+        correctIndex: correctIdx < 0 ? 0 : correctIdx,
+        type: isSynonym ? 'Synonym' : 'Antonym',
+        explanation: '${item.word}: ${item.definition.isNotEmpty ? item.definition : item.hindiMeaning} • $label: $ans',
+      ));
+    }
+    return out;
+  }
+
+  List<EnglishExerciseQuestion> _buildBoosterQuestions(List<VocabBoosterWordItem> source) {
+    final List<EnglishExerciseQuestion> out = [];
+    final pool = boosters.map((b) => b.englishMeaning).where((m) => m.isNotEmpty).toList();
+    for (int i = 0; i < source.length; i++) {
+      final item = source[i];
+      if (item.word.trim().isEmpty || item.englishMeaning.trim().isEmpty) continue;
+      final ans = item.englishMeaning.trim();
+      final opts = _deterministicOptions(ans, pool, item.id + i + 31);
+      final correctIdx = opts.indexOf(ans);
+      out.add(EnglishExerciseQuestion(
+        id: 'bst_gen_${item.id}_$i',
+        questionText: 'Meaning of ${item.section}: "${item.word}"',
+        options: opts,
+        correctIndex: correctIdx < 0 ? 0 : correctIdx,
+        type: item.section,
+        explanation: '${item.word}: $ans${item.hindiMeaning.isNotEmpty ? " (${item.hindiMeaning})" : ""}',
+      ));
+    }
+    return out;
+  }
+
+  List<EnglishExerciseQuestion> _buildHomonymQuestions(List<BlackbookHomonymPair> source) {
+    final List<EnglishExerciseQuestion> out = [];
+    final pool = source.map((h) => h.word1).where((w) => w.isNotEmpty).toList();
+    for (int i = 0; i < source.length; i++) {
+      final h = source[i];
+      if (h.word1.trim().isEmpty || h.meaning1.trim().isEmpty) continue;
+      final ans = h.word1.trim();
+      final distractors = [h.word2.trim(), ...pool];
+      final opts = _deterministicOptions(ans, distractors, h.id + i + 53);
+      final correctIdx = opts.indexOf(ans);
+      out.add(EnglishExerciseQuestion(
+        id: 'hom_gen_${h.id}',
+        questionText: 'Choose word meaning: "${h.meaning1}" (often confused with "${h.word2}")',
+        options: opts,
+        correctIndex: correctIdx < 0 ? 0 : correctIdx,
+        type: 'Homonyms',
+        explanation: '${h.word1} (${h.pos1}): ${h.meaning1} | ${h.word2} (${h.pos2}): ${h.meaning2}',
+      ));
+    }
+    return out;
+  }
+
 }

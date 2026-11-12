@@ -7,6 +7,7 @@ import '../../data/english_content_bank.dart';
 import '../../providers/app_state_provider.dart';
 import '../../widgets/swiggy_flipkart_section_bar.dart';
 import '../../services/english_tts_service.dart';
+import '../../services/vocab_dictionary_service.dart';
 import 'english_quiz_screen.dart';
 import 'english_topic_detail_screen.dart';
 import 'blackbook_master_screen.dart';
@@ -23,8 +24,9 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  // Vocab Category Filter
-  String _vocabSubCategory = 'all'; // 'all', 'ows', 'spelling', 'synonyms', 'antonyms'
+  // Vocab Category Filter: 'topics' | 'all' (18 vaults) | 'dictionary'
+  String _vocabSubCategory = 'topics';
+  String? _activeTopicKey;
 
   // Grammar Category Filter
   String _grammarSubCategory = 'all'; // 'all', 'errors', 'improvement'
@@ -46,6 +48,9 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
     _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
+    VocabDictionaryService().ensureLoaded().then((_) {
       if (mounted) setState(() {});
     });
   }
@@ -337,17 +342,13 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
   // =========================================================================
   Widget _buildVocabVaultTab(AppStateProvider state) {
     final allTopics = EnglishContentBank.topics;
-    final owsList = EnglishContentBank.allOneWordSubstitution;
-    final spellingList = EnglishContentBank.allSpellingQuestions;
-
-    // Collect all standalone synonym and antonym questions across topics
-    final allExercises = allTopics.expand((t) => t.exercises).toList();
-    final synList = allExercises.where((q) => q.questionText.toUpperCase().contains('SYNONYM')).toList();
-    final antList = allExercises.where((q) => q.questionText.toUpperCase().contains('ANTONYM')).toList();
+    final dict = VocabDictionaryService();
+    final bundles = dict.getTopicWiseQuizBundles();
+    final int totalTopicQs = bundles.fold<int>(0, (acc, b) => acc + b.questions.length);
 
     return Column(
       children: [
-        // Vocab Subcategory Filter Pills
+        // Streamlined 3 Non-Overlapping Pills (Zero Duplication!)
         SizedBox(
           height: 38,
           child: ListView(
@@ -355,61 +356,104 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
             padding: const EdgeInsets.symmetric(horizontal: 16),
             physics: const BouncingScrollPhysics(),
             children: [
-              _filterChip('all', '📖 18 Word Vaults (${allTopics.length})', _vocabSubCategory == 'all', (val) => setState(() => _vocabSubCategory = 'all')),
-              _filterChip('dictionary', '📚 A–Z Dictionary', _vocabSubCategory == 'dictionary', (val) => setState(() => _vocabSubCategory = 'blackbook')),
-              _filterChip('ows', '💡 One Word Substitution (${owsList.length})', _vocabSubCategory == 'ows', (val) => setState(() => _vocabSubCategory = 'ows')),
-              _filterChip('spelling', '✏️ Spelling Test (${spellingList.length})', _vocabSubCategory == 'spelling', (val) => setState(() => _vocabSubCategory = 'spelling')),
-              _filterChip('synonyms', '🎯 Synonyms Drill (${synList.length})', _vocabSubCategory == 'synonyms', (val) => setState(() => _vocabSubCategory = 'synonyms')),
-              _filterChip('antonyms', '⚖️ Antonyms Drill (${antList.length})', _vocabSubCategory == 'antonyms', (val) => setState(() => _vocabSubCategory = 'antonyms')),
+              _filterChip(
+                'topics',
+                '⚡ Topic MCQs ($totalTopicQs)',
+                _vocabSubCategory == 'topics',
+                (_) => setState(() {
+                  _vocabSubCategory = 'topics';
+                  _activeTopicKey = null;
+                }),
+              ),
+              _filterChip(
+                'all',
+                '📖 Word Vaults (${allTopics.length})',
+                _vocabSubCategory == 'all',
+                (_) => setState(() {
+                  _vocabSubCategory = 'all';
+                  _activeTopicKey = null;
+                }),
+              ),
+              _filterChip(
+                'dictionary',
+                '📚 A–Z Dictionary',
+                _vocabSubCategory == 'dictionary',
+                (_) => setState(() {
+                  _vocabSubCategory = 'dictionary';
+                  _activeTopicKey = null;
+                }),
+              ),
             ],
           ),
         ),
         const SizedBox(height: 6),
 
-        // Subcategory View Switcher
         Expanded(
           child: Builder(builder: (context) {
             if (_vocabSubCategory == 'dictionary') {
               return _buildBlackbookHubOverview(state);
-            } else if (_vocabSubCategory == 'ows') {
-              return _buildExerciseList(
-                state: state,
-                title: 'One Word Substitution (OWS)',
-                subtitle: '35 High-Yield SSC Exam Questions (Personalities, Phobias, Government & Science)',
-                color: const Color(0xFF10B981),
-                icon: Icons.lightbulb_rounded,
-                questions: owsList,
-              );
-            } else if (_vocabSubCategory == 'spelling') {
-              return _buildExerciseList(
-                state: state,
-                title: 'Spelling Correction & Misspelt Words',
-                subtitle: '20 Most Confusing Words from SSC CGL & CHSL (Accommodation, Privilege, Occurrence, Millennium)',
-                color: const Color(0xFFF59E0B),
-                icon: Icons.spellcheck_rounded,
-                questions: spellingList,
-              );
-            } else if (_vocabSubCategory == 'synonyms') {
-              return _buildExerciseList(
-                state: state,
-                title: 'High-Frequency Synonyms Arena',
-                subtitle: 'Exam-tested synonym questions from top SSC & Banking papers',
-                color: const Color(0xFF06B6D4),
-                icon: Icons.check_circle_rounded,
-                questions: synList,
-              );
-            } else if (_vocabSubCategory == 'antonyms') {
-              return _buildExerciseList(
-                state: state,
-                title: 'High-Frequency Antonyms Arena',
-                subtitle: 'Exam-tested antonym questions from top SSC & Banking papers',
-                color: const Color(0xFFF43F5E),
-                icon: Icons.swap_horiz_rounded,
-                questions: antList,
-              );
+            }
+            if (_vocabSubCategory == 'topics') {
+              if (_activeTopicKey != null) {
+                final selectedBundle = bundles.firstWhere(
+                  (b) => b.key == _activeTopicKey,
+                  orElse: () => bundles.first,
+                );
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                      child: Row(
+                        children: [
+                          InkWell(
+                            onTap: () => setState(() => _activeTopicKey = null),
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppTheme.surface,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.white12),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.arrow_back_rounded, size: 15, color: Colors.white70),
+                                  SizedBox(width: 4),
+                                  Text('All Topics', style: TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              selectedBundle.title,
+                              style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w800),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildExerciseList(
+                        state: state,
+                        title: selectedBundle.title,
+                        subtitle: selectedBundle.subtitle,
+                        color: const Color(0xFF10B981),
+                        icon: Icons.bolt_rounded,
+                        questions: selectedBundle.questions,
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return _buildTopicWiseQuizHub(bundles, totalTopicQs);
             }
 
-            // Default 'all': 18 Word Vault Units
+            // 'all': 18 Word Vault Units (Clean list, no duplicate promo banner)
             final filteredTopics = _searchQuery.isEmpty
                 ? allTopics
                 : allTopics.where((t) {
@@ -423,7 +467,6 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
 
             return Column(
               children: [
-                _buildBlackbookPromoBanner(),
                 // Search & Flashcard Row
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
@@ -547,6 +590,164 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
     );
   }
 
+  Widget _buildTopicWiseQuizHub(List<VocabTopicQuizBundle> bundles, int totalTopicQs) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      physics: const BouncingScrollPhysics(),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF13253F), Color(0xFF0F172A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF38BDF8).withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.topic_rounded, color: Color(0xFF38BDF8), size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$totalTopicQs Topic-Wise Exam MCQs',
+                      style: const TextStyle(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'Every exam question organized cleanly by topic — pick a 25-Q sprint or solve all.',
+                      style: TextStyle(color: Colors.white70, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...bundles.map((bundle) {
+          final Color accent = switch (bundle.categoryTag) {
+            'OWS' => const Color(0xFF10B981),
+            'SYNONYMS' => const Color(0xFF06B6D4),
+            'ANTONYMS' => const Color(0xFFF43F5E),
+            'SPELLING' => const Color(0xFFF59E0B),
+            'IDIOMS' || 'PROVERBS' => const Color(0xFFFB923C),
+            'BOOSTERS' => const Color(0xFFA855F7),
+            'HOMONYMS' => const Color(0xFF818CF8),
+            _ => const Color(0xFF14B8A6),
+          };
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: accent.withValues(alpha: 0.28)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        bundle.categoryTag,
+                        style: TextStyle(color: accent, fontSize: 9.5, fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${bundle.questions.length} MCQs',
+                      style: TextStyle(color: accent, fontSize: 12, fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  bundle.title,
+                  style: const TextStyle(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  bundle.subtitle,
+                  style: const TextStyle(color: Colors.white60, fontSize: 11.5),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: accent,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 9),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                        icon: const Icon(Icons.bolt_rounded, size: 15),
+                        label: Text(
+                          bundle.questions.length > 25 ? '25-Q Quiz' : 'Start Quiz',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                        ),
+                        onPressed: () {
+                          final sample = List<EnglishExerciseQuestion>.from(bundle.questions)..shuffle();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => EnglishQuizScreen(
+                                title: bundle.title,
+                                subtitle: '${sample.take(25).length} Randomized Topic MCQs',
+                                questions: sample.take(25).toList(),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: BorderSide(color: accent.withValues(alpha: 0.5)),
+                          padding: const EdgeInsets.symmetric(vertical: 9),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.list_alt_rounded, size: 15),
+                        label: Text(
+                          'Browse (${bundle.questions.length})',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: () => setState(() => _activeTopicKey = bundle.key),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
   Widget _buildExerciseList({
     required AppStateProvider state,
     required String title,
@@ -555,88 +756,97 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
     required IconData icon,
     required List<EnglishExerciseQuestion> questions,
   }) {
-    return ListView(
+    final drillSlice = questions.length > 50
+        ? (List<EnglishExerciseQuestion>.from(questions)..shuffle()).take(50).toList()
+        : questions;
+
+    return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       physics: const BouncingScrollPhysics(),
-      children: [
-        // Hero Launch Banner
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: const Color(0xFF13192B),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: 0.35)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      itemCount: questions.length + 1,
+      itemBuilder: (context, i) {
+        if (i == 0) {
+          return Column(
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(icon, color: color, size: 18),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF13192B),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: color.withValues(alpha: 0.35)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
-                        Text(subtitle, style: const TextStyle(fontSize: 10.5, color: Colors.white60)),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(icon, color: color, size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
+                              Text(subtitle, style: const TextStyle(fontSize: 10.5, color: Colors.white60)),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: color,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    elevation: 0,
-                  ),
-                  icon: const Icon(Icons.bolt_rounded, size: 16),
-                  label: Text('START TIMED EXAM DRILL (${questions.length} MCQs)', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => EnglishQuizScreen(
-                          title: title,
-                          subtitle: '${questions.length} Exam-grade MCQs',
-                          questions: questions,
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: color,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
                         ),
+                        icon: const Icon(Icons.bolt_rounded, size: 16),
+                        label: Text(
+                          questions.length > 50
+                              ? 'START TIMED QUIZ (50 RANDOM / ${questions.length} TOTAL)'
+                              : 'START TIMED EXAM DRILL (${questions.length} MCQs)',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => EnglishQuizScreen(
+                                title: title,
+                                subtitle: '${drillSlice.length} Exam-grade MCQs',
+                                questions: drillSlice,
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(height: 12),
             ],
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // List of Interactive Individual Question Cards
-        ...questions.asMap().entries.map((entry) {
-          final idx = entry.key;
-          final q = entry.value;
-          return _buildInteractiveQuestionCard(
-            idx: idx,
-            q: q,
-            color: color,
-            state: state,
           );
-        }),
-        const SizedBox(height: 24),
-      ],
+        }
+        final idx = i - 1;
+        return _buildInteractiveQuestionCard(
+          idx: idx,
+          q: questions[idx],
+          color: color,
+          state: state,
+        );
+      },
     );
   }
 
@@ -1054,8 +1264,9 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
                 ),
                 const SizedBox(height: 8),
 
-                // Main Headword
-                Row(
+                // Main Headword + Wrapped Root Etymology (Zero Right-Edge Overflow)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       topic.word,
@@ -1067,13 +1278,16 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
                       ),
                     ),
                     if (topic.rootWord.isNotEmpty) ...[
-                      const SizedBox(width: 8),
+                      const SizedBox(height: 3),
                       Text(
-                        '(${topic.rootWord})',
+                        topic.rootWord,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: AppTheme.gold,
-                          fontSize: 12,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.w600,
+                          height: 1.25,
                         ),
                       ),
                     ],
@@ -1493,7 +1707,14 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
   Widget _buildIdiomsLexiconTab() {
     final allGroups = EnglishContentBank.thematicIdioms;
     final themes = ['All', ...allGroups.map((g) => g.theme)];
-    final idiomQuestions = EnglishContentBank.allIdiomQuestions;
+    final dict = VocabDictionaryService();
+    final fullIdiomQuestions = [
+      ...dict.getQuestionsForTopic('ssc_idioms'),
+      ...dict.getQuestionsForTopic('proverbs_idioms'),
+    ];
+    final idiomQuestions = fullIdiomQuestions.isNotEmpty
+        ? fullIdiomQuestions
+        : EnglishContentBank.allIdiomQuestions;
 
     final filteredGroups = _selectedIdiomTheme == 'All'
         ? allGroups
@@ -1522,12 +1743,15 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
                   child: const Icon(Icons.campaign_rounded, color: Colors.orangeAccent, size: 20),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Idioms Exam Arena', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.white)),
-                      Text('30 Real SSC MCQs + 40 Thematic Grouped Idioms', style: TextStyle(fontSize: 10.5, color: Colors.white60)),
+                      const Text('Idioms & Proverbs Arena', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.white)),
+                      Text(
+                        '${idiomQuestions.length} Real Exam MCQs + Thematic Lexicon',
+                        style: const TextStyle(fontSize: 10.5, color: Colors.white60),
+                      ),
                     ],
                   ),
                 ),
@@ -1539,15 +1763,16 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   icon: const Icon(Icons.bolt_rounded, size: 15),
-                  label: const Text('Quiz Drill', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: const Text('25-Q Quiz', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   onPressed: () {
+                    final sample = List<EnglishExerciseQuestion>.from(idiomQuestions)..shuffle();
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => EnglishQuizScreen(
                           title: 'Idioms & Phrases Exam Drill',
-                          subtitle: '20 High-Yield SSC Questions',
-                          questions: idiomQuestions,
+                          subtitle: '${sample.take(25).length} Randomized from ${idiomQuestions.length} Qs',
+                          questions: sample.take(25).toList(),
                         ),
                       ),
                     );
@@ -1964,176 +2189,12 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
     );
   }
 
-  // =========================================================================
-  // PREPVANTA A-Z VOCAB DICTIONARY PROMO BANNER & HUB OVERVIEW
-  // =========================================================================
-  Widget _buildBlackbookPromoBanner() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 2, 16, 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5), width: 1.3),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.local_fire_department_rounded, color: Colors.white, size: 16),
-              ),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'A–Z Vocab Dictionary',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        SizedBox(width: 5),
-                        Text(
-                          'NEW',
-                          style: TextStyle(
-                            color: Color(0xFFF59E0B),
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      'A to Z Lexicon • OWS, Idioms, Syn-Ant, Boosters & Roots',
-                      style: TextStyle(
-                        color: Colors.white60,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const VocabDictionaryScreen()),
-                  );
-                },
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Open A–Z',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      SizedBox(width: 3),
-                      Icon(Icons.arrow_forward_ios_rounded, color: Colors.black, size: 10),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Shortcut chips to direct sections
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: [
-                _buildQuickSectionChip('💡 Top OWS', 0, const Color(0xFF10B981)),
-                const SizedBox(width: 5),
-                _buildQuickSectionChip('🏮 Idioms', 1, const Color(0xFFF59E0B)),
-                const SizedBox(width: 5),
-                _buildQuickSectionChip('🔄 Syn/Ant Matrix', 2, const Color(0xFF06B6D4)),
-                const SizedBox(width: 5),
-                _buildQuickSectionChip('⚖️ Homonyms', 3, const Color(0xFF8B5CF6)),
-                const SizedBox(width: 5),
-                _buildQuickSectionChip('🎯 Spelling Traps', 4, const Color(0xFFEC4899)),
-                const SizedBox(width: 5),
-                _buildQuickSectionChip('🌿 Boosters', 5, const Color(0xFF38BDF8)),
-                const SizedBox(width: 5),
-                _buildQuickSectionChip('📝 Exam Quiz', 7, const Color(0xFF6366F1)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickSectionChip(String label, int tabIdx, Color color) {
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => VocabDictionaryScreen(initialTabIndex: tabIdx)),
-        );
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.35)),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: color,
-            fontSize: 10.5,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildBlackbookHubOverview(AppStateProvider state) {
+    final dict = VocabDictionaryService();
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       physics: const BouncingScrollPhysics(),
       children: [
-        _buildBlackbookPromoBanner(),
-        const SizedBox(height: 6),
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -2158,7 +2219,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
               _buildBlackbookCategoryRow(
                 icon: Icons.lightbulb_rounded,
                 title: 'One Word Substitutions (OWS)',
-                subtitle: 'Top 200 high-frequency words with #R count, Hindi & Audio',
+                subtitle: '${dict.ows.length}+ A–Z sorted OWS with Hindi meanings & audio',
                 tabIdx: 0,
                 color: const Color(0xFF10B981),
               ),
@@ -2166,7 +2227,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
               _buildBlackbookCategoryRow(
                 icon: Icons.palette_rounded,
                 title: 'Idioms, Phrases & Proverbs',
-                subtitle: 'Top 200 repeated idioms with exact Hindi & exam meanings',
+                subtitle: '${dict.idioms.length}+ A–Z sorted idioms & proverbs with meanings',
                 tabIdx: 1,
                 color: const Color(0xFFF59E0B),
               ),
@@ -2174,7 +2235,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
               _buildBlackbookCategoryRow(
                 icon: Icons.compare_arrows_rounded,
                 title: 'Dual Synonyms & Antonyms',
-                subtitle: 'Dual column matrix with SSC repetition frequency',
+                subtitle: '${dict.synAnt.length}+ A–Z sorted words with synonyms & antonyms',
                 tabIdx: 2,
                 color: const Color(0xFF06B6D4),
               ),
@@ -2182,7 +2243,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
               _buildBlackbookCategoryRow(
                 icon: Icons.splitscreen_rounded,
                 title: 'Confusing Words & Homonyms',
-                subtitle: 'Pair comparison cards (Affect vs Effect, Complement vs Compliment)',
+                subtitle: '${dict.homonyms.length}+ confusing word pairs sorted A–Z',
                 tabIdx: 3,
                 color: const Color(0xFF8B5CF6),
               ),
@@ -2190,7 +2251,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
               _buildBlackbookCategoryRow(
                 icon: Icons.spellcheck_rounded,
                 title: 'Most Repeated Spellings',
-                subtitle: 'Tricky double letters highlighted with correct vs incorrect traps',
+                subtitle: '${dict.spellings.length}+ A–Z spelling traps with hints',
                 tabIdx: 4,
                 color: const Color(0xFFEC4899),
               ),
@@ -2198,7 +2259,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
               _buildBlackbookCategoryRow(
                 icon: Icons.account_tree_rounded,
                 title: 'Vocab Boosters, Roots & Special Lists',
-                subtitle: 'Greek/Latin roots (phil, mis, bene, mal, omni) with derivatives',
+                subtitle: '${dict.boosters.length}+ phrasal verbs, editorial vocab & roots',
                 tabIdx: 5,
                 color: const Color(0xFF14B8A6),
               ),

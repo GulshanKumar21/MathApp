@@ -1,6 +1,11 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:math_speed_practice/services/vocab_dictionary_service.dart';
 import 'package:math_speed_practice/models/english_models.dart';
+import 'package:math_speed_practice/providers/app_state_provider.dart';
+import 'package:math_speed_practice/screens/english/english_hub_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -57,5 +62,46 @@ void main() {
       expect(item.word.toLowerCase().contains('blackbook'), isFalse);
       expect(item.phrase.toLowerCase().contains('blackbook'), isFalse);
     }
+
+    // Verify all topic-wise MCQ bundles cover all extracted datasets cleanly
+    final bundles = svc.getTopicWiseQuizBundles();
+    expect(bundles.length, greaterThanOrEqualTo(9));
+    final totalTopicQs = bundles.fold<int>(0, (acc, b) => acc + b.questions.length);
+    expect(totalTopicQs, greaterThan(5000));
+    for (final b in bundles) {
+      expect(b.questions.isNotEmpty, isTrue);
+      final q = b.questions.first;
+      expect(q.options.length, equals(4));
+      expect(q.correctIndex >= 0 && q.correctIndex < 4, isTrue);
+    }
+  });
+
+  testWidgets('EnglishHubScreen renders cleanly without overflow or duplicate promo banner', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = AppStateProvider();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: provider,
+        child: const MaterialApp(home: EnglishHubScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    // Topic MCQs & Word Vaults & A-Z Dictionary cleanly separated
+    expect(find.textContaining('Topic MCQs'), findsOneWidget);
+    expect(find.textContaining('Word Vaults'), findsOneWidget);
+    expect(find.textContaining('A–Z Dictionary'), findsOneWidget);
+    expect(find.text('Open A–Z'), findsNothing);
+
+    // Switch to Word Vaults and scroll to NOVICE (#4) — verifying zero RenderFlex overflow
+    await tester.tap(find.textContaining('Word Vaults'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('NOVICE'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('NOVICE'), findsOneWidget);
   });
 }

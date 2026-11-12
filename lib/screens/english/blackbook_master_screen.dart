@@ -6,6 +6,7 @@ import '../../models/english_models.dart';
 import '../../services/vocab_dictionary_service.dart';
 import '../../providers/app_state_provider.dart';
 import '../../services/english_tts_service.dart';
+import 'english_quiz_screen.dart';
 
 typedef BlackbookMasterScreen = VocabDictionaryScreen;
 
@@ -26,6 +27,7 @@ class _VocabDictionaryScreenState extends State<VocabDictionaryScreen>
   String _searchQuery = '';
   String _selectedLetter = 'ALL';
   String _boosterFilter = 'ALL';
+  String _quizTopicFilter = 'ssc_ows';
   bool _sortByFrequency = false; // Default: true Dictionary Order (A -> AA -> AB -> ... -> Z)
   bool _hideMeaningsForTest = false;
   bool _bookmarkedOnly = false;
@@ -1716,7 +1718,19 @@ class _VocabDictionaryScreenState extends State<VocabDictionaryScreen>
   // TAB 8: EXAM PRACTICE QUIZ ARENA
   // =========================================================================
   Widget _buildQuizTab(AppStateProvider state) {
-    final questions = _dict.quiz;
+    const topicChips = [
+      {'id': 'ssc_ows', 'label': 'SSC OWS'},
+      {'id': 'other_ows', 'label': 'Other OWS'},
+      {'id': 'ssc_idioms', 'label': 'SSC Idioms'},
+      {'id': 'proverbs_idioms', 'label': 'Proverbs'},
+      {'id': 'synonyms', 'label': 'Synonyms'},
+      {'id': 'antonyms', 'label': 'Antonyms'},
+      {'id': 'spelling', 'label': 'Spelling'},
+      {'id': 'phrasal_preps', 'label': 'Phrasal Verbs'},
+      {'id': 'homonyms', 'label': 'Homonyms'},
+      {'id': 'all', 'label': 'All Topics'},
+    ];
+    final questions = _dict.getQuestionsForTopic(_quizTopicFilter);
     if (questions.isEmpty) return _buildEmptyState();
 
     final int totalCount = questions.length;
@@ -1729,8 +1743,28 @@ class _VocabDictionaryScreenState extends State<VocabDictionaryScreen>
 
     return Column(
       children: [
+        SizedBox(
+          height: 36,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+            itemCount: topicChips.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 6),
+            itemBuilder: (ctx, i) {
+              final chip = topicChips[i];
+              final sel = _quizTopicFilter == chip['id'];
+              return ChoiceChip(
+                label: Text(chip['label']!, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: sel ? Colors.black : Colors.white70)),
+                selected: sel,
+                selectedColor: const Color(0xFF10B981),
+                backgroundColor: const Color(0xFF1E293B),
+                onSelected: (_) => setState(() => _quizTopicFilter = chip['id']!),
+              );
+            },
+          ),
+        ),
         Container(
-          margin: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+          margin: const EdgeInsets.fromLTRB(14, 8, 14, 8),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: const Color(0xFF1E293B),
@@ -1755,6 +1789,31 @@ class _VocabDictionaryScreenState extends State<VocabDictionaryScreen>
                 child: Text(
                   'Score: $correctCount / $answeredCount',
                   style: const TextStyle(color: Color(0xFF34D399), fontSize: 11.5, fontWeight: FontWeight.w900),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () {
+                  final sample = List<EnglishExerciseQuestion>.from(questions)..shuffle();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => EnglishQuizScreen(
+                        title: 'Topic Vocab Drill',
+                        subtitle: '${sample.take(25).length} Randomized MCQs',
+                        questions: sample.take(25).toList(),
+                      ),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text('25-Q Test', style: TextStyle(color: Colors.black, fontSize: 10.5, fontWeight: FontWeight.w900)),
                 ),
               ),
             ],
