@@ -155,7 +155,7 @@ class EnglishMistake {
 
 
 // =========================================================================
-// BLACKBOOK OF ENGLISH VOCABULARY 2026 EDITION MODELS
+// PREPVANTA ENGLISH VOCABULARY DICTIONARY MODELS
 // =========================================================================
 
 class BlackbookOwsItem {
@@ -180,6 +180,20 @@ class BlackbookOwsItem {
     this.isSpellingTrap = false,
     this.isSynAnt = false,
   });
+
+  factory BlackbookOwsItem.fromJson(Map<String, dynamic> j, int fallbackId) {
+    return BlackbookOwsItem(
+      id: (j['id'] as num?)?.toInt() ?? fallbackId,
+      phrase: (j['phrase'] ?? '').toString(),
+      word: (j['word'] ?? '').toString(),
+      partOfSpeech: (j['pos'] ?? 'N.').toString(),
+      hindiMeaning: (j['hindi'] ?? '').toString(),
+      repetitionCount: (j['rep'] as num?)?.toInt() ?? 1,
+      category: (j['cat'] ?? 'SSC OWS').toString(),
+      isSpellingTrap: j['spell'] == true,
+      isSynAnt: j['synant'] == true,
+    );
+  }
 }
 
 class BlackbookIdiomItem {
@@ -200,6 +214,18 @@ class BlackbookIdiomItem {
     this.category = 'General',
     this.example = '',
   });
+
+  factory BlackbookIdiomItem.fromJson(Map<String, dynamic> j, int fallbackId) {
+    return BlackbookIdiomItem(
+      id: (j['id'] as num?)?.toInt() ?? fallbackId,
+      idiom: (j['idiom'] ?? '').toString(),
+      englishMeaning: (j['eng'] ?? '').toString(),
+      hindiMeaning: (j['hindi'] ?? '').toString(),
+      repetitionCount: (j['rep'] as num?)?.toInt() ?? 1,
+      category: (j['cat'] ?? 'Idioms').toString(),
+      example: (j['ex'] ?? '').toString(),
+    );
+  }
 }
 
 class BlackbookSynAntItem {
@@ -222,6 +248,19 @@ class BlackbookSynAntItem {
     required this.synonyms,
     required this.antonyms,
   });
+
+  factory BlackbookSynAntItem.fromJson(Map<String, dynamic> j, int fallbackId) {
+    return BlackbookSynAntItem(
+      id: (j['id'] as num?)?.toInt() ?? fallbackId,
+      word: (j['word'] ?? '').toString(),
+      partOfSpeech: (j['pos'] ?? 'Adj.').toString(),
+      definition: (j['def'] ?? '').toString(),
+      hindiMeaning: (j['hindi'] ?? '').toString(),
+      repetitionCount: (j['rep'] as num?)?.toInt() ?? 1,
+      synonyms: (j['syn'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      antonyms: (j['ant'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+    );
+  }
 }
 
 class BlackbookHomonymPair {
@@ -256,6 +295,25 @@ class BlackbookHomonymPair {
     this.hindi3,
     this.repetitionCount = 2,
   });
+
+  factory BlackbookHomonymPair.fromJson(Map<String, dynamic> j, int fallbackId) {
+    return BlackbookHomonymPair(
+      id: (j['id'] as num?)?.toInt() ?? fallbackId,
+      word1: (j['w1'] ?? '').toString(),
+      pos1: (j['p1'] ?? 'N.').toString(),
+      meaning1: (j['m1'] ?? '').toString(),
+      hindi1: (j['h1'] ?? '').toString(),
+      word2: (j['w2'] ?? '').toString(),
+      pos2: (j['p2'] ?? 'N.').toString(),
+      meaning2: (j['m2'] ?? '').toString(),
+      hindi2: (j['h2'] ?? '').toString(),
+      word3: j['w3']?.toString(),
+      pos3: j['p3']?.toString(),
+      meaning3: j['m3']?.toString(),
+      hindi3: j['h3']?.toString(),
+      repetitionCount: (j['rep'] as num?)?.toInt() ?? 2,
+    );
+  }
 }
 
 class BlackbookSpellingItem {
@@ -274,6 +332,17 @@ class BlackbookSpellingItem {
     required this.wrongOptions,
     this.trickyPart = '',
   });
+
+  factory BlackbookSpellingItem.fromJson(Map<String, dynamic> j, int fallbackId) {
+    return BlackbookSpellingItem(
+      id: (j['id'] as num?)?.toInt() ?? fallbackId,
+      correctWord: (j['word'] ?? '').toString(),
+      hindiMeaning: (j['hindi'] ?? '').toString(),
+      repetitionCount: (j['rep'] as num?)?.toInt() ?? 1,
+      wrongOptions: (j['wrong'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      trickyPart: (j['tricky'] ?? '').toString(),
+    );
+  }
 }
 
 class BlackbookRootWordItem {
@@ -288,4 +357,56 @@ class BlackbookRootWordItem {
     this.origin = 'Greek/Latin',
     required this.derivatives,
   });
+
+  factory BlackbookRootWordItem.fromJson(Map<String, dynamic> j) {
+    final rawDer = (j['der'] as List?) ?? const [];
+    return BlackbookRootWordItem(
+      root: (j['root'] ?? '').toString(),
+      meaning: (j['meaning'] ?? '').toString(),
+      origin: (j['origin'] ?? 'Greek/Latin').toString(),
+      derivatives: rawDer
+          .map((e) => Map<String, String>.from(
+                (e as Map).map((k, v) => MapEntry(k.toString(), v.toString())),
+              ))
+          .toList(),
+    );
+  }
+}
+
+class VocabBoosterWordItem {
+  final int id;
+  final String word;
+  final String partOfSpeech;
+  final String englishMeaning;
+  final String hindiMeaning;
+  final List<String> synonyms;
+  final String section; // 'Phrasal Verbs', 'Fixed Prepositions', 'Editorial Vocab', 'Foreign Words'
+  final String origin;
+  final int repetitionCount;
+
+  const VocabBoosterWordItem({
+    required this.id,
+    required this.word,
+    this.partOfSpeech = '',
+    required this.englishMeaning,
+    this.hindiMeaning = '',
+    this.synonyms = const [],
+    required this.section,
+    this.origin = '',
+    this.repetitionCount = 1,
+  });
+
+  factory VocabBoosterWordItem.fromJson(Map<String, dynamic> j, int fallbackId) {
+    return VocabBoosterWordItem(
+      id: (j['id'] as num?)?.toInt() ?? fallbackId,
+      word: (j['word'] ?? '').toString(),
+      partOfSpeech: (j['pos'] ?? '').toString(),
+      englishMeaning: (j['eng'] ?? '').toString(),
+      hindiMeaning: (j['hindi'] ?? '').toString(),
+      synonyms: (j['syn'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      section: (j['sec'] ?? 'Editorial').toString(),
+      origin: (j['origin'] ?? '').toString(),
+      repetitionCount: (j['rep'] as num?)?.toInt() ?? 1,
+    );
+  }
 }

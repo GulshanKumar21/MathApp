@@ -4,7 +4,7 @@ import '../models/english_models.dart';
 class EnglishContentBank {
 
   // =========================================================================
-  // BLACKBOOK 2026 VOCABULARY ENGINE GETTERS
+  // PREPVANTA VOCABULARY DICTIONARY ENGINE GETTERS
   // =========================================================================
   static List<BlackbookOwsItem> get blackbookOws => BlackbookVocabularyBank.topOws;
   static List<BlackbookIdiomItem> get blackbookIdioms => BlackbookVocabularyBank.topIdioms;

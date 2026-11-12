@@ -1,7 +1,7 @@
 import '../models/english_models.dart';
 
-/// Complete Blackbook of English Vocabulary 2026 Edition Content Bank
-/// Extracted and curated from Nikhil Gupta's 712-page comprehensive master edition
+/// PrepVanta Curated English Vocabulary Bank
+/// High-frequency competitive exam vocabulary repository
 /// Contains Top 200 OWS, Top 200 Idioms, Dual Syn/Ant Matrix, Homonyms, Spellings & Roots
 class BlackbookVocabularyBank {
 

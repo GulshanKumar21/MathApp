@@ -18,6 +18,7 @@ import '../practice/daily_challenge_screen.dart';
 import '../leaderboard/leaderboard_screen.dart';
 import '../notifications/notifications_inbox_screen.dart';
 import '../practice/exam_mock_hub_screen.dart';
+import '../english/blackbook_master_screen.dart';
 import '../practice/calculation_modules_hub_screen.dart';
 import '../progress/weakness_heatmap_screen.dart';
 import '../revision/table_revision_hub_screen.dart';
@@ -223,6 +224,14 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                   gradientColors: const [Color(0xFF332A18), Color(0xFF221C10)],
                   iconColor: const Color(0xFFFBBF24),
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LeaderboardScreen())),
+                ),
+                QuickActionItem(
+                  title: 'Vocab A–Z',
+                  badge: 'DICT',
+                  icon: Icons.menu_book_rounded,
+                  gradientColors: const [Color(0xFF064E3B), Color(0xFF022C22)],
+                  iconColor: const Color(0xFF34D399),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VocabDictionaryScreen())),
                 ),
                 QuickActionItem(
                   title: 'PDF Sheet',

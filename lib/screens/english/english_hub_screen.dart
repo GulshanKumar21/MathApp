@@ -37,7 +37,6 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
 
   // Preposition browse filter
   int _prepositionSetIndex = 0; // 0 = Set 1 (Q151-200), 1 = Set 2 (Q201-250), 2 = All 100
-  bool _prepositionShowRulesDirectly = true;
 
   // Idioms Category Filter
   String _selectedIdiomTheme = 'All';
@@ -357,7 +356,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
             physics: const BouncingScrollPhysics(),
             children: [
               _filterChip('all', '📖 18 Word Vaults (${allTopics.length})', _vocabSubCategory == 'all', (val) => setState(() => _vocabSubCategory = 'all')),
-              _filterChip('blackbook', '🔥 Blackbook 2026', _vocabSubCategory == 'blackbook', (val) => setState(() => _vocabSubCategory = 'blackbook')),
+              _filterChip('dictionary', '📚 A–Z Dictionary', _vocabSubCategory == 'dictionary', (val) => setState(() => _vocabSubCategory = 'blackbook')),
               _filterChip('ows', '💡 One Word Substitution (${owsList.length})', _vocabSubCategory == 'ows', (val) => setState(() => _vocabSubCategory = 'ows')),
               _filterChip('spelling', '✏️ Spelling Test (${spellingList.length})', _vocabSubCategory == 'spelling', (val) => setState(() => _vocabSubCategory = 'spelling')),
               _filterChip('synonyms', '🎯 Synonyms Drill (${synList.length})', _vocabSubCategory == 'synonyms', (val) => setState(() => _vocabSubCategory = 'synonyms')),
@@ -370,7 +369,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
         // Subcategory View Switcher
         Expanded(
           child: Builder(builder: (context) {
-            if (_vocabSubCategory == 'blackbook') {
+            if (_vocabSubCategory == 'dictionary') {
               return _buildBlackbookHubOverview(state);
             } else if (_vocabSubCategory == 'ows') {
               return _buildExerciseList(
@@ -1966,7 +1965,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
   }
 
   // =========================================================================
-  // BLACKBOOK 2026 PROMO BANNER & HUB OVERVIEW
+  // PREPVANTA A-Z VOCAB DICTIONARY PROMO BANNER & HUB OVERVIEW
   // =========================================================================
   Widget _buildBlackbookPromoBanner() {
     return Container(
@@ -2011,7 +2010,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
                     Row(
                       children: [
                         Text(
-                          'Blackbook 2026 Edition',
+                          'A–Z Vocab Dictionary',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 13.5,
@@ -2030,7 +2029,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
                       ],
                     ),
                     Text(
-                      'Nikhil Gupta • Top 200 OWS, Idioms, Syn-Ant & Roots',
+                      'A to Z Lexicon • OWS, Idioms, Syn-Ant, Boosters & Roots',
                       style: TextStyle(
                         color: Colors.white60,
                         fontSize: 10,
@@ -2043,7 +2042,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const BlackbookMasterScreen()),
+                    MaterialPageRoute(builder: (_) => const VocabDictionaryScreen()),
                   );
                 },
                 borderRadius: BorderRadius.circular(10),
@@ -2057,7 +2056,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Open Hub',
+                        'Open A–Z',
                         style: TextStyle(
                           color: Colors.black,
                           fontSize: 11,
@@ -2089,7 +2088,9 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
                 const SizedBox(width: 5),
                 _buildQuickSectionChip('🎯 Spelling Traps', 4, const Color(0xFFEC4899)),
                 const SizedBox(width: 5),
-                _buildQuickSectionChip('📝 SSC Quiz', 6, const Color(0xFF6366F1)),
+                _buildQuickSectionChip('🌿 Boosters', 5, const Color(0xFF38BDF8)),
+                const SizedBox(width: 5),
+                _buildQuickSectionChip('📝 Exam Quiz', 7, const Color(0xFF6366F1)),
               ],
             ),
           ),
@@ -2103,7 +2104,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => BlackbookMasterScreen(initialTabIndex: tabIdx)),
+          MaterialPageRoute(builder: (_) => VocabDictionaryScreen(initialTabIndex: tabIdx)),
         );
       },
       borderRadius: BorderRadius.circular(12),
@@ -2148,7 +2149,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
                   Icon(Icons.workspace_premium_rounded, color: Color(0xFFF59E0B), size: 18),
                   SizedBox(width: 8),
                   Text(
-                    'Complete Blackbook 2026 Sections',
+                    'Complete A–Z Vocabulary Dictionary',
                     style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -2156,7 +2157,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
               const SizedBox(height: 12),
               _buildBlackbookCategoryRow(
                 icon: Icons.lightbulb_rounded,
-                title: 'Part A: One Word Substitution (OWS)',
+                title: 'One Word Substitutions (OWS)',
                 subtitle: 'Top 200 high-frequency words with #R count, Hindi & Audio',
                 tabIdx: 0,
                 color: const Color(0xFF10B981),
@@ -2164,7 +2165,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
               const Divider(color: Colors.white12, height: 16),
               _buildBlackbookCategoryRow(
                 icon: Icons.palette_rounded,
-                title: 'Part B: Idioms & Phrases',
+                title: 'Idioms, Phrases & Proverbs',
                 subtitle: 'Top 200 repeated idioms with exact Hindi & exam meanings',
                 tabIdx: 1,
                 color: const Color(0xFFF59E0B),
@@ -2172,7 +2173,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
               const Divider(color: Colors.white12, height: 16),
               _buildBlackbookCategoryRow(
                 icon: Icons.compare_arrows_rounded,
-                title: 'Part C: Dual Synonyms & Antonyms',
+                title: 'Dual Synonyms & Antonyms',
                 subtitle: 'Dual column matrix with SSC repetition frequency',
                 tabIdx: 2,
                 color: const Color(0xFF06B6D4),
@@ -2180,7 +2181,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
               const Divider(color: Colors.white12, height: 16),
               _buildBlackbookCategoryRow(
                 icon: Icons.splitscreen_rounded,
-                title: 'Part D: Confusing Words & Homonyms',
+                title: 'Confusing Words & Homonyms',
                 subtitle: 'Pair comparison cards (Affect vs Effect, Complement vs Compliment)',
                 tabIdx: 3,
                 color: const Color(0xFF8B5CF6),
@@ -2188,7 +2189,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
               const Divider(color: Colors.white12, height: 16),
               _buildBlackbookCategoryRow(
                 icon: Icons.spellcheck_rounded,
-                title: 'Part E: 200 Most Repeated Spellings',
+                title: 'Most Repeated Spellings',
                 subtitle: 'Tricky double letters highlighted with correct vs incorrect traps',
                 tabIdx: 4,
                 color: const Color(0xFFEC4899),
@@ -2196,7 +2197,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
               const Divider(color: Colors.white12, height: 16),
               _buildBlackbookCategoryRow(
                 icon: Icons.account_tree_rounded,
-                title: 'Part F: Root Words & Etymology',
+                title: 'Vocab Boosters, Roots & Special Lists',
                 subtitle: 'Greek/Latin roots (phil, mis, bene, mal, omni) with derivatives',
                 tabIdx: 5,
                 color: const Color(0xFF14B8A6),
@@ -2204,9 +2205,9 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
               const Divider(color: Colors.white12, height: 16),
               _buildBlackbookCategoryRow(
                 icon: Icons.quiz_rounded,
-                title: 'Part G: SSC Exam Practice Quiz Arena',
+                title: 'Exam Practice Quiz Arena',
                 subtitle: 'MCQ questions with instant solution & Mistake Notebook recording',
-                tabIdx: 6,
+                tabIdx: 7,
                 color: const Color(0xFF6366F1),
               ),
             ],
@@ -2227,7 +2228,7 @@ class _EnglishHubScreenState extends State<EnglishHubScreen> with SingleTickerPr
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => BlackbookMasterScreen(initialTabIndex: tabIdx)),
+          MaterialPageRoute(builder: (_) => VocabDictionaryScreen(initialTabIndex: tabIdx)),
         );
       },
       borderRadius: BorderRadius.circular(10),
