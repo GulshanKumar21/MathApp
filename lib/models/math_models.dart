@@ -334,10 +334,10 @@ class StudyPlanModel {
 
   factory StudyPlanModel.fromMap(Map<String, dynamic> map) => StudyPlanModel(
         id: map['id'] ?? '',
-        topicId: map['topicId'] ?? 'table_17',
-        topicTitle: map['topicTitle'] ?? 'Table of 17',
+        topicId: map['topicId'] ?? '',
+        topicTitle: map['topicTitle'] ?? '',
         scheduledDate: DateTime.tryParse(map['scheduledDate'] ?? '') ?? DateTime.now().add(const Duration(days: 1)),
-        sampleQuestion: map['sampleQuestion'] ?? '17 × 7',
+        sampleQuestion: map['sampleQuestion'] ?? '',
         isCompleted: map['isCompleted'] ?? false,
       );
 

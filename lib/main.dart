@@ -20,6 +20,7 @@ void main() async {
   }
   try {
     await NotificationService().init();
+    NotificationService().setAppInForeground(true);
   } catch (e) {
     debugPrint('Notification initialization notice: $e');
   }
@@ -52,20 +53,20 @@ class _SpeedMathAppState extends State<SpeedMathApp> with WidgetsBindingObserver
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
-      // App genuinely going to background: schedule hourly reminder
+      // App genuinely going to background: ensure pending alarms are safely registered
       _wasInBackground = true;
-      NotificationService().scheduleHourlyCalculationReminder();
+      NotificationService().setAppInForeground(false);
+      NotificationService().rescheduleAllPendingMistakeAlarms();
     } else if (state == AppLifecycleState.resumed) {
-      // App returned from background: only THEN re-schedule past-due reminders
-      // Do NOT post notifications here — that would fire them while app is open.
-      // Dart timers and zonedSchedule handle the actual posting when app is closed.
+      NotificationService().setAppInForeground(true);
       if (_wasInBackground) {
         _wasInBackground = false;
-        // Only re-register the scheduled alarms (does NOT call show() immediately)
+        // Only re-register future scheduled alarms (NEVER fire notifications on app open)
         NotificationService().rescheduleAllPendingMistakeAlarms();
       }
     } else if (state == AppLifecycleState.detached) {
       _wasInBackground = false;
+      NotificationService().setAppInForeground(false);
     }
   }
 

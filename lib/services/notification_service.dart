@@ -75,6 +75,10 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
+  bool _isAppInForeground = true;
+  void setAppInForeground(bool inForeground) {
+    _isAppInForeground = inForeground;
+  }
   final Set<int> _programmaticallyDismissedNotifIds = {};
 
   /// Lightweight background initialization avoiding foreground permissions/dialogs
@@ -300,12 +304,34 @@ class NotificationService {
         debugPrint('Launch details check notice: $e');
       }
 
-      // If user has active starred tables, cancel any old generic hourly challenge (id 1111)
+      // Purge any legacy hardcoded notifications & sanitize corrupted entries in queue
       try {
+        await cancelNotification(1111);
+        await cancelNotification(1112);
+        await cancelNotification(1114);
+        await cancelNotification(6600);
+        await cancelNotification(7777);
+
         final prefs = await SharedPreferences.getInstance();
-        final List<String>? starred = prefs.getStringList('starred_tables');
-        if (starred != null && starred.isNotEmpty) {
-          await cancelNotification(1111);
+        // Sanitize pending_recall_queue & unnotified_mistakes_list against corrupted 'Ã·' or bad '0' answers
+        for (final key in ['pending_recall_queue', 'unnotified_mistakes_list']) {
+          final list = prefs.getStringList(key);
+          if (list != null && list.isNotEmpty) {
+            final cleaned = <String>[];
+            for (final entry in list) {
+              final parts = entry.split('|');
+              if (parts.length < 2) continue;
+              final f = cleanPrompt(parts[0].replaceAll('Ã·', '÷'));
+              final a = parts[1].trim();
+              if (_isValidMathFormula(f) &&
+                  !_isAdditionOrSubtraction(f) &&
+                  _isCleanComputedAnswer(a) &&
+                  !(a == '0' && !f.contains('0'))) {
+                cleaned.add('$f|$a');
+              }
+            }
+            await prefs.setStringList(key, cleaned);
+          }
         }
       } catch (_) {}
 
@@ -607,22 +633,32 @@ class NotificationService {
     return false;
   }
 
+  /// Returns true if ans is already a valid numeric, percentage, or fraction result
+  bool _isCleanComputedAnswer(String ans) {
+    final a = ans.trim();
+    if (a.isEmpty) return false;
+    if (RegExp(r'^-?\d+(\.\d+)?%?$').hasMatch(a)) return true;
+    if (RegExp(r'^\d+/\d+$').hasMatch(a)) return true;
+    return false;
+  }
+
   /// Returns true if the formula is a valid math expression (not English text/empty)
   bool _isValidMathFormula(String formula) {
     if (formula.trim().isEmpty) return false;
     final clean = cleanPrompt(formula);
     if (clean.trim().isEmpty) return false;
-    // Must contain at least one digit
     if (!RegExp(r'\d').hasMatch(clean)) return false;
-    // Must NOT contain English words (2 or more consecutive alphabet letters)
-    if (RegExp(r'[a-zA-Z]{2,}').hasMatch(clean)) return false;
-    // Must match valid math expression: digits, operators, powers, decimals
-    return RegExp(r'^[\d\s×\*\+\-−÷/\^²³\.%()]+$').hasMatch(clean);
+    // Allow "25% of 400" specifically, otherwise block multi-letter English text
+    final withoutOf = clean.replaceAll(RegExp(r'\s+of\s+', caseSensitive: false), ' ');
+    if (RegExp(r'[a-zA-Z]{2,}').hasMatch(withoutOf)) return false;
+    return RegExp(r'^[\d\s×\*\+\-−÷/\^²³√∛\.%()ofOF]+$').hasMatch(clean);
   }
 
   // Helper to normalize calculation prompts (e.g., "⏰ 1-Hour Recall Alert: 23 × 7 = ?" -> "23 × 7")
   String cleanPrompt(String prompt) {
     String p = prompt
+        .replaceAll('Ã·', '÷')
+        .replaceAll('Ã—', '×')
         .replaceAll('⏰', '')
         .replaceAll(RegExp(r'Table\s*\d+:?', caseSensitive: false), '')
         .replaceAll(RegExp(r'1-Hour\s*Recall\s*Alert:?', caseSensitive: false), '')
@@ -634,17 +670,13 @@ class NotificationService {
         .replaceAll('?', '')
         .replaceAll('=', '')
         .trim();
-    // If there's a colon from some prefix, take what's after the colon
     if (p.contains(':')) {
       p = p.split(':').last.trim();
     }
-    // Standardize multiplication symbols to ' × '
     p = p.replaceAll(RegExp(r'\s*[\*xX\u00D7\u2715\u2716]\s*'), ' × ');
-    // Standardize addition, subtraction, division spacing
     p = p.replaceAll(RegExp(r'\s*\+\s*'), ' + ');
     p = p.replaceAll(RegExp(r'\s*[\-−\u2212]\s*'), ' - ');
-    p = p.replaceAll(RegExp(r'\s*[Ã·/\u00F7]\s*'), ' Ã· ');
-    // Collapse any multiple consecutive spaces
+    p = p.replaceAll(RegExp(r'\s*[÷/\u00F7]\s*'), ' ÷ ');
     p = p.replaceAll(RegExp(r'\s+'), ' ').trim();
     return p;
   }
@@ -685,7 +717,7 @@ class NotificationService {
     String? payload,
   }) async {
     try {
-      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
         'math_speed_channel_v2',
         'PrepVanta',
         channelDescription: 'Calculation drills, daily streaks, and mistake revision alerts',
@@ -693,12 +725,20 @@ class NotificationService {
         priority: Priority.high,
         enableVibration: true,
         playSound: true,
-        sound: RawResourceAndroidNotificationSound('custom_notification_sound'),
+        sound: const RawResourceAndroidNotificationSound('custom_notification_sound'),
         channelShowBadge: true,
         showWhen: true,
+        colorized: false,
+        color: const Color(0xFF22C55E),
+        styleInformation: BigTextStyleInformation(
+          body,
+          htmlFormatBigText: true,
+          contentTitle: '<font color="#22C55E"><b>$title</b></font>',
+          htmlFormatContentTitle: true,
+        ),
       );
 
-      const NotificationDetails details = NotificationDetails(android: androidDetails);
+      final NotificationDetails details = NotificationDetails(android: androidDetails);
 
       await _notificationsPlugin.show(
         id: id,
@@ -721,7 +761,7 @@ class NotificationService {
     int? correctNum = int.tryParse(cleanCorrect);
 
     // If answer is not a pure integer or if it contains operators (i.e. is a formula like "23 × 7"):
-    if (correctNum == null || cleanCorrect.contains(RegExp(r'[×\*xX\+\-−Ã·/\^²³]'))) {
+    if (!_isCleanComputedAnswer(cleanCorrect)) {
       // First try to calculate from formula
       String calculated = _computeFallbackAnswer(cleanForm.isNotEmpty ? cleanForm : cleanCorrect);
       correctNum = int.tryParse(calculated);
@@ -781,13 +821,23 @@ class NotificationService {
         }
       }
     } else if (cleanCorrect.endsWith('%')) {
-      // Fraction percentage question (e.g. 14.28%)
       final cleanVal = cleanCorrect.replaceAll('%', '').trim();
       final double? pct = double.tryParse(cleanVal);
       if (pct != null) {
-        opts.add('${(pct + 2.38).toStringAsFixed(2)}%');
-        opts.add('${(pct - 1.78).abs().toStringAsFixed(2)}%');
+        if (cleanVal.contains('.')) {
+          opts.add('${(pct + 2.5).toStringAsFixed(2)}%');
+          opts.add('${(pct - 1.5).abs().toStringAsFixed(2)}%');
+        } else {
+          final int pInt = pct.round();
+          opts.add('${pInt + 5}%');
+          opts.add('${pInt > 5 ? pInt - 5 : pInt + 10}%');
+        }
       }
+    } else if (double.tryParse(cleanCorrect) != null) {
+      final double decVal = double.parse(cleanCorrect);
+      final int decPlaces = cleanCorrect.contains('.') ? cleanCorrect.split('.')[1].length : 1;
+      opts.add((decVal + 2.5).toStringAsFixed(decPlaces));
+      opts.add((decVal > 2.5 ? decVal - 2.5 : decVal + 5.0).toStringAsFixed(decPlaces));
     } else {
       // Dynamic integer distractors derived mathematically from question
       int fallbackVal = int.tryParse(cleanCorrect) ?? 0;
@@ -815,20 +865,24 @@ class NotificationService {
   }) async {
     // Note: Mistake recall alerts are critical spaced learning reviews and must NEVER be suppressed by daily frequency limits!
     String formula = cleanPrompt(prompt);
-    // ðŸ›¡ï¸ Filter out any malformed / non-math questions
+    // 🛡️ Filter out any malformed / non-math questions
     if (!_isValidMathFormula(formula)) {
-      debugPrint('âš ï¸ Refusing persistent notification for invalid math: "$formula" (original: "$prompt")');
+      debugPrint('⚠️ Refusing persistent notification for invalid math: "$formula" (original: "$prompt")');
       return;
     }
-    // ðŸ›¡ï¸ User directive: No notifications for addition or subtraction
+    // 🛡️ User directive: No notifications for addition or subtraction
     if (_isAdditionOrSubtraction(formula)) {
-      debugPrint('ðŸ›¡ï¸ Refusing notification for addition/subtraction: "$formula"');
+      debugPrint('🛡️ Refusing notification for addition/subtraction: "$formula"');
       return;
     }
     await _markRecallUnsolvedInPrefs(formula);
     String resolvedAnswer = correctAnswer.trim();
-    if (int.tryParse(resolvedAnswer) == null || resolvedAnswer.contains(RegExp(r'[×\*xX\+\-−Ã·/\^²³]'))) {
+    if (!_isCleanComputedAnswer(resolvedAnswer)) {
       resolvedAnswer = _computeFallbackAnswer(formula.isNotEmpty ? formula : resolvedAnswer);
+    }
+    if (!_isCleanComputedAnswer(resolvedAnswer)) {
+      debugPrint('⚠️ Refusing recall notification because answer could not be verified: "$formula" -> "$resolvedAnswer"');
+      return;
     }
     final options = generateRecallOptions(resolvedAnswer, formula);
 
@@ -861,7 +915,7 @@ class NotificationService {
       summaryText: summaryText ?? queueSummary,
     );
 
-    // NOTE: No short watchdog timer here â€” ongoing: true + FLAG_NO_CLEAR prevent swipe-away natively.
+    // NOTE: No short watchdog timer here — ongoing: true + FLAG_NO_CLEAR prevent swipe-away natively.
     // A 1-hour re-post timer is set separately by scheduleCalculationMistakeReminder.
     // We only need to cancel any existing watchdog for this id (clean up from previous calls).
     _activeReminderTimers[id]?.cancel();
@@ -895,7 +949,7 @@ class NotificationService {
     final c0 = preShuffledChoices.isNotEmpty ? preShuffledChoices[0] : '';
     final c1 = preShuffledChoices.length > 1 ? preShuffledChoices[1] : '';
     final c2 = preShuffledChoices.length > 2 ? preShuffledChoices[2] : '';
-    return '(A) $c0   (B) $c1\n(C) $c2   (D) ⏰ Snooze';
+    return '🧠 (A) $c0   (B) $c1   (C) $c2';
   }
 
   /// Formats question title and body for spaced repetition challenge.
@@ -942,13 +996,6 @@ class NotificationService {
         showsUserInterface: false,
         contextual: false,
       ),
-      AndroidNotificationAction(
-        'snooze|$formula|$correctAnswer',
-        '(D) ⏰ Snooze',
-        cancelNotification: true,
-        showsUserInterface: false,
-        contextual: false,
-      ),
     ];
   }
 
@@ -980,7 +1027,7 @@ class NotificationService {
 
     final String stageName = currentStage == 1
         ? '🔴 30-Min Recall'
-        : (currentStage == 2 ? '🟠 4-Hour Reinforcement' : '🟢 Next-Day Retention');
+        : (currentStage == 2 ? '🟠 3-Hour Reinforcement' : '🟢 Next-Day Retention');
 
     final String displayTitle = wrongAttempt != null
         ? '❌ Galat! $formula = ?'
@@ -994,22 +1041,13 @@ class NotificationService {
         ? '❌ Galat ($wrongAttempt)\n$optionsLine'
         : optionsLine;
 
-    // Animated energetic vibration pulse pattern [delay, vibrate, pause, vibrate...]
-    final vibPattern = Int64List.fromList([0, 200, 100, 300, 100, 450]);
-
-    final Color stageColor = currentStage == 1
-        ? const Color(0xFFEF4444) // 🔴 Red for 30-min urgency
-        : (currentStage == 2
-            ? const Color(0xFFF97316) // 🟠 Orange for 4-hr reinforcement
-            : const Color(0xFF10B981)); // 🟢 Green for next-day retention
-
     final BigTextStyleInformation bigTextStyle = BigTextStyleInformation(
       displayBody,
-      htmlFormatBigText: false,
-      contentTitle: displayTitle,
-      htmlFormatContentTitle: false,
+      htmlFormatBigText: true,
+      contentTitle: '<font color="#22C55E"><b>$displayTitle</b></font>',
+      htmlFormatContentTitle: true,
       summaryText: summaryText ?? 'Scientific Spaced Repetition (Stage $currentStage/3)',
-      htmlFormatSummaryText: false,
+      htmlFormatSummaryText: true,
     );
 
     final actions = _buildFourActions(
@@ -1022,7 +1060,7 @@ class NotificationService {
       final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
         'prepvanta_animated_recall_v4',
         'PrepVanta Spaced Repetition Recall',
-        channelDescription: 'Animated spaced repetition calculation alerts for mistake revision (30m, 4h, next day)',
+        channelDescription: 'Spaced repetition alerts: 30 min, 3 hr, next day',
         importance: Importance.max,
         priority: Priority.max,
         ongoing: true,
@@ -1034,18 +1072,15 @@ class NotificationService {
         playSound: true,
         sound: const RawResourceAndroidNotificationSound('custom_notification_sound'),
         enableLights: true,
-        ledColor: stageColor,
+        ledColor: const Color(0xFF22C55E),
         ledOnMs: 600,
         ledOffMs: 400,
         channelShowBadge: true,
         showWhen: true,
-        colorized: true,
-        color: stageColor,
+        colorized: false,
+        color: const Color(0xFF22C55E),
         category: AndroidNotificationCategory.reminder,
         visibility: NotificationVisibility.public,
-        showProgress: true,
-        maxProgress: 0,
-        indeterminate: true,
         styleInformation: bigTextStyle,
         actions: actions,
       );
@@ -1156,7 +1191,7 @@ class NotificationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('daily_notification_limit', limit);
-      debugPrint('ðŸ”” Daily notification limit set to: $limit');
+      debugPrint('🔔 Daily notification limit set to: $limit');
     } catch (_) {}
   }
 
@@ -1176,7 +1211,7 @@ class NotificationService {
       final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final count = prefs.getInt('notif_count_$todayStr') ?? 0;
       await prefs.setInt('notif_count_$todayStr', count + 1);
-      debugPrint('ðŸ“¢ Notification sent today: ${count + 1}');
+      debugPrint('📢 Notification sent today: ${count + 1}');
     } catch (_) {}
   }
 
@@ -1186,7 +1221,7 @@ class NotificationService {
       if (limit <= 0) return false; // 0 or negative = Unlimited
       final count = await getDailyNotificationCountToday();
       if (count >= limit) {
-        debugPrint('ðŸ›‘ Daily notification limit ($limit) reached for today ($count sent). Suppressing notification to prevent fatigue.');
+        debugPrint('🛑 Daily notification limit ($limit) reached for today ($count sent). Suppressing notification to prevent fatigue.');
         return true;
       }
       return false;
@@ -1287,9 +1322,7 @@ class NotificationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final stored = prefs.getString('active_recall_${cleanPrompt(formula)}');
-      if (stored != null &&
-          stored.isNotEmpty &&
-          !stored.contains(RegExp(r'[×\*xX\+\-−Ã·/\^²³]'))) {
+      if (stored != null && _isCleanComputedAnswer(stored)) {
         return stored;
       }
     } catch (_) {}
@@ -1297,55 +1330,81 @@ class NotificationService {
   }
 
   String _computeFallbackAnswer(String formula) {
-    if (formula.trim().isEmpty) return '0';
+    final trimmed = formula.trim();
+    if (trimmed.isEmpty) return '';
 
-    // First check if formula itself is already a direct integer
-    final directInt = int.tryParse(formula.trim());
-    if (directInt != null) return '$directInt';
+    if (_isCleanComputedAnswer(trimmed)) return trimmed;
 
     try {
-      String clean = cleanPrompt(formula);
+      String clean = cleanPrompt(trimmed);
 
-      // Check squares (e.g. 17² or 17^2)
-      final sqMatch = RegExp(r'(\d+)\s*(?:²|\^2)').firstMatch(clean);
+      // Square root (e.g. √144)
+      final sqrtMatch = RegExp(r'^√\s*(\d+)$').firstMatch(clean);
+      if (sqrtMatch != null) {
+        int n = int.parse(sqrtMatch.group(1)!);
+        int r = sqrt(n).round();
+        if (r * r == n) return '$r';
+        return '';
+      }
+
+      // Cube root (e.g. ∛343)
+      final cbrtMatch = RegExp(r'^∛\s*(\d+)$').firstMatch(clean);
+      if (cbrtMatch != null) {
+        int n = int.parse(cbrtMatch.group(1)!);
+        int r = pow(n, 1 / 3).round();
+        if (r * r * r == n) return '$r';
+        return '';
+      }
+
+      // Percentage of number (e.g. 25% of 400)
+      final pctOfMatch = RegExp(r'^(\d+(?:\.\d+)?)\s*%\s*of\s*(\d+(?:\.\d+)?)$', caseSensitive: false).firstMatch(clean);
+      if (pctOfMatch != null) {
+        double p = double.parse(pctOfMatch.group(1)!);
+        double numVal = double.parse(pctOfMatch.group(2)!);
+        double res = (p / 100.0) * numVal;
+        return res == res.roundToDouble() ? '${res.toInt()}' : res.toStringAsFixed(2);
+      }
+
+      // Exact single-operation square (e.g. 17² or 17^2)
+      final sqMatch = RegExp(r'^(\d+)\s*(?:²|\^2)$').firstMatch(clean);
       if (sqMatch != null) {
         int n = int.parse(sqMatch.group(1)!);
         return '${n * n}';
       }
 
-      // Check cubes (e.g. 8³ or 8^3)
-      final cbMatch = RegExp(r'(\d+)\s*(?:³|\^3)').firstMatch(clean);
+      // Exact single-operation cube (e.g. 8³ or 8^3)
+      final cbMatch = RegExp(r'^(\d+)\s*(?:³|\^3)$').firstMatch(clean);
       if (cbMatch != null) {
         int n = int.parse(cbMatch.group(1)!);
         return '${n * n * n}';
       }
 
-      // Multiplication: match (num) [× * x X \u00D7 \u2715 \u2716] (num)
-      final multMatch = RegExp(r'(\d+)\s*[×\*xX\u00D7\u2715\u2716]\s*(\d+)').firstMatch(clean);
+      // Exact multiplication: (num) × (num)
+      final multMatch = RegExp(r'^(\d+)\s*[×\*xX\u00D7\u2715\u2716]\s*(\d+)$').firstMatch(clean);
       if (multMatch != null) {
         int a = int.parse(multMatch.group(1)!);
         int b = int.parse(multMatch.group(2)!);
         return '${a * b}';
       }
 
-      // Addition: match (num) + (num)
-      final addMatch = RegExp(r'(\d+)\s*\+\s*(\d+)').firstMatch(clean);
+      // Exact addition: (num) + (num)
+      final addMatch = RegExp(r'^(\d+)\s*\+\s*(\d+)$').firstMatch(clean);
       if (addMatch != null) {
         int a = int.parse(addMatch.group(1)!);
         int b = int.parse(addMatch.group(2)!);
         return '${a + b}';
       }
 
-      // Subtraction: match (num) [- − \u2212] (num)
-      final subMatch = RegExp(r'(\d+)\s*[\-−\u2212]\s*(\d+)').firstMatch(clean);
+      // Exact subtraction: (num) - (num)
+      final subMatch = RegExp(r'^(\d+)\s*[\-−\u2212]\s*(\d+)$').firstMatch(clean);
       if (subMatch != null) {
         int a = int.parse(subMatch.group(1)!);
         int b = int.parse(subMatch.group(2)!);
         return '${a - b}';
       }
 
-      // Division: match (num) [Ã· / \u00F7] (num)
-      final divMatch = RegExp(r'(\d+)\s*[Ã·/\u00F7]\s*(\d+)').firstMatch(clean);
+      // Exact division: (num) ÷ (num)
+      final divMatch = RegExp(r'^(\d+)\s*[÷/\u00F7]\s*(\d+)$').firstMatch(clean);
       if (divMatch != null) {
         int a = int.parse(divMatch.group(1)!);
         int b = int.parse(divMatch.group(2)!);
@@ -1356,14 +1415,15 @@ class NotificationService {
                 ? '${pct.toInt()}%'
                 : '${pct.toStringAsFixed(2)}%';
           }
-          return '${a ~/ b}';
+          if (a % b == 0) return '${a ~/ b}';
+          return (a / b).toStringAsFixed(2);
         }
       }
     } catch (e) {
       debugPrint('Fallback math compute error: $e');
     }
 
-    return '0';
+    return '';
   }
 
   // Handle immediate tap on answer options directly from the notification shade
@@ -1403,8 +1463,8 @@ class NotificationService {
         final int nextDelayMinutes;
         final DateTime dueAt;
         if (nextStage == 2) {
-          nextDelayMinutes = 240; // 4 Hours (240 min)
-          dueAt = DateTime.now().add(const Duration(hours: 4));
+          nextDelayMinutes = 180; // Exact 3 Hours (180 min)
+          dueAt = DateTime.now().add(const Duration(hours: 3));
         } else {
           // Stage 3: Next day morning at 9:00 AM
           final now = DateTime.now();
@@ -1462,12 +1522,14 @@ class NotificationService {
       final dueAt = DateTime.now().add(const Duration(minutes: 30));
       await prefs.setString('recall_due_at_$formula', dueAt.toIso8601String());
 
-      await showPersistentRecallNotification(
-        id: notifId,
-        prompt: formula,
-        correctAnswer: correctAnswer,
-        wrongAttempt: selectedOption,
-      );
+      if (!_isAppInForeground) {
+        await showPersistentRecallNotification(
+          id: notifId,
+          prompt: formula,
+          correctAnswer: correctAnswer,
+          wrongAttempt: selectedOption,
+        );
+      }
 
       if (notifId >= 55000 && notifId <= 55025) {
         final activeTable = prefs.getInt('active_starred_table_number') ?? 0;
@@ -1582,15 +1644,14 @@ class NotificationService {
         vibrationPattern: vibPattern,
         playSound: true,
         sound: const RawResourceAndroidNotificationSound('custom_notification_sound'),
-        colorized: true,
-        color: const Color(0xFF22C55E), // 🟢 Snoozed = next-day retention color
+        colorized: false,
+        color: const Color(0xFF22C55E),
         subText: 'Snoozed Recall — Kal 9 AM',
-        showProgress: true,
-        maxProgress: 0,
-        indeterminate: true,
         styleInformation: BigTextStyleInformation(
           notifBody,
-          contentTitle: '🟢 Snoozed Recall: $formula = ?',
+          htmlFormatBigText: true,
+          contentTitle: '<font color="#22C55E"><b>⚡ Snoozed Recall: $formula = ?</b></font>',
+          htmlFormatContentTitle: true,
           summaryText: 'Kal ke liye snoozed — ab yaad karo!',
         ),
         actions: actions,
@@ -1638,12 +1699,12 @@ class NotificationService {
 
   // 1. SPECIFIC CALCULATION MISTAKE REMINDER QUEUE
   // Spaced Repetition Lifecycle:
-  //   t=0   Wrong answer â†’  zonedSchedule native alarm at t+60min (Stage 1)
+  //   t=0   Wrong answer →  zonedSchedule native alarm at t+60min (Stage 1)
   //   t+1h  Notification fires (user sees it when app is CLOSED)
-  //   Correct at Stage 1  â†’  native alarm at t+3hr (Stage 2)
-  //   Correct at Stage 2  â†’  native alarm at t+3hr (Stage 3)
-  //   Correct at Stage 3  â†’  MASTERED, cleared forever
-  //   Wrong at any stage  â†’  reset to Stage 1 (1-hr alarm again)
+  //   Correct at Stage 1  →  native alarm at t+3hr (Stage 2)
+  //   Correct at Stage 2  →  native alarm at t+3hr (Stage 3)
+  //   Correct at Stage 3  →  MASTERED, cleared forever
+  //   Wrong at any stage  →  reset to Stage 1 (1-hr alarm again)
   //
   // CRITICAL: postImmediately is always false in production.
   // Notifications NEVER show while the app is in the foreground.
@@ -1653,17 +1714,17 @@ class NotificationService {
     required String userAnswer,
     String topicName = 'Tables',
     String userName = 'Aspirant',
-    bool postImmediately = false, // Always false in production â€” only true in admin tests
+    bool postImmediately = false, // Always false in production — only true in admin tests
   }) async {
     String formula = cleanPrompt(prompt);
-    // ðŸ›¡ï¸ Never schedule mistake reminder for non-math / English content
+    // 🛡️ Never schedule mistake reminder for non-math / English content
     if (!_isValidMathFormula(formula)) {
-      debugPrint('âš ï¸ Skipping scheduleCalculationMistakeReminder for non-math content: "$formula"');
+      debugPrint('⚠️ Skipping scheduleCalculationMistakeReminder for non-math content: "$formula"');
       return;
     }
-    // ðŸ›¡ï¸ User directive: No notifications for addition or subtraction
+    // 🛡️ User directive: No notifications for addition or subtraction
     if (_isAdditionOrSubtraction(formula, topicName)) {
-      debugPrint('ðŸ›¡ï¸ Suppressing reminder notification for addition/subtraction: "$formula" ($topicName)');
+      debugPrint('🛡️ Suppressing reminder notification for addition/subtraction: "$formula" ($topicName)');
       return;
     }
     await _markRecallUnsolvedInPrefs(formula);
@@ -1671,13 +1732,17 @@ class NotificationService {
     await prefs.remove('snoozed_until_$formula');
 
     String resolvedAnswer = correctAnswer.trim();
-    if (int.tryParse(resolvedAnswer) == null || resolvedAnswer.contains(RegExp(r'[×\*xX\+\-−Ã·/\^²³]'))) {
+    if (!_isCleanComputedAnswer(resolvedAnswer)) {
       resolvedAnswer = _computeFallbackAnswer(formula.isNotEmpty ? formula : resolvedAnswer);
     }
+    if (!_isCleanComputedAnswer(resolvedAnswer)) {
+      debugPrint('⚠️ Skipping mistake schedule — invalid answer for "$formula"');
+      return;
+    }
 
-    // Initialize Stage 1 (1-Hour Spaced Recall)
+    // Initialize Stage 1 (Exact 30-Minute Spaced Recall)
     await prefs.setInt('repetition_stage_$formula', 1);
-    final dueAt = DateTime.now().add(const Duration(minutes: 60));
+    final dueAt = DateTime.now().add(const Duration(minutes: 30));
     await prefs.setString('recall_due_at_$formula', dueAt.toIso8601String());
 
     // Cancel generic hourly challenge (id 1111) so user mistakes take priority
@@ -1701,14 +1766,14 @@ class NotificationService {
     await prefs.setStringList('unnotified_mistakes_list', unnotified);
 
     // Schedule 1-Hour recall via native zonedSchedule alarm (fires even when app is closed)
-    // This is the ONLY way the notification gets posted â€” NOT via immediate show()
+    // This is the ONLY way the notification gets posted — NOT via immediate show()
     await schedule1HourRecallNotification(
       formula: formula,
       correctAnswer: resolvedAnswer,
-      delayMinutes: 60,
+      delayMinutes: 30,
     );
 
-    debugPrint('âœ… Mistake scheduled: "$formula" â†’ notification in 60 min (Stage 1)');
+    debugPrint('✅ Mistake scheduled: "$formula" → notification in 30 min (Stage 1)');
 
     // postImmediately=true is reserved for Admin panel test button ONLY
     if (postImmediately) {
@@ -1729,15 +1794,15 @@ class NotificationService {
 
       for (var m in mistakes) {
         final clean = cleanPrompt(m.prompt);
-        // ðŸ›¡ï¸ User directive: No notifications for addition or subtraction
+        // 🛡️ User directive: No notifications for addition or subtraction
         if (_isAdditionOrSubtraction(clean, m.topicId)) {
-          debugPrint('ðŸ›¡ï¸ Skipping addition/subtraction mistake from notification queue: "$clean"');
+          debugPrint('🛡️ Skipping addition/subtraction mistake from notification queue: "$clean"');
           continue;
         }
         await _markRecallUnsolvedInPrefs(clean);
         await prefs.remove('snoozed_until_$clean');
         String resolvedAnswer = m.correctAnswer.trim();
-        if (int.tryParse(resolvedAnswer) == null || resolvedAnswer.contains(RegExp(r'[×\*xX\+\-−Ã·/\^²³]'))) {
+        if (!_isCleanComputedAnswer(resolvedAnswer)) {
           resolvedAnswer = _computeFallbackAnswer(clean.isNotEmpty ? clean : resolvedAnswer);
         }
         final entry = '$clean|$resolvedAnswer';
@@ -1781,6 +1846,7 @@ class NotificationService {
 
   // Posts notifications for ALL pending mistake calculations serial-wise when due
   Future<void> postAllPendingMistakesSerial() async {
+    if (_isAppInForeground) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       List<String> unnotified = prefs.getStringList('unnotified_mistakes_list') ?? [];
@@ -1805,7 +1871,7 @@ class NotificationService {
       // Copy list to post without dropping items that are not yet due
       final toPost = List<String>.from(unnotified);
       List<String> stillPendingLater = [];
-      bool postedOne = false; // ðŸ”’ MAX 1 notification at a time â€” prevents spam on app open
+      bool postedOne = false; // 🔒 MAX 1 notification at a time — prevents spam on app open
 
       for (int i = 0; i < toPost.length; i++) {
         final item = toPost[i];
@@ -1814,15 +1880,15 @@ class NotificationService {
         final formula = cleanPrompt(parts[0]);
         if (formula.isEmpty) continue;
 
-        // ðŸ›¡ï¸ Skip non-math content (English sentences, vocab etc.)
+        // 🛡️ Skip non-math content (English sentences, vocab etc.)
         if (!_isValidMathFormula(formula)) {
-          debugPrint('âš ï¸ Skipping non-math formula from recall queue: $formula');
-          continue; // permanently discard â€” not a valid math recall item
+          debugPrint('⚠️ Skipping non-math formula from recall queue: $formula');
+          continue; // permanently discard — not a valid math recall item
         }
 
-        // ðŸ›¡ï¸ User directive: No notifications for addition or subtraction
+        // 🛡️ User directive: No notifications for addition or subtraction
         if (_isAdditionOrSubtraction(formula)) {
-          debugPrint('ðŸ›¡ï¸ Skipping addition/subtraction notification from post queue: $formula');
+          debugPrint('🛡️ Skipping addition/subtraction notification from post queue: $formula');
           continue;
         }
 
@@ -1838,19 +1904,19 @@ class NotificationService {
 
         // Spaced Repetition Due Check: Do not post if recall time is still in the future!
         if (!isCalculationDueForRecall(formula, prefs)) {
-          debugPrint('â³ Formula $formula is scheduled for spaced recall later, keeping in buffer.');
+          debugPrint('⏳ Formula $formula is scheduled for spaced recall later, keeping in buffer.');
           stillPendingLater.add(item);
           continue;
         }
 
-        // ðŸ”’ Post only 1 notification per app open â€” rest stay queued for next session
+        // 🔒 Post only 1 notification per app open — rest stay queued for next session
         if (postedOne) {
           stillPendingLater.add(item);
           continue;
         }
 
         String answer = parts.length >= 2 ? parts[1].trim() : _computeFallbackAnswer(formula);
-        if (int.tryParse(answer) == null || answer.contains(RegExp(r'[×\*xX\+\-−Ã·/\^²³]'))) {
+        if (!_isCleanComputedAnswer(answer)) {
           answer = _computeFallbackAnswer(formula);
         }
 
@@ -1859,13 +1925,13 @@ class NotificationService {
         _activeReminderTimers[notifId]?.cancel();
         _activeReminderTimers.remove(notifId);
 
-        debugPrint('ðŸš€ Posting Mistake Notification (1 at a time): $formula = $answer (ID: $notifId)');
+        debugPrint('🚀 Posting Mistake Notification (1 at a time): $formula = $answer (ID: $notifId)');
         await showPersistentRecallNotification(
           id: notifId,
           prompt: formula,
           correctAnswer: answer,
         );
-        postedOne = true; // ðŸ”’ One notification posted â€” block further spam
+        postedOne = true; // 🔒 One notification posted — block further spam
       }
 
       await prefs.setStringList('unnotified_mistakes_list', stillPendingLater);
@@ -1889,7 +1955,7 @@ class NotificationService {
       await schedule1HourRecallNotification(
         formula: formula,
         correctAnswer: answer,
-        delayMinutes: 60,
+        delayMinutes: 30,
       );
     } else {
       await postAllPendingMistakesSerial();
@@ -1917,7 +1983,7 @@ class NotificationService {
         if (isSolved) continue;
 
         String answer = parts.length >= 2 ? parts[1].trim() : _computeFallbackAnswer(formula);
-        if (int.tryParse(answer) == null || answer.contains(RegExp(r'[×\*xX\+\-−Ã·/\^²³]'))) {
+        if (!_isCleanComputedAnswer(answer)) {
           answer = _computeFallbackAnswer(formula);
         }
 
@@ -1945,12 +2011,12 @@ class NotificationService {
   }
 
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // SPACED REPETITION â€” CORE RULES:
-  //   Wrong answer at t=0  â†’  Notification fires at t+1hr (Stage 1)
-  //   Correct at Stage 1   â†’  Notification fires at t+3hr (Stage 2)
-  //   Correct at Stage 2   â†’  Notification fires at t+3hr (Stage 3)
-  //   Correct at Stage 3   â†’  MASTERED, no more notifications
-  //   Wrong at any stage   â†’  Reset to Stage 1, fire again in 1hr
+  // SPACED REPETITION — CORE RULES:
+  //   Wrong answer at t=0  →  Notification fires at t+1hr (Stage 1)
+  //   Correct at Stage 1   →  Notification fires at t+3hr (Stage 2)
+  //   Correct at Stage 2   →  Notification fires at t+3hr (Stage 3)
+  //   Correct at Stage 3   →  MASTERED, no more notifications
+  //   Wrong at any stage   →  Reset to Stage 1, fire again in 1hr
   //
   // NEVER fires notifications while the app is open/foreground.
   // Notifications ONLY fire via zonedSchedule (native Android alarm) after
@@ -1987,7 +2053,7 @@ class NotificationService {
         final now = DateTime.now();
 
         String answer = parts.length >= 2 ? parts[1].trim() : _computeFallbackAnswer(formula);
-        if (int.tryParse(answer) == null || answer.contains(RegExp(r'[×\*xX\+\-−Ã·/\^²³]'))) {
+        if (!_isCleanComputedAnswer(answer)) {
           answer = _computeFallbackAnswer(formula);
         }
 
@@ -1995,16 +2061,16 @@ class NotificationService {
         final int stage = prefs.getInt('repetition_stage_$formula') ?? 1;
 
         if (dueTime != null && now.isBefore(dueTime)) {
-          // Alarm is still in the future â€” re-register the native alarm
+          // Alarm is still in the future — re-register the native alarm
           // (in case it was cleared when app was killed)
           final remaining = dueTime.difference(now);
-          debugPrint('ðŸ” Re-scheduling alarm for $formula in ${remaining.inMinutes}m (Stage $stage)');
+          debugPrint('🔁 Re-scheduling alarm for $formula in ${remaining.inMinutes}m (Stage $stage)');
 
           if (stage == 1) {
             await schedule1HourRecallNotification(
               formula: formula,
               correctAnswer: answer,
-              delayMinutes: remaining.inMinutes.clamp(1, 60),
+              delayMinutes: remaining.inMinutes.clamp(1, 30),
             );
           } else {
             await scheduleSpacedRecallNotification(
@@ -2018,11 +2084,11 @@ class NotificationService {
         } else {
           // If dueTime has already passed, DO NOT trigger notifications while user is in the app.
           // The student is currently studying inside the app and will see mistakes in the Revision Notebook.
-          debugPrint('â„¹ï¸ Alarm for $formula has passed schedule; preserved in Revision Notebook.');
+          debugPrint('ℹ️ Alarm for $formula has passed schedule; preserved in Revision Notebook.');
         }
       }
 
-      debugPrint('âœ… rescheduleAllPendingMistakeAlarms: $rescheduled future alarms verified');
+      debugPrint('✅ rescheduleAllPendingMistakeAlarms: $rescheduled future alarms verified');
     } catch (e) {
       debugPrint('Error in rescheduleAllPendingMistakeAlarms: $e');
     }
@@ -2062,20 +2128,19 @@ class NotificationService {
         enableVibration: true,
         channelShowBadge: true,
         showWhen: true,
-        colorized: true,
-        color: const Color(0xFFEF4444),
+        colorized: false,
+        color: const Color(0xFF22C55E),
         category: AndroidNotificationCategory.reminder,
         visibility: NotificationVisibility.public,
         ongoing: true,
         autoCancel: false,
         additionalFlags: Int32List.fromList([34]),
-        showProgress: true,
-        maxProgress: 0,
-        indeterminate: true,
         actions: actions,
         styleInformation: BigTextStyleInformation(
           optionsLine,
-          contentTitle: '$formula = ?',
+          htmlFormatBigText: true,
+          contentTitle: '<font color="#22C55E"><b>⚡ $formula = ?</b></font>',
+          htmlFormatContentTitle: true,
           summaryText: stageLabel,
         ),
       );
@@ -2108,10 +2173,10 @@ class NotificationService {
 
   // Called whenever user arrives or returns to Home Screen
   // REMOVED: no longer called on home tab tap or app open.
-  // Only called externally when app is going to background (via main.dart lifecycle) â€”
+  // Only called externally when app is going to background (via main.dart lifecycle) —
   // but even then we now only RE-SCHEDULE, never immediately post while app is open.
     Future<void> triggerPendingMistakeNotificationOnHome() async {
-    // ðŸ”’ SPAM FIX: Only restores 1 active recall at a time.
+    // 🔒 SPAM FIX: Only restores 1 active recall at a time.
     // postAllPendingMistakesSerial() intentionally NOT called here to prevent spam on app open.
     try {
       await restoreActiveRecallsFromQueue();
@@ -2139,8 +2204,12 @@ class NotificationService {
         return;
       }
       String resolvedAnswer = correctAnswer.trim();
-      if (int.tryParse(resolvedAnswer) == null || resolvedAnswer.contains(RegExp(r'[×\*xX\+\-−Ã·/\^²³]'))) {
+      if (!_isCleanComputedAnswer(resolvedAnswer)) {
         resolvedAnswer = _computeFallbackAnswer(clean.isNotEmpty ? clean : resolvedAnswer);
+      }
+      if (!_isCleanComputedAnswer(resolvedAnswer)) {
+        debugPrint('⚠️ Skipping scheduled recall because answer cannot be verified: "$clean"');
+        return;
       }
       final int recallNotifId = getNotificationIdForPrompt(clean);
 
@@ -2172,21 +2241,20 @@ class NotificationService {
         ledOffMs: 500,
         channelShowBadge: true,
         showWhen: true,
-        colorized: true,
-        color: const Color(0xFFEF4444), // 🔴 Stage 1 Red urgency
+        colorized: false,
+        color: const Color(0xFF22C55E),
         category: AndroidNotificationCategory.reminder,
         visibility: NotificationVisibility.public,
         ongoing: true,
         autoCancel: false,
         additionalFlags: Int32List.fromList([34]), // Cannot be cleared via Clear All
         subText: 'Mistake Recall — Stage 1 of 3',
-        showProgress: true,
-        maxProgress: 0,
-        indeterminate: true,
         actions: actions,
         styleInformation: BigTextStyleInformation(
           notifBody,
-          contentTitle: '🔴 30-Min Recall: $clean = ?',
+          htmlFormatBigText: true,
+          contentTitle: '<font color="#22C55E"><b>⚡ 30-Min Recall: $clean = ?</b></font>',
+          htmlFormatContentTitle: true,
           summaryText: 'Spaced Repetition Stage 1/3',
         ),
       );
@@ -2235,7 +2303,7 @@ class NotificationService {
     required String formula,
     required String correctAnswer,
     required int stage,
-    int delayMinutes = 240,
+    int delayMinutes = 180,
   }) async {
     try {
       _ensureTimezonesInitialized();
@@ -2249,15 +2317,18 @@ class NotificationService {
         return;
       }
       String resolvedAnswer = correctAnswer.trim();
-      if (int.tryParse(resolvedAnswer) == null || resolvedAnswer.contains(RegExp(r'[×\*xX\+\-−Ã·/\^²³]'))) {
+      if (!_isCleanComputedAnswer(resolvedAnswer)) {
         resolvedAnswer = _computeFallbackAnswer(clean.isNotEmpty ? clean : resolvedAnswer);
+      }
+      if (!_isCleanComputedAnswer(resolvedAnswer)) {
+        debugPrint('⚠️ Skipping scheduled recall because answer cannot be verified: "$clean"');
+        return;
       }
       final int recallNotifId = getNotificationIdForPrompt(clean);
 
       // Stage 2 = 4-Hour Reinforcement 🟠, Stage 3 = Next-Day 9AM Retention 🟢
-      final stageTag   = stage == 2 ? '4-Hour Reinforcement' : 'Next-Day Retention';
+      final stageTag   = stage == 2 ? '3-Hour Reinforcement' : 'Next-Day Retention';
       final stageEmoji = stage == 2 ? '🟠' : '🟢';
-      final stageColor = stage == 2 ? const Color(0xFFF97316) : const Color(0xFF22C55E);
       final vibPattern = Int64List.fromList([0, 180, 80, 320, 80, 180]);
       final options    = generateRecallOptions(resolvedAnswer, clean);
       final List<String> shuffledChoices = _buildThreeAnswerChoices(options, resolvedAnswer);
@@ -2291,21 +2362,20 @@ class NotificationService {
         vibrationPattern: vibPattern,
         channelShowBadge: true,
         showWhen: true,
-        colorized: true,
-        color: stageColor,
+        colorized: false,
+        color: const Color(0xFF22C55E),
         category: AndroidNotificationCategory.reminder,
         visibility: NotificationVisibility.public,
         ongoing: true,
         autoCancel: false,
         additionalFlags: Int32List.fromList([34]),
         subText: 'Mistake Recall — Stage $stage/3',
-        showProgress: true,
-        maxProgress: 0,
-        indeterminate: true,
         actions: actions,
         styleInformation: BigTextStyleInformation(
           notifBody,
-          contentTitle: '$stageEmoji $stageTag: $clean = ?',
+          htmlFormatBigText: true,
+          contentTitle: '<font color="#22C55E"><b>$stageEmoji $stageTag: $clean = ?</b></font>',
+          htmlFormatContentTitle: true,
           summaryText: 'Spaced Repetition Stage $stage/3',
         ),
       );
@@ -2373,13 +2443,7 @@ class NotificationService {
         final nextEntry = queue.first;
         final parts = nextEntry.split('|');
         final nextFormula = cleanPrompt(parts.first);
-        final nextAnswer = parts.length > 1 ? parts[1] : await getCorrectAnswerForFormula(nextFormula);
         await prefs.setString('currently_displayed_recall_formula', nextFormula);
-        await showPersistentRecallNotification(
-          id: getNotificationIdForPrompt(nextFormula),
-          prompt: nextFormula,
-          correctAnswer: nextAnswer,
-        );
       } else {
         await prefs.remove('currently_displayed_recall_formula');
       }
@@ -2388,8 +2452,9 @@ class NotificationService {
     }
   }
 
-  // Restore active recalls from queue on app restart
+  // Restore active recalls from queue ONLY when app is not in foreground
   Future<void> restoreActiveRecallsFromQueue() async {
+    if (_isAppInForeground) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       final queue = prefs.getStringList('pending_recall_queue') ?? [];
@@ -2461,26 +2526,14 @@ await _advanceQueueAfterSolved(formula);
 // 3. HOURLY CALCULATION RECURRING NOTIFICATION (Native Android Alarm & In-App Timer)
 // Ensures student gets a calculation challenge alert every 1 hour, even if app is closed!
 Future<void> scheduleHourlyCalculationReminder({String userName = 'Aspirant'}) async {
-_ensureTimezonesInitialized();
+// Cancel all generic hourly notifications & foreground timers so notifications ONLY fire at exact 30m -> 3hr -> Next Day schedule
+_hourlyTimer?.cancel();
+_hourlyTimer = null;
 try {
-// Cancel old hardcoded hourly notifications
-await cancelNotification(1111);
-// Cancel only the 2 pre-scheduled alarms (1h, 3h)
 await cancelNotification(1111);
 await cancelNotification(1112);
 await cancelNotification(1114);
 } catch (_) {}
-
-// Smart Dart timer â€” fires every 1 hour while app is open
-_hourlyTimer?.cancel();
-_hourlyTimer = Timer.periodic(const Duration(hours: 1), (timer) async {
-await _triggerSmartHourlyChallenge(userName: userName);
-});
-
-// Schedule native OS alarms for upcoming hours (1h, 2h, 3h, 4h, 5h, 6h)
-// so alerts arrive reliably even when phone is locked or app is closed!
-await _scheduleNativeHourlyReminders(userName: userName);
-debugPrint('âœ… Smart hourly challenge started (shows pending wrong Qs first, then random + native OS alarms)');
 }
 
 // Pre-schedules native OS alarms for future hours (+1h, +2h, +3h, +4h, +5h, +6h)
@@ -2493,15 +2546,15 @@ final List<String>? starred = prefs.getStringList('starred_tables');
 final validStarred = (starred ?? []).map((e) => int.tryParse(e) ?? 0).where((e) => e > 0).toList();
 final List<String> queue = prefs.getStringList('pending_recall_queue') ?? [];
 
-// ðŸ”’ SPAM FIX: Daily gate - only schedule if NOT already done today
+// 🔒 SPAM FIX: Daily gate - only schedule if NOT already done today
 final String todayKey = 'hourly_reminders_scheduled_${DateTime.now().toIso8601String().substring(0, 10)}';
 if (prefs.getBool(todayKey) == true) {
-debugPrint('â­ï¸ Hourly reminders already scheduled today, skipping.');
+debugPrint('⏭️ Hourly reminders already scheduled today, skipping.');
 return;
 }
 await prefs.setBool(todayKey, true);
 
-// ðŸ”’ SPAM FIX: Max 2 native OS alarms (+1h, +3h) instead of 6
+// 🔒 SPAM FIX: Max 2 native OS alarms (+1h, +3h) instead of 6
 for (int h = 1; h <= 2; h++) {
 final int actualHours = h == 1 ? 1 : 3; // +1h and +3h only
 final int notifId = 1110 + actualHours;
@@ -2515,7 +2568,7 @@ if (h - 1 < queue.length) {
 final parts = queue[h - 1].split('|');
 formula = cleanPrompt(parts[0]);
 correctAnswer = parts.length >= 2 ? parts[1].trim() : _computeFallbackAnswer(formula);
-if (int.tryParse(correctAnswer) == null || correctAnswer.contains(RegExp(r'[×\*xX\+\-−Ã·/\^²³]'))) {
+if (!_isCleanComputedAnswer(correctAnswer)) {
 correctAnswer = _computeFallbackAnswer(formula);
 }
 } else if (validStarred.isNotEmpty) {
@@ -2525,11 +2578,10 @@ final mult = tableMultipliers[(h * 2 + 1) % tableMultipliers.length];
 formula = '$tNum × $mult';
 correctAnswer = '${tNum * mult}';
 } else {
-// Priority 3: Dynamic math speed challenge
-final question = await _generateDynamicChallengeQuestion();
-formula = question['formula']!;
-correctAnswer = question['answer']!;
+// Only send real user mistakes or user-starred tables — NO random hardcoded questions!
+continue;
 }
+if (!_isCleanComputedAnswer(correctAnswer)) continue;
 
 final options = generateRecallOptions(correctAnswer, formula);
 final shuffledChoices = _buildThreeAnswerChoices(options, correctAnswer);
@@ -2552,11 +2604,15 @@ sound: const RawResourceAndroidNotificationSound('custom_notification_sound'),
 enableVibration: true,
 ongoing: true,
 autoCancel: false,
+colorized: false,
+color: const Color(0xFF22C55E),
 category: AndroidNotificationCategory.reminder,
 actions: actions,
 styleInformation: BigTextStyleInformation(
-'👇 Tap an option below:\n$optionsLine',
-contentTitle: '$formula = ?',
+optionsLine,
+htmlFormatBigText: true,
+contentTitle: '<font color="#22C55E"><b>⚡ $formula = ?</b></font>',
+htmlFormatContentTitle: true,
 summaryText: 'Hourly Mental Math Challenge',
 ),
 );
@@ -2593,9 +2649,10 @@ debugPrint('Error scheduling native hourly reminders: $e');
 }
 
 // Smart hourly challenge:
-// Priority 1 â†’ Pending unsolved wrong questions from queue (Round-robin: earlier + new mistakes baari-baari!)
-// Priority 2 â†’ Random question if no pending mistakes
+// Priority 1 → Pending unsolved wrong questions from queue (Round-robin: earlier + new mistakes baari-baari!)
+// Priority 2 → Random question if no pending mistakes
 Future<void> _triggerSmartHourlyChallenge({String userName = 'Aspirant'}) async {
+if (_isAppInForeground) return;
 try {
 final prefs = await SharedPreferences.getInstance();
 final List<String> queue = prefs.getStringList('pending_recall_queue') ?? [];
@@ -2614,7 +2671,7 @@ await prefs.setInt('hourly_recall_queue_index', nextIndex);
 final parts = targetItem.split('|');
 final String formula = cleanPrompt(parts[0]);
 String correctAnswer = parts.length >= 2 ? parts[1].trim() : _computeFallbackAnswer(formula);
-if (int.tryParse(correctAnswer) == null || correctAnswer.contains(RegExp(r'[×\*xX\+\-−Ã·/\^²³]'))) {
+if (!_isCleanComputedAnswer(correctAnswer)) {
 correctAnswer = _computeFallbackAnswer(formula);
 }
 
@@ -2637,14 +2694,9 @@ await cancelNotification(1111);
 return;
 }
 
-// No pending wrong questions & no starred tables â†’ generate fresh dynamic question
-final question = await _generateDynamicChallengeQuestion();
-debugPrint('⏰ Hourly: Dynamic challenge: ${question['formula']}');
-await showPersistentRecallNotification(
-id: 1111,
-prompt: question['formula']!,
-correctAnswer: question['answer']!,
-);
+// No pending wrong questions & no starred tables → stay silent (NO hardcoded/random spam)
+await cancelNotification(1111);
+return;
 }
 } catch (e) {
 debugPrint('Smart hourly challenge error: $e');
@@ -2692,13 +2744,8 @@ return {
 }
 } catch (_) {}
 
-// 3. Dynamic multiplication table (tables 11 to 30, multiplier 2 to 9)
-final t = random.nextInt(20) + 11; // 11 to 30
-final mult = random.nextInt(8) + 2; // 2 to 9
-return {
-'formula': '$t × $mult',
-'answer': '${t * mult}',
-};
+// No random hardcoded multiplication questions — return empty when user has no starred/mistakes
+return {'formula': '', 'answer': ''};
 }
 
 // Instant Hourly Challenge (manual trigger or test)
@@ -2732,28 +2779,17 @@ correctAnswer: answer,
 );
 }
 
-// Daily Inactivity Streak-Saver Alarm (Personalized with student name)
+// Disabled hardcoded generic streak spam — cancel any previously scheduled ID 7777
 Future<void> scheduleDailyStreakReminder({String userName = 'Aspirant'}) async {
-try {
 _streakTimer?.cancel();
-_streakTimer = Timer(const Duration(hours: 8), () async {
-await showNotification(
-id: 7777,
-title: '🔥 Save Your Study Streak!',
-body: 'Solve 10 questions to keep your streak alive.',
-payload: 'streak_reminder',
-);
-});
-} catch (e) {
-debugPrint('Streak alarm notice: $e');
-}
+await cancelNotification(7777);
 }
 
 // Admin Broadcast notification
 Future<void> triggerAdminBroadcast({required String title, required String body}) async {
 await showNotification(
 id: 9999,
-title: 'ðŸ“¢ $title',
+title: '📢 $title',
 body: body,
 payload: 'admin_broadcast',
 );
@@ -2765,8 +2801,20 @@ static const List<int> tableMultipliers = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 // 🌟 3.5 STARRED TABLE REVISION NOTIFICATIONS (Spaced Repetition: 1 Hr âž” +3 Hrs âž” +3 Hrs)
 // Ensures student gets calculation questions cycling through multipliers of the starred table(s)
 // with ZERO immediate disturbance, first drill at 1-hour, then spaced reinforcement at 3-hour intervals.
-Future<void> scheduleStarredTableNotification(int tableNumber) async {
+Future<void> scheduleStarredTableNotification(int tableNumber, {bool onlyIfNotScheduled = false}) async {
 try {
+if (onlyIfNotScheduled) {
+  final prefs = await SharedPreferences.getInstance();
+  final activeFormula = prefs.getString('active_starred_table_formula');
+  if (activeFormula != null && activeFormula.isNotEmpty) {
+    final dueStr = prefs.getString('recall_due_at_$activeFormula');
+    final dueAt = dueStr != null ? DateTime.tryParse(dueStr) : null;
+    if (dueAt != null && DateTime.now().isBefore(dueAt)) {
+      debugPrint('⭐ Starred table alarm already scheduled for $dueAt — preserving exact timing on app open.');
+      return;
+    }
+  }
+}
 // 1. Cancel previous starred table timers & notifications
 _starredTablePeriodicTimer?.cancel();
 for (int id = 55000; id <= 55025; id++) {
@@ -2782,14 +2830,14 @@ await prefs.setInt('active_starred_table_number', tableNumber);
 } catch (_) {}
 
 // 2. Schedule first question after 1 hour (60 minutes) - Stage 1 (NO immediate popup!)
-await _scheduleStarredTableSpaced(tableNumber, delayMinutes: 60, stage: 1);
-debugPrint('â­ Starred Table $tableNumber first spaced drill scheduled in 1 hour (Zero immediate notification)');
+await _scheduleStarredTableSpaced(tableNumber, delayMinutes: 30, stage: 1);
+debugPrint('⭐ Starred Table $tableNumber first spaced drill scheduled in 1 hour (Zero immediate notification)');
 } catch (e) {
 debugPrint('Error scheduling starred table notification: $e');
 }
 }
 
-Future<void> _scheduleStarredTableSpaced(int tableNumber, {int delayMinutes = 60, int stage = 1}) async {
+Future<void> _scheduleStarredTableSpaced(int tableNumber, {int delayMinutes = 30, int stage = 1}) async {
 try {
 _ensureTimezonesInitialized();
 final prefs = await SharedPreferences.getInstance();
@@ -2829,6 +2877,8 @@ autoCancel: false,
 playSound: true,
 sound: const RawResourceAndroidNotificationSound('custom_notification_sound'),
 enableVibration: true,
+colorized: false,
+color: const Color(0xFF22C55E),
 category: AndroidNotificationCategory.reminder,
 actions: _buildFourActions(
 formula: formula,
@@ -2836,8 +2886,10 @@ preShuffledChoices: shuffledChoices,
 correctAnswer: correctAnswer,
 ),
 styleInformation: BigTextStyleInformation(
-'👇 Tap an option below:\n$optionsLine',
-contentTitle: '$formula = ?',
+optionsLine,
+htmlFormatBigText: true,
+contentTitle: '<font color="#22C55E"><b>⭐ $formula = ?</b></font>',
+htmlFormatContentTitle: true,
 summaryText: stageTag,
 ),
 );
@@ -2871,6 +2923,7 @@ payload: 'persistent|$notifId|$formula|$correctAnswer',
 
 _activeReminderTimers[notifId]?.cancel();
 _activeReminderTimers[notifId] = Timer(Duration(minutes: delayMinutes), () async {
+if (_isAppInForeground) return;
 final isSolved = await isCalculationSolved(formula);
 if (!isSolved) {
 await _triggerSingleStarredTableQuestion(tableNumber: tableNumber, notifId: notifId, customMultiplier: m);
@@ -2956,10 +3009,10 @@ final shuffledChoices = _buildThreeAnswerChoices(options, correctAnswer);
 final String optionsLine = _buildNotificationOptionsLine(shuffledChoices);
 
 final BigTextStyleInformation bigTextStyle = BigTextStyleInformation(
-'👇 Tap an option below to answer:\n$optionsLine',
-htmlFormatBigText: false,
-contentTitle: 'Table $tableNumber: $formula = ?',
-htmlFormatContentTitle: false,
+optionsLine,
+htmlFormatBigText: true,
+contentTitle: '<font color="#22C55E"><b>⭐ Table $tableNumber: $formula = ?</b></font>',
+htmlFormatContentTitle: true,
 );
 
 final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
@@ -2973,6 +3026,8 @@ autoCancel: false,
 playSound: true,
 sound: const RawResourceAndroidNotificationSound('custom_notification_sound'),
 enableVibration: true,
+colorized: false,
+color: const Color(0xFF22C55E),
 styleInformation: bigTextStyle,
 category: AndroidNotificationCategory.reminder,
 actions: _buildFourActions(
@@ -3055,6 +3110,8 @@ autoCancel: true,
 playSound: true,
 sound: const RawResourceAndroidNotificationSound('custom_notification_sound'),
 enableVibration: true,
+colorized: false,
+color: const Color(0xFF22C55E),
 category: AndroidNotificationCategory.reminder,
 actions: _buildFourActions(
 formula: formula,
@@ -3062,8 +3119,10 @@ preShuffledChoices: shuffledChoices,
 correctAnswer: correctAnswer,
 ),
 styleInformation: BigTextStyleInformation(
-'⚡ 3-Day Retention Check: $formula = ?\nTap the correct option below to keep your Table of $tableNumber at 100% Mastered:\n$optionsLine',
-contentTitle: '🧠  Table of $tableNumber: $formula = ?',
+'⚡ 3-Day Retention Check: $formula = ?\n$optionsLine',
+htmlFormatBigText: true,
+contentTitle: '<font color="#22C55E"><b>🧠 Table of $tableNumber: $formula = ?</b></font>',
+htmlFormatContentTitle: true,
 summaryText: '3-Day Retention Alert',
 ),
 );
@@ -3095,50 +3154,20 @@ payload: 'persistent|$notifId|$formula|$correctAnswer',
 );
 } catch (_) {}
 }
-debugPrint('ðŸ“… Scheduled 3-day spaced recall for Table $tableNumber ($formula) in 3 days.');
+debugPrint('📅 Scheduled 3-day spaced recall for Table $tableNumber ($formula) in 3 days.');
 } catch (e) {
 debugPrint('Error scheduling 3-day table recall: $e');
 }
 }
 
-// 4. SMART ENGAGEMENT / BROWSE-ABANDONMENT NUDGE (Flipkart/Amazon Style)
+// Disabled unsolicited browse nudge spam (user directive: no hardcoded/random nudges)
 Future<void> scheduleBrowsedTopicNudge({
 required String topicId,
 required String topicTitle,
 String? sampleQuestion,
 String userName = 'Aspirant',
 }) async {
-try {
-// ðŸ”’ SPAM FIX: Only fire if no browse nudge was sent in the last 30 minutes
-final prefs = await SharedPreferences.getInstance();
-final lastNudgeMs = prefs.getInt('last_browse_nudge_ms') ?? 0;
-final nowMs = DateTime.now().millisecondsSinceEpoch;
-if (nowMs - lastNudgeMs < 30 * 60 * 1000) {
-debugPrint('â­ï¸ Browse nudge skipped - sent less than 30 min ago');
 return;
-}
-await prefs.setInt('last_browse_nudge_ms', nowMs);
-
-int nudgeId = 4400 + (topicId.hashCode.abs() % 1000);
-Future.delayed(const Duration(minutes: 90), () async {
-String q = sampleQuestion != null ? cleanPrompt(sampleQuestion) : '';
-// ðŸ›¡ï¸ Validate formula before posting
-if (!_isValidMathFormula(q)) {
-final dyn = await _generateDynamicChallengeQuestion();
-q = dyn['formula']!;
-}
-final ans = await getCorrectAnswerForFormula(q);
-final opts = generateRecallOptions(ans, q);
-await showNotification(
-id: nudgeId,
-title: '$q = ?',
-body: '(A) ${opts[0]}   (B) ${opts[1]}   (C) ${opts[2]}',
-payload: 'browse_continue:$topicId',
-);
-});
-} catch (e) {
-debugPrint('Browse nudge notice: $e');
-}
 }
 
 // 5. DIRECT QUESTION IN NOTIFICATION
@@ -3159,24 +3188,13 @@ payload: 'flashcard:$formula',
 );
 }
 
-// 6. DAILY SMART TOPIC RECOMMENDATION (Personalized high-frequency exam drills)
+// Disabled hardcoded generic topic recommendation spam — cancel any previously scheduled ID 6600
 Future<void> scheduleDailySmartTopicRecommendation({
 required String recommendedTopic,
 String userName = 'Aspirant',
 }) async {
-try {
 _recommendationTimer?.cancel();
-_recommendationTimer = Timer(const Duration(hours: 6), () async {
-await showNotification(
-id: 6600,
-title: 'ðŸŽ¯ Today\'s Recommended Focus for $userName',
-body: 'High exam weightage alert! Practice $recommendedTopic today for 2x faster calculation speed.',
-payload: 'recommendation:$recommendedTopic',
-);
-});
-} catch (e) {
-debugPrint('Recommendation notice: $e');
-}
+await cancelNotification(6600);
 }
 
 // 7. TOMORROW'S SCHEDULED STUDY PLAN REMINDER LOOP
@@ -3193,28 +3211,32 @@ DateTime now = DateTime.now();
 int delayMs = plan.scheduledDate.difference(now).inMilliseconds;
 
 void triggerPlanAlerts() async {
+if (_isAppInForeground) return;
+if (plan.topicTitle.trim().isEmpty) return;
+final qPart = plan.sampleQuestion.trim().isNotEmpty ? ' Quick check: ${plan.sampleQuestion}' : '';
 await showNotification(
 id: 3300,
-title: 'ðŸŽ¯ Target Time: Study ${plan.topicTitle}!',
-body: 'Hey $userName! Practice session scheduled for ${plan.topicTitle}. Quick question: What is ${plan.sampleQuestion}? Tap to start!',
+title: '🎯 Target Time: ${plan.topicTitle}!',
+body: 'Practice session scheduled for ${plan.topicTitle}.$qPart',
 payload: 'study_plan:${plan.topicId}',
 );
 
-// Persistent reminder every 45 minutes until completed
+// Persistent reminder every 45 minutes until completed (only when app is backgrounded)
 _studyPlanRecurringTimer?.cancel();
 _studyPlanRecurringTimer = Timer.periodic(const Duration(minutes: 45), (_) async {
+if (_isAppInForeground) return;
 await showNotification(
 id: 3300,
-title: 'ðŸŽ¯ Study Reminder: ${plan.topicTitle} Today',
-body: 'Hey $userName! Quick reminder for your practice goal: What is ${plan.sampleQuestion}? Tap to complete your 10-question drill!',
+title: '🎯 Study Reminder: ${plan.topicTitle}',
+body: 'Complete your planned practice for ${plan.topicTitle}.$qPart',
 payload: 'study_plan:${plan.topicId}',
 );
 });
 }
 
 if (delayMs <= 0) {
-// Time is now or already passed today
-triggerPlanAlerts();
+// Already passed while user was away — do NOT fire notification on app open!
+return;
 } else {
 // Scheduled for tomorrow (or later today)
 _studyPlanTimer = Timer(Duration(milliseconds: delayMs), () {
@@ -3281,7 +3303,7 @@ try {
 await _notificationsPlugin.zonedSchedule(
 id: 7777,
 title: '⏰ $label (RINGING NOW!)',
-body: 'ðŸš¨ Solve 5 Math Questions to Turn Off Alarm! Tap to Dismiss!',
+body: '🚨 Solve 5 Math Questions to Turn Off Alarm! Tap to Dismiss!',
 scheduledDate: scheduledTz,
 notificationDetails: details,
 androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -3293,7 +3315,7 @@ debugPrint('Exact alarm failed, scheduling with inexactAllowWhileIdle: $exactErr
 await _notificationsPlugin.zonedSchedule(
 id: 7777,
 title: '⏰ $label (RINGING NOW!)',
-body: 'ðŸš¨ Solve 5 Math Questions to Turn Off Alarm! Tap to Dismiss!',
+body: '🚨 Solve 5 Math Questions to Turn Off Alarm! Tap to Dismiss!',
 scheduledDate: scheduledTz,
 notificationDetails: details,
 androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -3348,7 +3370,7 @@ try {
 await _notificationsPlugin.zonedSchedule(
 id: 7777,
 title: '⏰ $label (RINGING NOW!)',
-body: 'ðŸš¨ Solve 5 Math Questions to Turn Off Alarm! Tap to Dismiss!',
+body: '🚨 Solve 5 Math Questions to Turn Off Alarm! Tap to Dismiss!',
 scheduledDate: scheduledTz,
 notificationDetails: details,
 androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -3360,7 +3382,7 @@ debugPrint('Exact quick test failed, falling back to inexactAllowWhileIdle: $exa
 await _notificationsPlugin.zonedSchedule(
 id: 7777,
 title: '⏰ $label (RINGING NOW!)',
-body: 'ðŸš¨ Solve 5 Math Questions to Turn Off Alarm! Tap to Dismiss!',
+body: '🚨 Solve 5 Math Questions to Turn Off Alarm! Tap to Dismiss!',
 scheduledDate: scheduledTz,
 notificationDetails: details,
 androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -3401,7 +3423,7 @@ final NotificationDetails details = NotificationDetails(android: androidDetails)
 await _notificationsPlugin.show(
 id: 7777,
 title: '⏰ $label (RINGING NOW!)',
-body: 'ðŸš¨ Solve 5 of your past mistake questions (2 choices) to turn off the alarm!',
+body: '🚨 Solve 5 of your past mistake questions (2 choices) to turn off the alarm!',
 notificationDetails: details,
 payload: 'math_alarm_ringing',
 );
@@ -3460,43 +3482,140 @@ class _AnimatedHeadsUpBannerWidget extends StatefulWidget {
 }
 
 class _AnimatedHeadsUpBannerWidgetState extends State<_AnimatedHeadsUpBannerWidget>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _animController;
   late Animation<Offset> _slideAnimation;
+  late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
+
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  late AnimationController _shimmerController;
+  late AnimationController _staggerController;
+  late AnimationController _countdownController;
+  late AnimationController _shakeController;
+  late AnimationController _winPopController;
+
   Timer? _autoDismissTimer;
+  bool _isExpanded = true;
+  int? _tappedIndex;
+  bool? _isCorrect;
 
   @override
   void initState() {
     super.initState();
+
+    // 1. Dynamic Island-style spring slide + scale entrance
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 550),
+      duration: const Duration(milliseconds: 560),
     );
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, -1.3),
+      begin: const Offset(0, -1.35),
       end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutBack,
+    ));
+    _scaleAnimation = Tween<double>(
+      begin: 0.84,
+      end: 1.0,
     ).animate(CurvedAnimation(
       parent: _animController,
       curve: Curves.easeOutBack,
     ));
     _fadeAnimation = CurvedAnimation(
       parent: _animController,
-      curve: Curves.easeOut,
+      curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
     );
 
-    _animController.forward();
-    NotificationService().playNotificationSound();
-    _autoDismissTimer = Timer(const Duration(seconds: 9), _dismiss);
+    // 2. Gentle neon breathing pulse
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _pulseAnimation = CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut);
+
+    // 3. Silky light-beam shimmer sweep across the neon green title
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    )..repeat();
+
+    // 4. Staggered pop-in for option pills
+    _staggerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    );
+
+    // 5. Smooth 12-second hairline countdown bar
+    _countdownController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 12),
+    )..forward();
+
+    // 6. Wrong shake & Correct pop controllers
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+    _winPopController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 360),
+    );
+
+    _animController.forward().then((_) {
+      if (mounted) _staggerController.forward();
+    });
+    // Start stagger slightly early so options pop smoothly as card lands
+    Future.delayed(const Duration(milliseconds: 180), () {
+      if (mounted) _staggerController.forward();
+    });
+
+    _autoDismissTimer = Timer(const Duration(seconds: 12), () {
+      _dismiss();
+    });
   }
 
-  void _dismiss() {
+  Future<void> _onOptionTap(int index, String choice) async {
+    if (_tappedIndex != null) return;
     _autoDismissTimer?.cancel();
-    if (mounted) {
-      _animController.reverse().then((_) {
-        widget.onDismiss();
-      });
+    _countdownController.stop();
+
+    final isCorrect = choice.trim().toLowerCase() == widget.correctAnswer.trim().toLowerCase();
+    setState(() {
+      _tappedIndex = index;
+      _isCorrect = isCorrect;
+    });
+
+    if (isCorrect) {
+      try {
+        HapticFeedback.mediumImpact();
+      } catch (_) {}
+      await _winPopController.forward();
+      await Future.delayed(const Duration(milliseconds: 420));
     } else {
+      try {
+        HapticFeedback.heavyImpact();
+      } catch (_) {}
+      await _shakeController.forward();
+      await Future.delayed(const Duration(milliseconds: 350));
+    }
+
+    if (mounted) {
+      await _animController.reverse();
+    }
+    if (mounted) {
+      widget.onAnswer(choice);
+    }
+  }
+
+  Future<void> _dismiss() async {
+    _autoDismissTimer?.cancel();
+    if (!mounted) return;
+    await _animController.reverse();
+    if (mounted) {
       widget.onDismiss();
     }
   }
@@ -3504,6 +3623,12 @@ class _AnimatedHeadsUpBannerWidgetState extends State<_AnimatedHeadsUpBannerWidg
   @override
   void dispose() {
     _autoDismissTimer?.cancel();
+    _pulseController.dispose();
+    _shimmerController.dispose();
+    _staggerController.dispose();
+    _countdownController.dispose();
+    _shakeController.dispose();
+    _winPopController.dispose();
     _animController.dispose();
     super.dispose();
   }
@@ -3511,12 +3636,9 @@ class _AnimatedHeadsUpBannerWidgetState extends State<_AnimatedHeadsUpBannerWidg
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
-    final stageColor = widget.stage == 1
-        ? const Color(0xFFEF4444)
-        : (widget.stage == 2 ? const Color(0xFFF97316) : const Color(0xFF10B981));
-    final stageLabel = widget.stage == 1
-        ? '🔴 30-Min Recall'
-        : (widget.stage == 2 ? '🟠 4-Hour Reinforcement' : '🟢 Next-Day Retention');
+    final String stagePrefix = widget.stage == 1
+        ? '⚡'
+        : (widget.stage == 2 ? '🔥' : '🎯');
 
     return Positioned(
       top: topPadding + 10,
@@ -3524,135 +3646,353 @@ class _AnimatedHeadsUpBannerWidgetState extends State<_AnimatedHeadsUpBannerWidg
       right: 14,
       child: SlideTransition(
         position: _slideAnimation,
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: widget.onTapBody,
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: stageColor.withValues(alpha: 0.65), width: 1.8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: stageColor.withValues(alpha: 0.35),
-                      blurRadius: 24,
-                      spreadRadius: 2,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header Row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: stageColor.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(8),
+        child: ScaleTransition(
+          scale: _scaleAnimation,
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: Dismissible(
+              key: ValueKey('heads_up_${widget.notifId}_${widget.formula}'),
+              direction: DismissDirection.up,
+              onDismissed: (_) => widget.onDismiss(),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _tappedIndex != null ? null : widget.onTapBody,
+                  borderRadius: BorderRadius.circular(22),
+                  child: AnimatedBuilder(
+                    animation: Listenable.merge([
+                      _pulseAnimation,
+                      _shakeController,
+                      _winPopController,
+                    ]),
+                    builder: (context, child) {
+                      final double shakeX = (_isCorrect == false && _shakeController.isAnimating)
+                          ? sin(_shakeController.value * 4 * pi) * 8.0
+                          : 0.0;
+                      final double popScale = (_isCorrect == true)
+                          ? 1.0 + sin(_winPopController.value * pi) * 0.03
+                          : 1.0;
+                      final Color activeBorderColor = _isCorrect == true
+                          ? const Color(0xFF22C55E)
+                          : (_isCorrect == false
+                              ? const Color(0xFFEF4444)
+                              : Color.lerp(
+                                  Colors.white.withValues(alpha: 0.08),
+                                  const Color(0xFF22C55E).withValues(alpha: 0.55),
+                                  _pulseAnimation.value * 0.7,
+                                )!);
+
+                      return Transform.translate(
+                        offset: Offset(shakeX, 0),
+                        child: Transform.scale(
+                          scale: popScale,
+                          child: Container(
+                            clipBehavior: Clip.antiAlias,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF212326),
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(
+                                color: activeBorderColor,
+                                width: _tappedIndex != null ? 1.5 : 1.1,
                               ),
-                              child: const Icon(Icons.flash_on_rounded, color: Colors.amberAccent, size: 16),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              stageLabel,
-                              style: TextStyle(
-                                color: stageColor,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close_rounded, color: Colors.white54, size: 18),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: _dismiss,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // Formula Question
-                    Text(
-                      '${widget.formula} = ?',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 1.1,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    // 4 Action Chips
-                    Row(
-                      children: [
-                        ...List.generate(widget.choices.length.clamp(0, 3), (i) {
-                          final label = ['(A)', '(B)', '(C)'][i];
-                          final val = widget.choices[i];
-                          return Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 3),
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF334155),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 8),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  elevation: 0,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.55),
+                                  blurRadius: 24,
+                                  offset: const Offset(0, 12),
                                 ),
-                                onPressed: () {
-                                  _autoDismissTimer?.cancel();
-                                  widget.onAnswer(val);
-                                },
-                                child: Text(
-                                  '$label $val',
-                                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-                                  overflow: TextOverflow.ellipsis,
+                                BoxShadow(
+                                  color: (_isCorrect == false
+                                          ? const Color(0xFFEF4444)
+                                          : const Color(0xFF22C55E))
+                                      .withValues(alpha: 0.09 + 0.1 * _pulseAnimation.value),
+                                  blurRadius: 20,
+                                  spreadRadius: 1,
                                 ),
-                              ),
+                              ],
                             ),
-                          );
-                        }),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 3),
-                            child: OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFFFBBF24),
-                                side: const BorderSide(color: Color(0xFFF59E0B)),
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              onPressed: () {
-                                _autoDismissTimer?.cancel();
-                                widget.onSnooze();
-                              },
-                              child: const Text(
-                                '⏰ Snooze',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
+                            child: child,
                           ),
                         ),
+                      );
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 13, 14, 13),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Top Clean Row: App Icon + PrepVanta • now + Rotating (^) Pill
+                              Row(
+                                children: [
+                                  AnimatedBuilder(
+                                    animation: _pulseAnimation,
+                                    builder: (context, child) {
+                                      return Transform.scale(
+                                        scale: 1.0 + 0.08 * _pulseAnimation.value,
+                                        child: child,
+                                      );
+                                    },
+                                    child: Container(
+                                      width: 17,
+                                      height: 17,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.94),
+                                        borderRadius: BorderRadius.circular(5),
+                                      ),
+                                      child: const Icon(
+                                        Icons.bolt_rounded,
+                                        color: Color(0xFF212326),
+                                        size: 13,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 7),
+                                  const Text(
+                                    'PrepVanta • now',
+                                    style: TextStyle(
+                                      color: Color(0xFF9CA3AF),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.1,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  InkWell(
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      setState(() => _isExpanded = !_isExpanded);
+                                    },
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Container(
+                                      width: 28,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF33363A),
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      child: AnimatedRotation(
+                                        turns: _isExpanded ? 0.0 : 0.5,
+                                        duration: const Duration(milliseconds: 240),
+                                        curve: Curves.easeOutCubic,
+                                        child: const Icon(
+                                          Icons.keyboard_arrow_up_rounded,
+                                          color: Color(0xFFD1D5DB),
+                                          size: 17,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 9),
+
+                              // Line 1: Breathing Emoji + Shimmering Neon Green Bold Headline
+                              Row(
+                                children: [
+                                  AnimatedBuilder(
+                                    animation: _pulseAnimation,
+                                    builder: (context, child) {
+                                      return Transform.scale(
+                                        scale: 1.0 + 0.14 * _pulseAnimation.value,
+                                        child: Text(
+                                          stagePrefix,
+                                          style: const TextStyle(fontSize: 16.5),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: AnimatedBuilder(
+                                      animation: _shimmerController,
+                                      builder: (context, child) {
+                                        final double slide = (_shimmerController.value * 2.4) - 0.7;
+                                        return ShaderMask(
+                                          blendMode: BlendMode.srcIn,
+                                          shaderCallback: (bounds) {
+                                            return LinearGradient(
+                                              begin: Alignment(slide - 0.5, 0),
+                                              end: Alignment(slide + 0.5, 0),
+                                              colors: const [
+                                                Color(0xFF22C55E),
+                                                Color(0xFF86EFAC),
+                                                Color(0xFF22C55E),
+                                              ],
+                                              stops: const [0.0, 0.5, 1.0],
+                                            ).createShader(bounds);
+                                          },
+                                          child: child,
+                                        );
+                                      },
+                                      child: Text(
+                                        '${widget.formula} = ?',
+                                        style: const TextStyle(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF22C55E),
+                                          letterSpacing: 0.25,
+                                          height: 1.2,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+
+                              // Line 2: Dynamic Subtitle (updates live with answer feedback!)
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 220),
+                                child: Text(
+                                  _isCorrect == true
+                                      ? '🎉 Sahi jawab! Memory boost locked!'
+                                      : (_isCorrect == false
+                                          ? '❌ Galat! Correct answer saved to Recall'
+                                          : '🧠 Solve fast — tap the right option below'),
+                                  key: ValueKey(_isCorrect),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: _tappedIndex != null ? FontWeight.w600 : FontWeight.w400,
+                                    color: _isCorrect == true
+                                        ? const Color(0xFF4ADE80)
+                                        : (_isCorrect == false
+                                            ? const Color(0xFFFCA5A5)
+                                            : const Color(0xFFE5E7EB)),
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ),
+
+                              // Expandable Staggered 3 Option Pills ONLY (No Snooze)
+                              AnimatedSize(
+                                duration: const Duration(milliseconds: 260),
+                                curve: Curves.easeOutCubic,
+                                child: _isExpanded
+                                    ? Padding(
+                                        padding: const EdgeInsets.only(top: 11),
+                                        child: Row(
+                                          children: List.generate(widget.choices.length.clamp(0, 3), (i) {
+                                            final label = ['(A)', '(B)', '(C)'][i];
+                                            final val = widget.choices[i];
+                                            final bool isSelected = _tappedIndex == i;
+                                            final bool isOptionCorrect =
+                                                val.trim().toLowerCase() == widget.correctAnswer.trim().toLowerCase();
+
+                                            Color pillBg = const Color(0xFF2C2F33);
+                                            Color pillBorder = const Color(0xFF22C55E).withValues(alpha: 0.35);
+                                            Color textColor = Colors.white;
+
+                                            if (_tappedIndex != null) {
+                                              if (isOptionCorrect) {
+                                                pillBg = const Color(0xFF166534);
+                                                pillBorder = const Color(0xFF4ADE80);
+                                              } else if (isSelected) {
+                                                pillBg = const Color(0xFF7F1D1D);
+                                                pillBorder = const Color(0xFFEF4444);
+                                              } else {
+                                                textColor = Colors.white38;
+                                              }
+                                            }
+
+                                            final itemAnim = CurvedAnimation(
+                                              parent: _staggerController,
+                                              curve: Interval(
+                                                (i * 0.14).clamp(0.0, 0.7),
+                                                (0.55 + i * 0.14).clamp(0.0, 1.0),
+                                                curve: Curves.easeOutBack,
+                                              ),
+                                            );
+
+                                            return Expanded(
+                                              child: AnimatedBuilder(
+                                                animation: itemAnim,
+                                                builder: (context, child) {
+                                                  return Transform.translate(
+                                                    offset: Offset(0, 12 * (1.0 - itemAnim.value)),
+                                                    child: Opacity(
+                                                      opacity: itemAnim.value.clamp(0.0, 1.0),
+                                                      child: child,
+                                                    ),
+                                                  );
+                                                },
+                                                child: Padding(
+                                                  padding: EdgeInsets.only(
+                                                    left: i == 0 ? 0 : 4,
+                                                    right: i == 2 ? 0 : 4,
+                                                  ),
+                                                  child: InkWell(
+                                                    onTap: _tappedIndex != null
+                                                        ? null
+                                                        : () => _onOptionTap(i, val),
+                                                    borderRadius: BorderRadius.circular(12),
+                                                    child: AnimatedContainer(
+                                                      duration: const Duration(milliseconds: 220),
+                                                      curve: Curves.easeOutCubic,
+                                                      padding: const EdgeInsets.symmetric(vertical: 8.5, horizontal: 6),
+                                                      alignment: Alignment.center,
+                                                      decoration: BoxDecoration(
+                                                        color: pillBg,
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        border: Border.all(
+                                                          color: pillBorder,
+                                                          width: isSelected ? 1.5 : 1.0,
+                                                        ),
+                                                      ),
+                                                      child: Text(
+                                                        isSelected && _isCorrect == true
+                                                            ? '✓ $val'
+                                                            : (isSelected && _isCorrect == false
+                                                                ? '✗ $val'
+                                                                : '$label $val'),
+                                                        style: TextStyle(
+                                                          color: textColor,
+                                                          fontSize: 12.5,
+                                                          fontWeight: FontWeight.w700,
+                                                        ),
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          }),
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Razor-thin Futuristic Green Countdown Hairline at Bottom Edge
+                        AnimatedBuilder(
+                          animation: _countdownController,
+                          builder: (context, child) {
+                            return FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor: (1.0 - _countdownController.value).clamp(0.0, 1.0),
+                              child: Container(
+                                height: 2.2,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: _isCorrect == false
+                                        ? [const Color(0xFFEF4444), const Color(0xFFF87171)]
+                                        : [const Color(0xFF16A34A), const Color(0xFF4ADE80)],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -3972,51 +4312,7 @@ class _InAppChallengeDialogState extends State<_InAppChallengeDialog>
                 ),
               );
             }),
-            const SizedBox(height: 6),
 
-            // (D) ⏰ Snooze Button (Staggered Animation Item 4)
-            AnimatedBuilder(
-              animation: _entryController,
-              builder: (context, child) {
-                final snoozeAnim = CurvedAnimation(
-                  parent: _entryController,
-                  curve: const Interval(0.45, 1.0, curve: Curves.easeOutBack),
-                );
-                return Transform.translate(
-                  offset: Offset(0, 20 * (1.0 - snoozeAnim.value)),
-                  child: Opacity(
-                    opacity: snoozeAnim.value.clamp(0.0, 1.0),
-                    child: child,
-                  ),
-                );
-              },
-              child: SizedBox(
-                width: double.infinity,
-                height: 46,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                    foregroundColor: const Color(0xFFFBBF24),
-                    side: BorderSide(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
-                  ),
-                  onPressed: _selectedIndex != null
-                      ? null
-                      : () async {
-                          if (_dismissed) return;
-                          _dismissed = true;
-                          Navigator.of(context).pop();
-                          widget.onSnooze();
-                        },
-                  icon: const Icon(Icons.alarm_rounded, size: 18),
-                  label: const Text(
-                    '(D) ⏰ Snooze until Tomorrow (9 AM)',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ),
           ],
         ),
       ),

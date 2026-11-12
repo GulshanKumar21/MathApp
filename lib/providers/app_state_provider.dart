@@ -625,18 +625,10 @@ class AppStateProvider extends ChangeNotifier {
   String get lastBrowsedTopicId => _lastBrowsedTopicId;
   String get lastBrowsedTopicTitle => _lastBrowsedTopicTitle;
 
-  // Flipkart-style Browse Tracking ("Notification-driven quick practice nudges")
+  // Track last browsed topic in memory (no unsolicited hardcoded notifications)
   void trackTopicBrowsed({required String topicId, required String title, String? detail}) {
     _lastBrowsedTopicId = topicId;
     _lastBrowsedTopicTitle = title;
-    if (_notificationsEnabled) {
-      NotificationService().scheduleBrowsedTopicNudge(
-        topicId: topicId,
-        topicTitle: title,
-        sampleQuestion: detail,
-        userName: _userName,
-      );
-    }
     notifyListeners();
   }
 
@@ -1381,12 +1373,8 @@ class AppStateProvider extends ChangeNotifier {
       checkAndResolveIfMistake(prompt: prompt, answer: answer);
     };
     await _loadState();
-    // Start the hourly calculation challenge notification pump
+    // Ensure scheduled native alarms (30m -> 3hr -> Next Day) are safely registered without firing on app open
     if (_notificationsEnabled) {
-      await NotificationService().scheduleHourlyCalculationReminder(
-        userName: _userName.isNotEmpty ? _userName : 'Aspirant',
-      );
-      // Ensure scheduled native alarms (1hr/3hr/3hr) are safely registered without popping notifications on open
       await NotificationService().rescheduleAllPendingMistakeAlarms();
     }
     _syncWithCloudBackend();
@@ -1461,19 +1449,6 @@ class AppStateProvider extends ChangeNotifier {
       _prefs!.setString('last_active_date', today);
       _prefs!.setInt('streak_days', _streakDays);
       _prefs!.setInt('today_attempted', 0);
-
-      // App automatically schedules reminders to keep the student's study streak alive
-      if (_notificationsEnabled) {
-        NotificationService().scheduleDailyStreakReminder();
-        // Daily smart topic recommendation — picks most-failed topic automatically
-        final String recommendedTopic = _mistakes.isNotEmpty
-            ? _mistakes.first.topicId.toUpperCase()
-            : 'Tables 11–20';
-        NotificationService().scheduleDailySmartTopicRecommendation(
-          recommendedTopic: recommendedTopic,
-          userName: _userName.isNotEmpty ? _userName : 'Aspirant',
-        );
-      }
     } else {
       _todayAttempted = _prefs!.getInt('today_attempted') ?? 0;
     }
@@ -1553,7 +1528,7 @@ class AppStateProvider extends ChangeNotifier {
       _starredTables.addAll(starred.map((e) => int.tryParse(e) ?? 0).where((e) => e > 0));
     }
     if (_starredTables.isNotEmpty && _notificationsEnabled) {
-      NotificationService().scheduleStarredTableNotification(_starredTables.last);
+      NotificationService().scheduleStarredTableNotification(_starredTables.last, onlyIfNotScheduled: true);
     } else {
       NotificationService().cancelStarredTableNotification(0);
     }
@@ -2771,9 +2746,6 @@ class AppStateProvider extends ChangeNotifier {
     if (!val) {
       await NotificationService().cancelAllNotifications();
     } else {
-      final name = _userName.isNotEmpty ? _userName : 'Aspirant';
-      NotificationService().scheduleDailyStreakReminder(userName: name);
-      await NotificationService().scheduleHourlyCalculationReminder(userName: name);
       await NotificationService().rescheduleAllPendingMistakeAlarms();
     }
     notifyListeners();
@@ -2912,9 +2884,6 @@ class AppStateProvider extends ChangeNotifier {
     if (_prefs != null) {
       await _prefs!.setInt('reminder_hour', hour);
       await _prefs!.setInt('reminder_minute', minute);
-    }
-    if (_notificationsEnabled) {
-      NotificationService().scheduleDailyStreakReminder(userName: _userName);
     }
     notifyListeners();
   }
