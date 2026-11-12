@@ -40,7 +40,13 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
   @override
   void initState() {
     super.initState();
-    _cleanFormula = NotificationService().cleanPrompt(widget.formula);
+    final cleaned = NotificationService().cleanPrompt(widget.formula);
+    if (cleaned.isNotEmpty) {
+      _cleanFormula = cleaned;
+    } else {
+      final raw = widget.formula.replaceAll(' = ?', '').replaceAll('=?', '').trim();
+      _cleanFormula = raw.isNotEmpty ? raw : (widget.mistake?.topicId.toUpperCase() ?? 'Math Recall');
+    }
     _deriveAnswerAndOptions();
 
     _popController = AnimationController(
@@ -87,8 +93,14 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
     }
 
     if (matched != null &&
-        int.tryParse(matched.correctAnswer.trim()) != null &&
-        !matched.correctAnswer.contains(RegExp(r'[×\*xX\+\-−÷/\^²³]'))) {
+        matched.correctAnswer.trim().isNotEmpty &&
+        (num.tryParse(matched.correctAnswer.trim()) != null ||
+            matched.correctAnswer.trim().endsWith('%')) &&
+        !matched.correctAnswer.contains(RegExp(r'[×\*xX\+\^²³]'))) {
+      _correctAnswer = matched.correctAnswer.trim();
+    } else if (matched != null &&
+        matched.correctAnswer.trim().isNotEmpty &&
+        _computeFallbackAnswer(_cleanFormula) == '0') {
       _correctAnswer = matched.correctAnswer.trim();
     } else {
       // Compute dynamically from clean formula
@@ -177,8 +189,10 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
 
     Set<String> opts = {cleanCorrect};
 
-    if (correctNum != null && correctNum != 0) {
-      if (correctNum.abs() < 10) {
+    if (correctNum != null) {
+      if (correctNum == 0) {
+        opts.addAll(['1', '2', '3']);
+      } else if (correctNum.abs() < 10) {
         // Single-digit answer (< 10): Provide realistic nearby numbers (e.g. 4 -> 5, 8, 1, 3)
         final pool = [1, -1, 2, -2, 3, -3, 4, -4, 5, -5]..shuffle();
         for (int d in pool) {
@@ -367,8 +381,14 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '$_cleanFormula = ?',
-                    style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.5),
+                    _cleanFormula.endsWith('?') ? _cleanFormula : '$_cleanFormula = ?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: _cleanFormula.length > 22 ? 22 : 36,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: -0.5,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   const Text(

@@ -670,8 +670,14 @@ class NotificationService {
         .replaceAll('?', '')
         .replaceAll('=', '')
         .trim();
+    // Only strip a notification header before ':' when the trailing segment actually holds content
     if (p.contains(':')) {
-      p = p.split(':').last.trim();
+      final trailing = p.split(':').last.trim();
+      if (trailing.isNotEmpty && RegExp(r'\d').hasMatch(trailing)) {
+        p = trailing;
+      } else {
+        p = p.replaceAll(RegExp(r':+\s*$'), '').trim();
+      }
     }
     p = p.replaceAll(RegExp(r'\s*[\*xX\u00D7\u2715\u2716]\s*'), ' × ');
     p = p.replaceAll(RegExp(r'\s*\+\s*'), ' + ');

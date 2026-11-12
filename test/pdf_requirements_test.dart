@@ -9,7 +9,9 @@ import 'package:math_speed_practice/data/vedic_tricks_repository.dart';
 import 'package:math_speed_practice/models/math_models.dart';
 import 'package:math_speed_practice/providers/app_state_provider.dart';
 import 'package:math_speed_practice/screens/practice/practice_quiz_screen.dart';
+import 'package:math_speed_practice/screens/practice/recall_solve_screen.dart';
 import 'package:math_speed_practice/screens/progress/weakness_heatmap_screen.dart';
+import 'package:math_speed_practice/services/notification_service.dart';
 import 'package:math_speed_practice/widgets/crossroads_108_logo.dart';
 import 'package:math_speed_practice/widgets/daily_planner_card.dart';
 import 'package:math_speed_practice/widgets/tactile_numpad.dart';
@@ -156,5 +158,33 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('⏸ Paused'), findsOneWidget);
     expect(find.text('Resume Practice'), findsOneWidget);
+  });
+
+  testWidgets('RecallSolveScreen never renders blank "= ?" for prompts ending with colon or % answers', (tester) async {
+    expect(NotificationService().cleanPrompt('Select 2 pairs of 108:'), 'Select 2 pairs of 108');
+    expect(NotificationService().cleanPrompt('Table 17: 17 × 6 = ?'), '17 × 6');
+
+    final mistake = MistakeModel(
+      id: 'm_colon',
+      prompt: 'Select 2 pairs of 108:',
+      userAnswer: '12 × 8',
+      correctAnswer: '108',
+      topicId: 'product_crossroads',
+      timestamp: DateTime.now(),
+    );
+
+    final provider = AppStateProvider();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: provider,
+        child: MaterialApp(
+          home: RecallSolveScreen(formula: mistake.prompt, mistake: mistake),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(' = ?'), findsNothing);
+    expect(find.text('108'), findsOneWidget);
   });
 }
