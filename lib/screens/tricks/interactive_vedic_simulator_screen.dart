@@ -221,7 +221,7 @@ class _InteractiveVedicSimulatorScreenState extends State<InteractiveVedicSimula
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                '1. Shortcut Chunein (Select Shortcut):',
+                '1. Select a Speed Shortcut:',
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5, color: Colors.white),
               ),
               Container(
@@ -367,7 +367,7 @@ class _InteractiveVedicSimulatorScreenState extends State<InteractiveVedicSimula
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                '2. Apna Number Daal Kar Dekhein:',
+                '2. Enter Custom Numbers to Simulate:',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w900,
@@ -582,19 +582,19 @@ class _InteractiveVedicSimulatorScreenState extends State<InteractiveVedicSimula
     int finalAns = a * b;
 
     return _breakdownContainer(
-      title: '100 se Chhote Numbers ka Fast Multiply',
-      methodName: 'Trick: 100 se kami dekho aur cross-minus karo',
+      title: 'Fast Multiply: Numbers Below 100',
+      methodName: 'Trick: Find deficits from 100 and cross-subtract',
       equation: '$a × $b = $finalAns',
       steps: [
-        _stepData('1', 'Dono 100 se kitne kam hain dekho:', [
-          '• $a ➔ 100 se $devA kam hai (-$devA)',
-          '• $b ➔ 100 se $devB kam hai (-$devB)',
+        _stepData('1', 'Find how far each number is below 100:', [
+          '• $a ➔ $devA below 100 (-$devA)',
+          '• $b ➔ $devB below 100 (-$devB)',
         ]),
-        _stepData('2', 'Cross-minus karo (Pehla hissa):', [
-          '• $a me se dusre ki kami ($devB) ghatao: $a - $devB = $leftPart',
-          '• (Ya $b - $devA = $leftPart — dono se same aayega!)',
+        _stepData('2', 'Cross-subtract (Left part):', [
+          '• Subtract other deficit ($devB) from $a: $a - $devB = $leftPart',
+          '• (Or $b - $devA = $leftPart — both give the same result!)',
         ]),
-        _stepData('3', 'Dono kami ko aapas me multiply karo (Aakhiri 2 digits):', [
+        _stepData('3', 'Multiply both deficits (Last 2 digits):', [
           '• $devA × $devB = $rightPartStr',
         ]),
       ],
@@ -613,19 +613,19 @@ class _InteractiveVedicSimulatorScreenState extends State<InteractiveVedicSimula
     int finalAns = a * b;
 
     return _breakdownContainer(
-      title: '100 se Bade Numbers ka Fast Multiply',
-      methodName: 'Trick: 100 se kitna zyada hai dekho aur cross-add karo',
+      title: 'Fast Multiply: Numbers Above 100',
+      methodName: 'Trick: Find surpluses above 100 and cross-add',
       equation: '$a × $b = $finalAns',
       steps: [
-        _stepData('1', 'Dono 100 se kitne zyada hain dekho:', [
-          '• $a ➔ 100 se $devA zyada hai (+$devA)',
-          '• $b ➔ 100 se $devB zyada hai (+$devB)',
+        _stepData('1', 'Find how much each number exceeds 100:', [
+          '• $a ➔ $devA above 100 (+$devA)',
+          '• $b ➔ $devB above 100 (+$devB)',
         ]),
-        _stepData('2', 'Cross-add karo (Pehla hissa):', [
-          '• $a me dusre ka extra ($devB) jodo: $a + $devB = $leftPart',
-          '• (Ya $b + $devA = $leftPart — dono se same aayega!)',
+        _stepData('2', 'Cross-add (Left part):', [
+          '• Add other surplus ($devB) to $a: $a + $devB = $leftPart',
+          '• (Or $b + $devA = $leftPart — both give the same result!)',
         ]),
-        _stepData('3', 'Extra numbers ko multiply karo (Aakhiri 2 digits):', [
+        _stepData('3', 'Multiply both surpluses (Last 2 digits):', [
           '• $devA × $devB = $rightPartStr',
         ]),
       ],
@@ -643,21 +643,21 @@ class _InteractiveVedicSimulatorScreenState extends State<InteractiveVedicSimula
     int finalAns = baseNum * baseNum;
 
     return _breakdownContainer(
-      title: 'Aakhiri me 5 wale numbers ka Square',
-      methodName: 'Trick: Pehla number × Agla number | Aakhiri me 25',
+      title: 'Square of Numbers Ending in 5',
+      methodName: 'Trick: Leading digit × (Next digit) | Always append 25',
       equation: endsIn5 ? '$a² = $finalAns' : '$baseNum² = $finalAns',
       steps: [
         if (!endsIn5)
-          _stepData('!', '⚠️ Dhyaan Dein: $a ke aakhiri me 5 nahi hai', [
-            'Yeh shortcut sirf 5 par khatam hone wale numbers (jaise 15, 25, 35, 65, 85...) ke liye hai.',
-            'Isliye hum $tens se shuru hone wale ${baseNum}² ka step-by-step method dikha rahe hain:',
+          _stepData('!', '⚠️ Note: $a does not end in 5', [
+            'This shortcut applies strictly to numbers ending in 5 (e.g. 15, 25, 35, 65, 85...).',
+            'Showing the step-by-step breakdown for ${baseNum}² instead:',
           ]),
-        _stepData('1', 'Pehle digit ko uske agle number se multiply karo:', [
-          '• Pehla digit = $tens',
-          '• $tens ko uske agle number (${tens + 1}) se guna: $tens × ${tens + 1} = $leftPart',
+        _stepData('1', 'Multiply the leading digit by the next integer:', [
+          '• Leading digit = $tens',
+          '• Multiply $tens by (${tens + 1}): $tens × ${tens + 1} = $leftPart',
         ]),
-        _stepData('2', 'Aakhiri me hamesha 25 chipka do:', [
-          '• 5² = 25 (Hamesha last me 25 hi aayega)',
+        _stepData('2', 'Always append 25 at the end:', [
+          '• 5² = 25 (Right part is always 25)',
         ]),
       ],
       resultLeft: '$leftPart',
@@ -676,17 +676,17 @@ class _InteractiveVedicSimulatorScreenState extends State<InteractiveVedicSimula
     int finalAns = a * b;
 
     return _breakdownContainer(
-      title: 'Pehla Digit Same & Last Digits ka Jod = 10',
-      methodName: 'Trick: Pehla digit × Agla number | Last digits ka multiply',
+      title: 'Same First Digit & Units Sum to 10',
+      methodName: 'Trick: First digit × Next digit | Product of unit digits',
       equation: '$a × $b = $finalAns',
       steps: [
-        _stepData('1', 'Pehle same digit ko uske agle number se multiply karo:', [
-          '• Pehla digit = $tA',
+        _stepData('1', 'Multiply the identical leading digit by the next integer:', [
+          '• Leading digit = $tA',
           '• $tA × ($tA + 1) = $tA × ${tA + 1} = $leftPart',
         ]),
-        _stepData('2', 'Aakhiri dono digits ko aapas me multiply karo:', [
-          '• Aakhiri digits: $uA aur $uB (Jod: $uA + $uB = 10)',
-          '• $uA × $uB = $rightPartStr (Hamesha 2 digits)',
+        _stepData('2', 'Multiply both unit digits together:', [
+          '• Unit digits: $uA and $uB (Sum: $uA + $uB = 10)',
+          '• $uA × $uB = $rightPartStr (Always 2 digits)',
         ]),
       ],
       resultLeft: '$leftPart',
@@ -702,20 +702,20 @@ class _InteractiveVedicSimulatorScreenState extends State<InteractiveVedicSimula
     int finalAns = a * 11;
 
     return _breakdownContainer(
-      title: 'Kisi bhi Number ko 11 se Fast Multiply',
-      methodName: 'Trick: Kinare ke digits likho aur beech me unhe jodo',
+      title: 'Fast Multiply Any Number by 11',
+      methodName: 'Trick: Place outer digits on ends, add neighbors in between',
       equation: '$a × 11 = $finalAns',
       steps: [
-        _stepData('1', 'Kinare ke digits ko aage aur peeche likho:', [
-          '• Shuru me: ${a < 100 ? tens : hundreds}',
-          '• Aakhiri me: $ones',
+        _stepData('1', 'Write the outer digits at the start and end:', [
+          '• First digit: ${a < 100 ? tens : hundreds}',
+          '• Last digit: $ones',
         ]),
-        _stepData('2', 'Beech me padosi digits ko jodo:', [
+        _stepData('2', 'Add neighboring digits for the middle:', [
           if (a < 100) ...[
-            '• Beech ka number = $tens + $ones = ${tens + ones}',
-            if (tens + ones >= 10) '• (10 ya zyada aane par 1 aage carry jud jayega)',
+            '• Middle digit = $tens + $ones = ${tens + ones}',
+            if (tens + ones >= 10) '• (Since sum ≥ 10, carry 1 forward to the left digit)',
           ] else ...[
-            '• Padosi jodi: ($tens + $ones) aur ($hundreds + $tens)',
+            '• Neighbor sums: ($tens + $ones) and ($hundreds + $tens)',
           ],
         ]),
       ],
@@ -732,14 +732,14 @@ class _InteractiveVedicSimulatorScreenState extends State<InteractiveVedicSimula
     int finalAns = a * 99;
 
     return _breakdownContainer(
-      title: 'Kisi 2-Digit Number ko 99 se Multiply karna',
-      methodName: 'Trick: 1 minus karo | 100 me se bacha hua hissa likho',
+      title: 'Multiply Any 2-Digit Number by 99',
+      methodName: 'Trick: Subtract 1 (Left) | Complement from 100 (Right)',
       equation: '$a × 99 = $finalAns',
       steps: [
-        _stepData('1', 'Number me se 1 ghatao (Pehla hissa):', [
+        _stepData('1', 'Subtract 1 from the number (Left part):', [
           '• $a - 1 = $leftPart',
         ]),
-        _stepData('2', '100 me se us number ko minus karo (Aakhiri hissa):', [
+        _stepData('2', 'Subtract the number from 100 (Right part):', [
           '• 100 - $a = $rightPartStr',
         ]),
       ],
@@ -757,16 +757,16 @@ class _InteractiveVedicSimulatorScreenState extends State<InteractiveVedicSimula
     int finalAns = a * a;
 
     return _breakdownContainer(
-      title: '51 se 59 tak ke Numbers ka Fast Square',
-      methodName: 'Trick: 25 + Aakhiri digit | Aakhiri digit ka square',
+      title: 'Fast Squares from 51 to 59',
+      methodName: 'Trick: 25 + Unit digit (Left) | Unit digit² (Right)',
       equation: '$a² = $finalAns',
       steps: [
-        _stepData('1', '25 me aakhiri digit jodo (Pehla hissa):', [
-          '• Aakhiri digit = $u',
+        _stepData('1', 'Add the unit digit to 25 (Left part):', [
+          '• Unit digit = $u',
           '• 25 + $u = $leftPart',
         ]),
-        _stepData('2', 'Aakhiri digit ka square karo (Aakhiri 2 digits):', [
-          '• $u² = $rightPartStr (Hamesha 2 digits me)',
+        _stepData('2', 'Square the unit digit (Last 2 digits):', [
+          '• $u² = $rightPartStr (Always write in 2 digits)',
         ]),
       ],
       resultLeft: '$leftPart',
@@ -787,18 +787,18 @@ class _InteractiveVedicSimulatorScreenState extends State<InteractiveVedicSimula
 
     return _breakdownContainer(
       title: 'Universal 2-Digit Multiply (Criss-Cross)',
-      methodName: 'Trick: Sidha guna ➔ Cross guna karke jod ➔ Sidha guna',
+      methodName: 'Trick: Right vertical ➔ Cross-multiply & add ➔ Left vertical',
       equation: '$a × $b = $finalAns',
       steps: [
-        _stepData('1', 'Right side ke digits ka sidha multiply karo:', [
-          '• $a2 × $b2 = $step1 (Likhna hai ${step1 % 10}, Carry = ${step1 ~/ 10})',
+        _stepData('1', 'Multiply the right-side digits vertically:', [
+          '• $a2 × $b2 = $step1 (Write ${step1 % 10}, Carry = ${step1 ~/ 10})',
         ]),
-        _stepData('2', 'Cross-multiply karke aapas me jodo:', [
+        _stepData('2', 'Cross-multiply and add both products:', [
           '• ($a1 × $b2) + ($a2 × $b1) = ${a1 * b2} + ${a2 * b1} = $step2',
-          if (step1 ~/ 10 > 0) '• Carry (${step1 ~/ 10}) jodne par = ${step2 + (step1 ~/ 10)}',
+          if (step1 ~/ 10 > 0) '• Adding carry (${step1 ~/ 10}) = ${step2 + (step1 ~/ 10)}',
         ]),
-        _stepData('3', 'Left side ke digits ka sidha multiply + Carry:', [
-          '• $a1 × $b1 = $step3 (Bachi hui carry jodo)',
+        _stepData('3', 'Multiply the left-side digits + remaining carry:', [
+          '• $a1 × $b1 = $step3 (Plus remaining carry from Step 2)',
         ]),
       ],
       resultLeft: '${finalAns ~/ 100}',
