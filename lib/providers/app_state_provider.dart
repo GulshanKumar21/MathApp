@@ -890,7 +890,7 @@ class AppStateProvider extends ChangeNotifier {
         _englishMistakes.insert(0, mistake);
       }
 
-      // Also record into central mistake stream so Admin sees English mistakes too
+      // Keep Math _mistakes purely for Math calculations; send English mistakes separately in Admin analytics snapshot
       String userSel = (selectedIndex >= 0 && selectedIndex < options.length) ? options[selectedIndex] : 'Option $selectedIndex';
       String correctSel = (correctIndex >= 0 && correctIndex < options.length) ? options[correctIndex] : 'Option $correctIndex';
       final em = MistakeModel(
@@ -901,18 +901,11 @@ class AppStateProvider extends ChangeNotifier {
         topicId: 'English: Verbal',
         timestamp: DateTime.now(),
       );
-      int mIdx = _mistakes.indexWhere((m) => m.prompt == questionText);
-      if (mIdx != -1) {
-        _mistakes[mIdx] = em;
-      } else {
-        _mistakes.insert(0, em);
-      }
-      _mergeCurrentStudentAnalytics();
       unawaited(CloudFirestoreSyncService().syncStudentMistakeAnalytics(
         userUid: _effectiveUid,
         userName: _userName,
         userEmail: _userEmail,
-        mistakes: _mistakes,
+        mistakes: [..._mistakes, em],
         accuracy: overallAccuracy,
         totalAttempted: totalQuestionsAttempted,
       ));
@@ -1505,10 +1498,13 @@ class AppStateProvider extends ChangeNotifier {
       _todayAttempted = _prefs!.getInt('today_attempted') ?? 0;
     }
 
-    // Load mistakes (active pending queue for 1-hour recall alert)
+    // Load mistakes (active pending queue for 1-hour math recall alert)
     List<String>? mistakeStrings = _prefs!.getStringList('mistakes_list');
     if (mistakeStrings != null) {
-      _mistakes = mistakeStrings.map((s) => MistakeModel.fromMap(json.decode(s))).toList();
+      _mistakes = mistakeStrings
+          .map((s) => MistakeModel.fromMap(json.decode(s)))
+          .where((m) => !m.topicId.toLowerCase().startsWith('english'))
+          .toList();
     }
 
     // Load lifetime mistake notebook (permanently stores all mistakes, even after solved)

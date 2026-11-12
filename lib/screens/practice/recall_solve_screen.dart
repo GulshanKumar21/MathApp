@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/math_models.dart';
+import '../../models/english_models.dart';
+import '../../data/english_content_bank.dart';
+import '../../services/vocab_dictionary_service.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/app_state_provider.dart';
 import '../../services/notification_service.dart';
@@ -25,6 +28,8 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
   late String _cleanFormula;
   late String _correctAnswer;
   late List<String> _options;
+  bool _isEnglishQuestion = false;
+  String? _matchedEnglishId;
   final TextEditingController _inputCtrl = TextEditingController();
 
   String? _selectedOption;
@@ -40,8 +45,12 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
   @override
   void initState() {
     super.initState();
+    final isLegacyEnglish = widget.mistake?.topicId.toLowerCase().startsWith('english') == true;
     final cleaned = NotificationService().cleanPrompt(widget.formula);
-    if (cleaned.isNotEmpty) {
+    if (isLegacyEnglish) {
+      _isEnglishQuestion = true;
+      _cleanFormula = widget.formula.replaceAll(' = ?', '').trim();
+    } else if (cleaned.isNotEmpty) {
       _cleanFormula = cleaned;
     } else {
       final raw = widget.formula.replaceAll(' = ?', '').replaceAll('=?', '').trim();
@@ -79,10 +88,52 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
   }
 
   void _deriveAnswerAndOptions() {
+    final state = context.read<AppStateProvider>();
+    final String rawNorm = widget.formula.replaceAll(' = ?', '').replaceAll(':', '').trim().toLowerCase();
+
+    // 0. Check if this question matches an English mistake / English MCQ bank
+    EnglishMistake? matchedEng;
+    for (final em in state.englishMistakes) {
+      final qNorm = em.questionText.replaceAll(':', '').trim().toLowerCase();
+      if (qNorm == rawNorm || em.questionText.trim() == widget.formula.trim()) {
+        matchedEng = em;
+        break;
+      }
+    }
+    if (matchedEng != null && matchedEng.options.length >= 2) {
+      _isEnglishQuestion = true;
+      _matchedEnglishId = matchedEng.id;
+      _cleanFormula = matchedEng.questionText.trim();
+      final idx = matchedEng.correctIndex.clamp(0, matchedEng.options.length - 1);
+      _correctAnswer = matchedEng.options[idx].trim();
+      _options = List<String>.from(matchedEng.options)..shuffle();
+      return;
+    }
+
+    // Search built-in English banks in case EnglishMistake was already removed or opened from legacy cache
+    final allEnglishQs = <EnglishExerciseQuestion>[
+      ...EnglishContentBank.topics.expand((t) => t.exercises),
+      ...EnglishContentBank.allOneWordSubstitution,
+      ...EnglishContentBank.allSpellingQuestions,
+      ...EnglishContentBank.allIdiomQuestions,
+      ...EnglishContentBank.allGrammarQuestions,
+      ...VocabDictionaryService().getQuestionsForTopic('all'),
+    ];
+    for (final eq in allEnglishQs) {
+      final qNorm = eq.questionText.replaceAll(':', '').trim().toLowerCase();
+      if (qNorm == rawNorm || eq.questionText.trim() == widget.formula.trim()) {
+        _isEnglishQuestion = true;
+        _cleanFormula = eq.questionText.trim();
+        final idx = eq.correctIndex.clamp(0, eq.options.length - 1);
+        _correctAnswer = eq.options[idx].trim();
+        _options = List<String>.from(eq.options)..shuffle();
+        return;
+      }
+    }
+
     // 1. Try to find from passed mistake or AppStateProvider mistakes
     MistakeModel? matched = widget.mistake;
     if (matched == null) {
-      final state = context.read<AppStateProvider>();
       try {
         matched = state.mistakes.firstWhere(
           (m) => NotificationService().cleanPrompt(m.prompt) == _cleanFormula,
@@ -90,6 +141,25 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
       } catch (_) {
         matched = null;
       }
+    }
+
+    if (matched != null && matched.topicId.toLowerCase().startsWith('english')) {
+      _isEnglishQuestion = true;
+      _cleanFormula = matched.prompt.replaceAll(' = ?', '').trim();
+      final ans = matched.correctAnswer.trim();
+      _correctAnswer = ans.isNotEmpty ? ans : 'None';
+      final Set<String> wordOpts = {_correctAnswer};
+      if (matched.userAnswer.trim().isNotEmpty &&
+          matched.userAnswer.trim().toLowerCase() != _correctAnswer.toLowerCase()) {
+        wordOpts.add(matched.userAnswer.trim());
+      }
+      final fallbackWords = EnglishContentBank.topics.map((t) => t.word).toList()..shuffle();
+      for (final w in fallbackWords) {
+        if (wordOpts.length >= 4) break;
+        if (w.toLowerCase() != _correctAnswer.toLowerCase()) wordOpts.add(w);
+      }
+      _options = wordOpts.take(4).toList()..shuffle();
+      return;
     }
 
     if (matched != null &&
@@ -293,6 +363,9 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
 
       // Clear from mistakes list and cancel 1-hour periodic notification
       await state.checkAndResolveIfMistake(prompt: _cleanFormula, answer: trimmed);
+      if (_matchedEnglishId != null) {
+        await state.removeEnglishMistake(_matchedEnglishId!);
+      }
 
       // Auto exit back after 750ms with smooth transition
       Future.delayed(const Duration(milliseconds: 750), () {
@@ -381,7 +454,7 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    _cleanFormula.endsWith('?') ? _cleanFormula : '$_cleanFormula = ?',
+                    (_isEnglishQuestion || _cleanFormula.endsWith('?')) ? _cleanFormula : '$_cleanFormula = ?',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: _cleanFormula.length > 22 ? 22 : 36,

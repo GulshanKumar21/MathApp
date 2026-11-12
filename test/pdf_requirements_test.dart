@@ -187,4 +187,44 @@ void main() {
     expect(find.text(' = ?'), findsNothing);
     expect(find.text('108'), findsOneWidget);
   });
+
+  testWidgets('English mistakes do NOT leak into Math Recall queue and RecallSolveScreen never shows 0/1/2/3 for Discreet', (tester) async {
+    final provider = AppStateProvider();
+    await provider.recordEnglishAnswer(
+      isCorrect: false,
+      questionId: 't_discreet',
+      questionText: 'Select the SYNONYM of Discreet:',
+      options: ['Careless', 'Circumspect', 'Hasty', 'Loud'],
+      correctIndex: 1,
+      selectedIndex: 0,
+      explanation: 'Discreet means careful and circumspect.',
+    );
+
+    expect(provider.englishMistakes.any((m) => m.id == 't_discreet'), isTrue);
+    expect(provider.mistakes.any((m) => m.topicId.toLowerCase().startsWith('english')), isFalse);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: provider,
+        child: MaterialApp(
+          home: RecallSolveScreen(
+            formula: 'Select the SYNONYM of Discreet:',
+            mistake: MistakeModel(
+              id: 'legacy_eng',
+              prompt: 'Select the SYNONYM of Discreet:',
+              userAnswer: 'Careless',
+              correctAnswer: 'Circumspect',
+              topicId: 'English: Verbal',
+              timestamp: DateTime.now(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Circumspect'), findsOneWidget);
+    expect(find.text('Select the SYNONYM of Discreet = ?'), findsNothing);
+    expect(find.text('0'), findsNothing);
+  });
 }
