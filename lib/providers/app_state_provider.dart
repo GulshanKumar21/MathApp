@@ -1069,8 +1069,8 @@ class AppStateProvider extends ChangeNotifier {
   }
 
   // Restore complete student data from Cloud Firestore on login or new install
-  Future<void> restoreUserDataFromCloud(String uid) async {
-    if (uid.isEmpty) return;
+  Future<bool> restoreUserDataFromCloud(String uid) async {
+    if (uid.isEmpty) return false;
     try {
       final cloudData = await BackendService().fetchFullUserData(uid);
       if (cloudData != null) {
@@ -1135,16 +1135,26 @@ class AppStateProvider extends ChangeNotifier {
 
         notifyListeners();
         debugPrint('✅ Cloud Restore: Successfully loaded ${_history.length} history sessions, ${_mistakes.length} mistakes, and $_streakDays streak days for $_userName ($uid)!');
+        return true;
       } else {
         // Brand new account with no cloud history yet: Keep clean pristine baseline
         debugPrint('ℹ️ New user account ($uid): Initialized with fresh clean state.');
+        return false;
       }
     } catch (e) {
       debugPrint('Error restoring user data from cloud: $e');
+      return false;
     }
   }
 
-  Future<void> setLoggedInUser({required String name, required String email, String uid = '', String role = 'student'}) async {
+  Future<void> setLoggedInUser({
+    required String name,
+    required String email,
+    String uid = '',
+    String role = 'student',
+    String phone = '',
+    bool isNewUser = false,
+  }) async {
     // 1. Immediately wipe any in-memory data left from the previous user
     _history.clear();
     _mistakes.clear();
@@ -1164,8 +1174,10 @@ class AppStateProvider extends ChangeNotifier {
       await NotificationService().cancelAllNotifications();
     } catch (_) {}
 
-    _userName = name.isNotEmpty ? name : (email.isNotEmpty ? email.split('@').first : 'Aspirant');
-    _userEmail = email;
+    _userName = name.isNotEmpty
+        ? name
+        : (email.isNotEmpty ? email.split('@').first : (phone.isNotEmpty ? phone : 'Aspirant'));
+    _userEmail = email.isNotEmpty ? email : phone;
     _userUid = uid.isNotEmpty ? uid : 'usr_${DateTime.now().millisecondsSinceEpoch}';
     _userRole = role;
     _isLoggedIn = true;
@@ -1197,30 +1209,36 @@ class AppStateProvider extends ChangeNotifier {
     notifyListeners();
 
     // 3. RESTORE THIS USER'S CLOUD DATA (Only loads data belonging to this uid)
-    await restoreUserDataFromCloud(_userUid);
+    final bool restoredExisting = await restoreUserDataFromCloud(_userUid);
 
-    // 4. Sync user registration to Firebase Backend directly
+    // 4. Sync user profile metadata to Firebase Backend without overwriting progress
     unawaited(BackendService().registerUserOnBackend(
       uid: _userUid,
       name: _userName,
       email: _userEmail,
+      phone: phone,
       role: _userRole,
+      isNewUser: isNewUser,
     ));
 
-    // 5. Immediately sync only THIS user's real progress to Cloud Leaderboard and refresh rankings
-    unawaited(BackendService().syncUserProgressToLeaderboard(
-      userName: _userName,
-      score: liveUserScore,
-      accuracy: overallAccuracy,
-      streak: _streakDays,
-      userUid: _userUid,
-      targetExam: _targetExam,
-      questionsSolved: totalQuestionsAttempted,
-    ));
+    // 5. Sync leaderboard only when cloud data was restored or this is a confirmed new registration
+    if (restoredExisting || isNewUser) {
+      unawaited(BackendService().syncUserProgressToLeaderboard(
+        userName: _userName,
+        score: liveUserScore,
+        accuracy: overallAccuracy,
+        streak: _streakDays,
+        userUid: _userUid,
+        targetExam: _targetExam,
+        questionsSolved: totalQuestionsAttempted,
+      ));
+    }
     unawaited(fetchRealLeaderboard(forceRefresh: true));
 
-    // 6. Ensure state is mirrored back to cloud
-    unawaited(syncUserDataToCloud());
+    // 6. Only mirror back to cloud if we actually restored existing cloud state or just registered
+    if (restoredExisting || isNewUser) {
+      unawaited(syncUserDataToCloud());
+    }
   }
 
   void updateUserName(String name) {
@@ -1373,6 +1391,40 @@ class AppStateProvider extends ChangeNotifier {
       checkAndResolveIfMistake(prompt: prompt, answer: answer);
     };
     await _loadState();
+
+    // Sync local session with live FirebaseAuth state
+    try {
+      final fbUser = FirebaseAuth.instance.currentUser;
+      if (_isLoggedIn && _userRole == 'admin' && fbUser == null) {
+        // Security: never allow an unauthenticated admin session persisted from legacy code
+        await logout();
+      } else if (fbUser != null) {
+        if (!_isLoggedIn || _userUid != fbUser.uid) {
+          _userUid = fbUser.uid;
+          if ((fbUser.email ?? '').isNotEmpty) {
+            _userEmail = fbUser.email!;
+          } else if ((fbUser.phoneNumber ?? '').isNotEmpty && _userEmail == 'Not signed in') {
+            _userEmail = fbUser.phoneNumber!;
+          }
+          if ((fbUser.displayName ?? '').isNotEmpty && _userName == 'Guest Aspirant') {
+            _userName = fbUser.displayName!;
+          }
+          _isLoggedIn = true;
+          await _prefs?.setString('user_uid', _userUid);
+          await _prefs?.setString('user_email', _userEmail);
+          await _prefs?.setString('user_name', _userName);
+          await _prefs?.setBool('is_logged_in', true);
+          notifyListeners();
+        }
+        // Re-verify cloud role for authenticated user
+        unawaited(checkAndVerifyAdminRole(
+          (fbUser.email ?? '').isNotEmpty ? fbUser.email! : fbUser.uid,
+        ));
+      }
+    } catch (e) {
+      debugPrint('FirebaseAuth startup sync note: $e');
+    }
+
     // Ensure scheduled native alarms (30m -> 3hr -> Next Day) are safely registered without firing on app open
     if (_notificationsEnabled) {
       await NotificationService().rescheduleAllPendingMistakeAlarms();
@@ -1789,14 +1841,14 @@ class AppStateProvider extends ChangeNotifier {
         if (matchKey != null) {
           final existing = combinedUsers[matchKey]!;
           existing.addAll(u);
-          if (u['role'] == 'admin' || uEmail.contains('admin') || uEmail == 'gulshankumar.dev01@gmail.com') {
+          if (u['role'] == 'admin' || uEmail == 'gulshankumar.dev01@gmail.com') {
             existing['role'] = 'admin';
           }
         } else {
           String newKey = uEmail.isNotEmpty ? uEmail : (uUid.isNotEmpty ? uUid : uName);
           if (newKey.isNotEmpty) {
             final entry = Map<String, dynamic>.from(u);
-            if (uEmail.contains('admin') || uEmail == 'gulshankumar.dev01@gmail.com') {
+            if (uEmail == 'gulshankumar.dev01@gmail.com') {
               entry['role'] = 'admin';
             }
             combinedUsers[newKey] = entry;

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme/app_theme.dart';
@@ -22,12 +24,20 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
+  static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+  static final RegExp _phoneRegex = RegExp(r'^\d{10}$');
+
   late bool _isLogin; // Toggle between Login and Register
   bool _usePhoneAuth = false; // Toggle between Email & Phone OTP
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _otpSent = false;
   bool _isLoading = false;
+
+  String? _verificationId;
+  int? _resendToken;
+  int _resendSeconds = 0;
+  Timer? _resendTimer;
 
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
@@ -45,6 +55,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
@@ -54,229 +65,109 @@ class _AuthScreenState extends State<AuthScreen> {
     super.dispose();
   }
 
-  void _handleSubmit() async {
-    if (!_formKey.currentState!.validate()) return;
+  void _showSnack(String message, {Color backgroundColor = AppTheme.error}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+      ),
+    );
+  }
 
-    final email = _usePhoneAuth
-        ? '${_phoneController.text.trim()}@speedmath.app'
-        : _emailController.text.trim().toLowerCase();
-    final password = _passwordController.text.trim();
+  String _mapFirebaseAuthError(FirebaseAuthException e, {String fallback = 'Authentication failed. Please try again.'}) {
+    switch (e.code) {
+      case 'user-not-found':
+        return 'No account found with this email. Please register first.';
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Incorrect email or password. Please verify and try again.';
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'email-already-in-use':
+        return 'This email is already registered. Please sign in instead.';
+      case 'weak-password':
+        return 'Password is too weak. Use at least 6 characters.';
+      case 'user-disabled':
+        return 'This account has been disabled. Please contact support.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please wait a few minutes and try again.';
+      case 'network-request-failed':
+        return 'No internet connection. Please check your network and retry.';
+      case 'operation-not-allowed':
+        return 'This sign-in method is not enabled right now. Please try Email Sign-In.';
+      case 'invalid-phone-number':
+        return 'Invalid 10-digit mobile number. Please check and retry.';
+      case 'invalid-verification-code':
+        return 'Incorrect OTP code. Please check the SMS and try again.';
+      case 'session-expired':
+        return 'OTP expired. Please request a fresh OTP.';
+      case 'quota-exceeded':
+        return 'SMS quota temporarily exceeded. Please try Email or Google Sign-In.';
+      case 'app-not-authorized':
+      case 'missing-client-identifier':
+        return 'Phone verification is not authorized for this build. Please use Email or Google Sign-In.';
+      case 'account-exists-with-different-credential':
+        return 'An account already exists with this email using a different sign-in method.';
+      default:
+        return e.message ?? '$fallback (${e.code})';
+    }
+  }
 
-    // Confirm password check on registration
-    if (!_isLogin && !_usePhoneAuth) {
-      if (_passwordController.text != _confirmPasswordController.text) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Passwords do not match. Please verify.'),
-            backgroundColor: AppTheme.error,
-          ),
-        );
+  void _startResendCountdown() {
+    _resendTimer?.cancel();
+    setState(() => _resendSeconds = 60);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
         return;
       }
-    }
-
-    // Phone OTP check
-    if (_usePhoneAuth) {
-      if (!_otpSent) {
-        _sendOtp();
-        return;
+      if (_resendSeconds <= 1) {
+        timer.cancel();
+        setState(() => _resendSeconds = 0);
+      } else {
+        setState(() => _resendSeconds--);
       }
-      final otp = _otpController.text.trim();
-      if (otp.length < 4) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter the received OTP'),
-            backgroundColor: AppTheme.error,
-          ),
-        );
-        return;
-      }
-    }
+    });
+  }
 
-    setState(() => _isLoading = true);
-
-    String displayName = _nameController.text.trim().isNotEmpty
-        ? _nameController.text.trim()
-        : (_emailController.text.split('@').first.isNotEmpty
-            ? _emailController.text.split('@').first
-            : 'Aspirant User');
-
-    String uid = 'usr_${DateTime.now().millisecondsSinceEpoch}';
-    String userRole = 'student';
-
-    // 1. SMART ROLE RECOGNITION: Check Master Admin Credentials
-    final isMasterAdmin = password == 'admin123' ||
-        password == '9999' ||
-        email == 'admin@speedmath.com' ||
-        (email.contains('admin') && password.length >= 4);
-
-    if (isMasterAdmin) {
-      userRole = 'admin';
-      displayName = 'Master Admin';
-    } else {
-      // 2. Normal Student / Aspirant Firebase Authentication
-      try {
-        if (_isLogin) {
-          try {
-            final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
-              email: email,
-              password: password,
-            );
-            if (cred.user != null) {
-              uid = cred.user!.uid;
-              if (cred.user!.displayName != null && cred.user!.displayName!.isNotEmpty) {
-                displayName = cred.user!.displayName!;
-              }
-            }
-          } on FirebaseAuthException catch (e) {
-            if (!mounted) return;
-            setState(() => _isLoading = false);
-            String message = 'Sign in failed. Please verify credentials.';
-            switch (e.code) {
-              case 'user-not-found':
-                message = 'No account found with this email. Please register first.';
-                break;
-              case 'wrong-password':
-              case 'invalid-credential':
-                message = 'Incorrect password or email. Please check and try again.';
-                break;
-              case 'invalid-email':
-                message = 'Invalid email address format.';
-                break;
-              case 'user-disabled':
-                message = 'This user account has been disabled. Please contact support.';
-                break;
-              case 'too-many-requests':
-                message = 'Too many attempts. Please try again in a few minutes.';
-                break;
-              case 'network-request-failed':
-                message = 'Network error. Please check your internet connection.';
-                break;
-              default:
-                message = e.message ?? 'Authentication error (${e.code}).';
-            }
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(message), backgroundColor: AppTheme.error),
-            );
-            return;
-          } catch (e) {
-            debugPrint('Firebase Auth sign in fallback note: $e');
-          }
-
-          // Check if this account has admin role in Cloud Firestore
-          final cloudRole = await CloudFirestoreSyncService().fetchUserRoleFromCloud(uid, email);
-          if (cloudRole == 'admin') {
-            userRole = 'admin';
-          } else {
-            userRole = 'student';
-          }
-
-          // Live Cloud Firestore profile record on sign in (ensures profile is never missing)
-          final finalName = displayName.isNotEmpty ? displayName : (email.split('@').first);
-          await CloudFirestoreSyncService().saveUserProfile(
-            uid: uid,
-            name: finalName,
-            email: email,
-            phone: _usePhoneAuth ? _phoneController.text.trim() : '',
-            role: userRole,
-          );
-        } else {
-          // Registration flow
-          try {
-            final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-              email: email,
-              password: password,
-            );
-            if (cred.user != null) {
-              uid = cred.user!.uid;
-              await cred.user!.updateDisplayName(displayName);
-            }
-          } on FirebaseAuthException catch (e) {
-            if (!mounted) return;
-            setState(() => _isLoading = false);
-            String message = 'Registration failed.';
-            switch (e.code) {
-              case 'email-already-in-use':
-                message = 'This email is already registered. Please sign in instead.';
-                break;
-              case 'weak-password':
-                message = 'Password is too weak. Please use at least 6 characters.';
-                break;
-              case 'invalid-email':
-                message = 'Invalid email address format.';
-                break;
-              case 'network-request-failed':
-                message = 'Network error. Please check your internet connection.';
-                break;
-              default:
-                message = e.message ?? 'Registration error (${e.code}).';
-            }
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(message), backgroundColor: AppTheme.error),
-            );
-            return;
-          } catch (e) {
-            debugPrint('Firebase Auth create user fallback note: $e');
-          }
-
-          userRole = 'student';
-
-          // Live Cloud Firestore profile record
-          await CloudFirestoreSyncService().saveUserProfile(
-            uid: uid,
-            name: displayName,
-            email: email,
-            phone: _usePhoneAuth ? _phoneController.text.trim() : '',
-            role: 'student',
-          );
-
-          // Initial profile sync to Leaderboard (Real 0 initial baseline)
-          await BackendService().syncUserProgressToLeaderboard(
-            userName: displayName,
-            score: 0,
-            accuracy: 0.0,
-            streak: 0,
-            userUid: uid,
-            targetExam: 'SSC CGL',
-            questionsSolved: 0,
-          );
-        }
-      } catch (e) {
-        debugPrint('Auth process note: $e');
-      }
-    }
-
+  Future<void> _completeAuthSuccess({
+    required User user,
+    required String displayName,
+    required String email,
+    required String phone,
+    required String userRole,
+    required bool isNewUser,
+  }) async {
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    // Update global app state and store role
     final provider = context.read<AppStateProvider>();
     await provider.setLoggedInUser(
       name: displayName,
       email: email,
-      uid: uid,
+      uid: user.uid,
       role: userRole,
+      phone: phone,
+      isNewUser: isNewUser,
     );
     provider.setAdminStudentPreview(false);
 
     if (!mounted) return;
 
-    final successMsg = userRole == 'admin'
+    final String successMsg = userRole == 'admin'
         ? '👑 Admin authenticated! Opening Admin Control Center...'
-        : (_isLogin
-            ? 'Welcome back, $displayName!'
-            : 'Account registered successfully! Unlimited access unlocked.');
+        : (isNewUser
+            ? 'Account registered successfully! Unlimited access unlocked.'
+            : 'Welcome back, $displayName!');
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(successMsg),
-        backgroundColor: userRole == 'admin' ? AppTheme.gold : const Color(0xFF10B981),
-      ),
+    _showSnack(
+      successMsg,
+      backgroundColor: userRole == 'admin' ? AppTheme.gold : const Color(0xFF10B981),
     );
 
-    // If Admin: always route to Admin Panel, NEVER show user view
-    // If Student: route to Student Practice view
-    if (userRole == 'admin') {
+    if (userRole == 'admin' || !Navigator.canPop(context)) {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const MainNavigationHolder()),
@@ -287,163 +178,424 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  void _handleForgotPassword() {
-    final resetEmailController = TextEditingController(text: _emailController.text.trim());
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF13192B),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.lock_reset_rounded, color: AppTheme.accent),
-            SizedBox(width: 8),
-            Text('Reset Password', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Enter your registered email address to receive a secure password reset link.',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: resetEmailController,
-              keyboardType: TextInputType.emailAddress,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'student@example.com',
-                hintStyle: const TextStyle(color: Colors.white38),
-                prefixIcon: const Icon(Icons.email_outlined, color: Colors.white60),
-                filled: true,
-                fillColor: AppTheme.surface,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryLight,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () async {
-              final email = resetEmailController.text.trim().toLowerCase();
-              if (email.isEmpty || !email.contains('@')) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter a valid email address'), backgroundColor: AppTheme.error),
-                );
-                return;
-              }
-              Navigator.pop(ctx);
-              try {
-                await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('📧 Password reset link sent! Please check your email inbox.'),
-                      backgroundColor: Color(0xFF10B981),
-                    ),
-                  );
-                }
-              } on FirebaseAuthException catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(e.message ?? 'Failed to send reset email'), backgroundColor: AppTheme.error),
-                  );
-                }
-              } catch (e) {
-                debugPrint('Reset email error: $e');
-              }
-            },
-            child: const Text('Send Reset Link', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
+  Future<void> _handleSubmit() async {
+    if (_isLoading) return;
+    if (!_formKey.currentState!.validate()) return;
 
-  void _sendOtp() async {
-    final phone = _phoneController.text.trim();
-    if (phone.length != 10) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid 10-digit mobile number'), backgroundColor: AppTheme.error),
-      );
+    if (_usePhoneAuth) {
+      if (!_otpSent) {
+        await _sendOtp();
+        return;
+      }
+      await _verifyOtpAndSignIn();
+      return;
+    }
+
+    final email = _emailController.text.trim().toLowerCase();
+    final password = _passwordController.text;
+
+    if (!_isLogin && password != _confirmPasswordController.text) {
+      _showSnack('Passwords do not match. Please verify.');
       return;
     }
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-      _otpSent = true;
-      _otpController.text = '123456'; // Auto-fill demo OTP
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('OTP sent successfully to +91 mobile number! Auto-filled: 123456'),
-        backgroundColor: Color(0xFF10B981),
-      ),
-    );
-  }
-
-  void _handleGoogleSignIn() async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    if (!mounted) return;
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      String name = (user?.displayName != null && user!.displayName!.isNotEmpty) ? user.displayName! : 'Aspirant User';
-      String email = (user?.email != null && user!.email!.isNotEmpty) ? user.email! : 'scholar@gmail.com';
-      String uid = (user?.uid != null && user!.uid.isNotEmpty) ? user.uid : 'usr_google_${DateTime.now().millisecondsSinceEpoch}';
+      final UserCredential cred;
+      final bool isNewUser = !_isLogin;
 
-      String userRole = await CloudFirestoreSyncService().fetchUserRoleFromCloud(uid, email);
-
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-
-      context.read<AppStateProvider>().setLoggedInUser(
-            name: name,
-            email: email,
-            uid: uid,
-            role: userRole,
-          );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Signed in with Google successfully! Welcome, $name'),
-          backgroundColor: userRole == 'admin' ? AppTheme.gold : const Color(0xFF10B981),
-        ),
-      );
-
-      if (userRole == 'admin') {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const MainNavigationHolder()),
-          (route) => false,
+      if (_isLogin) {
+        cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: email,
+          password: password,
         );
       } else {
-        Navigator.pop(context, true);
+        cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+      }
+
+      final user = cred.user;
+      if (user == null) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        _showSnack('Authentication did not return a valid user. Please try again.');
+        return;
+      }
+
+      final fallbackName = email.split('@').first.isNotEmpty ? email.split('@').first : 'Aspirant';
+      String displayName;
+      if (isNewUser && _nameController.text.trim().isNotEmpty) {
+        displayName = _nameController.text.trim();
+        try {
+          await user.updateDisplayName(displayName);
+        } catch (_) {}
+      } else {
+        displayName = (user.displayName != null && user.displayName!.trim().isNotEmpty)
+            ? user.displayName!.trim()
+            : fallbackName;
+      }
+
+      final String verifiedEmail = (user.email != null && user.email!.trim().isNotEmpty)
+          ? user.email!.trim().toLowerCase()
+          : email;
+
+      // Never allow self-registration to claim admin; verify role from Firestore on sign-in.
+      final String userRole = isNewUser
+          ? 'student'
+          : await CloudFirestoreSyncService().fetchUserRoleFromCloud(user.uid, verifiedEmail);
+
+      await CloudFirestoreSyncService().saveUserProfile(
+        uid: user.uid,
+        name: displayName,
+        email: verifiedEmail,
+        role: userRole,
+        isNewUser: isNewUser,
+      );
+
+      if (isNewUser) {
+        await BackendService().syncUserProgressToLeaderboard(
+          userName: displayName,
+          score: 0,
+          accuracy: 0.0,
+          streak: 0,
+          userUid: user.uid,
+          targetExam: 'SSC CGL',
+          questionsSolved: 0,
+        );
+      }
+
+      await _completeAuthSuccess(
+        user: user,
+        displayName: displayName,
+        email: verifiedEmail,
+        phone: user.phoneNumber ?? '',
+        userRole: userRole,
+        isNewUser: isNewUser,
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showSnack(_mapFirebaseAuthError(e));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showSnack('Unable to sign in right now. Please check your connection and try again.');
+      debugPrint('Email auth error: $e');
+    }
+  }
+
+  Future<void> _sendOtp({bool isResend = false}) async {
+    if (_isLoading) return;
+    final phone = _phoneController.text.trim();
+    if (!_phoneRegex.hasMatch(phone)) {
+      _showSnack('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+    if (!_isLogin && _nameController.text.trim().isEmpty) {
+      _showSnack('Please enter your full name.');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: '+91$phone',
+        forceResendingToken: isResend ? _resendToken : null,
+        timeout: const Duration(seconds: 60),
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await _signInWithPhoneCredential(credential, phone);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          if (!mounted) return;
+          setState(() => _isLoading = false);
+          _showSnack(_mapFirebaseAuthError(e, fallback: 'Failed to send OTP'));
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          if (!mounted) return;
+          setState(() {
+            _verificationId = verificationId;
+            _resendToken = resendToken;
+            _otpSent = true;
+            _isLoading = false;
+          });
+          _startResendCountdown();
+          _showSnack(
+            'OTP sent to +91 $phone. Please check your SMS messages.',
+            backgroundColor: const Color(0xFF10B981),
+          );
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          _verificationId = verificationId;
+        },
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showSnack(_mapFirebaseAuthError(e, fallback: 'Failed to start phone verification'));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showSnack('Unable to send OTP right now. Please try again.');
+      debugPrint('Phone verify error: $e');
+    }
+  }
+
+  Future<void> _verifyOtpAndSignIn() async {
+    final otp = _otpController.text.trim();
+    final phone = _phoneController.text.trim();
+
+    if (otp.length != 6) {
+      _showSnack('Please enter the 6-digit OTP.');
+      return;
+    }
+    if (_verificationId == null || _verificationId!.isEmpty) {
+      _showSnack('OTP session expired. Please request a new OTP.');
+      setState(() => _otpSent = false);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    final credential = PhoneAuthProvider.credential(
+      verificationId: _verificationId!,
+      smsCode: otp,
+    );
+    await _signInWithPhoneCredential(credential, phone);
+  }
+
+  Future<void> _signInWithPhoneCredential(PhoneAuthCredential credential, String phone) async {
+    try {
+      final cred = await FirebaseAuth.instance.signInWithCredential(credential);
+      final user = cred.user;
+      if (user == null) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        _showSnack('OTP verification did not return a valid user.');
+        return;
+      }
+
+      final bool isNewUser = cred.additionalUserInfo?.isNewUser ?? !_isLogin;
+      final String formattedPhone = user.phoneNumber ?? '+91$phone';
+      String displayName = _nameController.text.trim();
+      if (displayName.isNotEmpty) {
+        try {
+          await user.updateDisplayName(displayName);
+        } catch (_) {}
+      } else if (user.displayName != null && user.displayName!.trim().isNotEmpty) {
+        displayName = user.displayName!.trim();
+      } else {
+        displayName = 'Aspirant ${phone.length >= 4 ? phone.substring(phone.length - 4) : phone}';
+      }
+
+      final String userRole = isNewUser
+          ? 'student'
+          : await CloudFirestoreSyncService().fetchUserRoleFromCloud(user.uid, user.email ?? '');
+
+      await CloudFirestoreSyncService().saveUserProfile(
+        uid: user.uid,
+        name: displayName,
+        email: user.email ?? '',
+        phone: formattedPhone,
+        role: userRole,
+        isNewUser: isNewUser,
+      );
+
+      if (isNewUser) {
+        await BackendService().syncUserProgressToLeaderboard(
+          userName: displayName,
+          score: 0,
+          accuracy: 0.0,
+          streak: 0,
+          userUid: user.uid,
+          targetExam: 'SSC CGL',
+          questionsSolved: 0,
+        );
+      }
+
+      await _completeAuthSuccess(
+        user: user,
+        displayName: displayName,
+        email: user.email ?? '',
+        phone: formattedPhone,
+        userRole: userRole,
+        isNewUser: isNewUser,
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showSnack(_mapFirebaseAuthError(e, fallback: 'OTP verification failed'));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showSnack('OTP sign-in failed. Please try again.');
+      debugPrint('Phone credential sign-in error: $e');
+    }
+  }
+
+  void _handleForgotPassword() {
+    final resetEmailController = TextEditingController(text: _emailController.text.trim());
+    bool isSending = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF13192B),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.lock_reset_rounded, color: AppTheme.accent),
+              SizedBox(width: 8),
+              Text('Reset Password', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Enter your registered email address to receive a secure password reset link.',
+                style: TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: resetEmailController,
+                keyboardType: TextInputType.emailAddress,
+                enabled: !isSending,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'student@example.com',
+                  hintStyle: const TextStyle(color: Colors.white38),
+                  prefixIcon: const Icon(Icons.email_outlined, color: Colors.white60),
+                  filled: true,
+                  fillColor: AppTheme.surface,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSending ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryLight,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: isSending
+                  ? null
+                  : () async {
+                      final email = resetEmailController.text.trim().toLowerCase();
+                      if (!_emailRegex.hasMatch(email)) {
+                        _showSnack('Please enter a valid email address.');
+                        return;
+                      }
+                      setDialogState(() => isSending = true);
+                      try {
+                        await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        _showSnack(
+                          '📧 Password reset link sent! Please check your inbox and spam folder.',
+                          backgroundColor: const Color(0xFF10B981),
+                        );
+                      } on FirebaseAuthException catch (e) {
+                        setDialogState(() => isSending = false);
+                        _showSnack(_mapFirebaseAuthError(e, fallback: 'Failed to send reset email'));
+                      } catch (e) {
+                        setDialogState(() => isSending = false);
+                        _showSnack('Could not send reset email. Please check your internet connection.');
+                        debugPrint('Reset email error: $e');
+                      }
+                    },
+              child: isSending
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Send Reset Link', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    ).whenComplete(resetEmailController.dispose);
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+
+    try {
+      final googleProvider = GoogleAuthProvider()
+        ..addScope('email')
+        ..setCustomParameters({'prompt': 'select_account'});
+
+      final cred = await FirebaseAuth.instance.signInWithProvider(googleProvider);
+      final user = cred.user;
+      if (user == null) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        _showSnack('Google Sign-In did not return a valid account.');
+        return;
+      }
+
+      final bool isNewUser = cred.additionalUserInfo?.isNewUser ?? false;
+      final String email = (user.email ?? '').trim().toLowerCase();
+      final String name = (user.displayName != null && user.displayName!.trim().isNotEmpty)
+          ? user.displayName!.trim()
+          : (email.isNotEmpty ? email.split('@').first : 'Aspirant');
+
+      final String userRole = isNewUser
+          ? 'student'
+          : await CloudFirestoreSyncService().fetchUserRoleFromCloud(user.uid, email);
+
+      await CloudFirestoreSyncService().saveUserProfile(
+        uid: user.uid,
+        name: name,
+        email: email,
+        phone: user.phoneNumber ?? '',
+        role: userRole,
+        isNewUser: isNewUser,
+      );
+
+      if (isNewUser) {
+        await BackendService().syncUserProgressToLeaderboard(
+          userName: name,
+          score: 0,
+          accuracy: 0.0,
+          streak: 0,
+          userUid: user.uid,
+          targetExam: 'SSC CGL',
+          questionsSolved: 0,
+        );
+      }
+
+      await _completeAuthSuccess(
+        user: user,
+        displayName: name,
+        email: email,
+        phone: user.phoneNumber ?? '',
+        userRole: userRole,
+        isNewUser: isNewUser,
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      if (e.code == 'canceled' || e.code == 'popup-closed-by-user' || e.code == 'web-context-canceled') {
+        _showSnack('Google Sign-In was cancelled.', backgroundColor: AppTheme.surfaceElevated);
+      } else {
+        _showSnack(_mapFirebaseAuthError(e, fallback: 'Google Sign-In failed'));
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Google Sign In error: $e'), backgroundColor: AppTheme.error),
-      );
+      _showSnack('Google Sign-In failed. Please try Email Sign-In.');
+      debugPrint('Google Sign-In error: $e');
     }
   }
 
@@ -456,12 +608,9 @@ class _AuthScreenState extends State<AuthScreen> {
       canPop: !blockPop,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && blockPop) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('⚠️ Free 3-question preview completed! Register your free account to continue practicing.'),
-              backgroundColor: Color(0xFFBE123C),
-              duration: Duration(seconds: 2),
-            ),
+          _showSnack(
+            '⚠️ Free 3-question preview completed! Register your free account to continue practicing.',
+            backgroundColor: const Color(0xFFBE123C),
           );
         }
       },
@@ -569,10 +718,13 @@ class _AuthScreenState extends State<AuthScreen> {
                       children: [
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => setState(() {
-                              _usePhoneAuth = false;
-                              _otpSent = false;
-                            }),
+                            onTap: _isLoading
+                                ? null
+                                : () => setState(() {
+                                      _usePhoneAuth = false;
+                                      _otpSent = false;
+                                      _verificationId = null;
+                                    }),
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
@@ -592,7 +744,11 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => setState(() => _usePhoneAuth = true),
+                            onTap: _isLoading
+                                ? null
+                                : () => setState(() {
+                                      _usePhoneAuth = true;
+                                    }),
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
@@ -619,6 +775,8 @@ class _AuthScreenState extends State<AuthScreen> {
                   if (!_isLogin) ...[
                     TextFormField(
                       controller: _nameController,
+                      enabled: !_isLoading,
+                      textCapitalization: TextCapitalization.words,
                       decoration: InputDecoration(
                         labelText: 'Full Name',
                         prefixIcon: const Icon(Icons.person_outline, color: Colors.white60),
@@ -626,7 +784,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         fillColor: AppTheme.surface,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       ),
-                      validator: (v) => v == null || v.isEmpty ? 'Please enter your name' : null,
+                      validator: (v) => v == null || v.trim().isEmpty ? 'Please enter your name' : null,
                     ),
                     const SizedBox(height: 14),
                   ],
@@ -636,7 +794,9 @@ class _AuthScreenState extends State<AuthScreen> {
                     // Email Field
                     TextFormField(
                       controller: _emailController,
+                      enabled: !_isLoading,
                       keyboardType: TextInputType.emailAddress,
+                      autocorrect: false,
                       decoration: InputDecoration(
                         labelText: 'Email Address',
                         prefixIcon: const Icon(Icons.email_outlined, color: Colors.white60),
@@ -645,8 +805,9 @@ class _AuthScreenState extends State<AuthScreen> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       ),
                       validator: (v) {
-                        if (v == null || v.isEmpty) return 'Please enter your email';
-                        if (!v.contains('@')) return 'Enter a valid email address';
+                        final trimmed = v?.trim() ?? '';
+                        if (trimmed.isEmpty) return 'Please enter your email';
+                        if (!_emailRegex.hasMatch(trimmed)) return 'Enter a valid email address';
                         return null;
                       },
                     ),
@@ -655,6 +816,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     // Password Field
                     TextFormField(
                       controller: _passwordController,
+                      enabled: !_isLoading,
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
                         labelText: 'Password',
@@ -667,7 +829,11 @@ class _AuthScreenState extends State<AuthScreen> {
                         fillColor: AppTheme.surface,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       ),
-                      validator: (v) => v != null && v.length < 4 ? 'Password must be at least 4 characters' : null,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Please enter your password';
+                        if (!_isLogin && v.length < 6) return 'Password must be at least 6 characters';
+                        return null;
+                      },
                     ),
 
                     // Forgot Password Button (Only in Login mode)
@@ -675,7 +841,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: _handleForgotPassword,
+                          onPressed: _isLoading ? null : _handleForgotPassword,
                           child: const Text(
                             'Forgot Password?',
                             style: TextStyle(color: AppTheme.primaryLight, fontWeight: FontWeight.bold, fontSize: 13),
@@ -689,6 +855,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       const SizedBox(height: 14),
                       TextFormField(
                         controller: _confirmPasswordController,
+                        enabled: !_isLoading,
                         obscureText: _obscureConfirmPassword,
                         decoration: InputDecoration(
                           labelText: 'Confirm Password',
@@ -712,23 +879,37 @@ class _AuthScreenState extends State<AuthScreen> {
                     // Phone Number Field
                     TextFormField(
                       controller: _phoneController,
+                      enabled: !_isLoading && !_otpSent,
                       keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(10),
+                      ],
                       decoration: InputDecoration(
                         labelText: '10-Digit Mobile Number',
                         prefixText: '+91 ',
                         prefixStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         prefixIcon: const Icon(Icons.phone_outlined, color: Colors.white60),
-                        suffixIcon: !_otpSent
+                        suffixIcon: _otpSent
                             ? TextButton(
-                                onPressed: _sendOtp,
-                                child: const Text('Send OTP', style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold)),
+                                onPressed: _isLoading
+                                    ? null
+                                    : () => setState(() {
+                                          _otpSent = false;
+                                          _verificationId = null;
+                                          _otpController.clear();
+                                        }),
+                                child: const Text('Change', style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold)),
                               )
-                            : null,
+                            : TextButton(
+                                onPressed: _isLoading ? null : () => _sendOtp(),
+                                child: const Text('Send OTP', style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold)),
+                              ),
                         filled: true,
                         fillColor: AppTheme.surface,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       ),
-                      validator: (v) => v != null && v.length != 10 ? 'Enter valid 10-digit number' : null,
+                      validator: (v) => !_phoneRegex.hasMatch((v ?? '').trim()) ? 'Enter valid 10-digit mobile number' : null,
                     ),
                     const SizedBox(height: 14),
 
@@ -736,7 +917,12 @@ class _AuthScreenState extends State<AuthScreen> {
                     if (_otpSent) ...[
                       TextFormField(
                         controller: _otpController,
+                        enabled: !_isLoading,
                         keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(6),
+                        ],
                         decoration: InputDecoration(
                           labelText: 'Enter 6-Digit OTP',
                           prefixIcon: const Icon(Icons.pin_outlined, color: Colors.white60),
@@ -744,14 +930,29 @@ class _AuthScreenState extends State<AuthScreen> {
                           fillColor: AppTheme.surface,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                         ),
-                        validator: (v) => v == null || v.length < 4 ? 'Enter the received OTP' : null,
+                        validator: (v) => (v == null || v.trim().length != 6) ? 'Enter 6-digit OTP' : null,
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: (_isLoading || _resendSeconds > 0) ? null : () => _sendOtp(isResend: true),
+                          child: Text(
+                            _resendSeconds > 0 ? 'Resend OTP in ${_resendSeconds}s' : 'Resend OTP',
+                            style: TextStyle(
+                              color: _resendSeconds > 0 ? Colors.white38 : AppTheme.accent,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ],
 
                   const SizedBox(height: 24),
 
-                  // Main Submit Button (Login / Register)
+                  // Main Submit Button (Login / Register / Send OTP / Verify OTP)
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryLight,
@@ -762,7 +963,9 @@ class _AuthScreenState extends State<AuthScreen> {
                     child: _isLoading
                         ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
                         : Text(
-                            _isLogin ? 'Sign In' : 'Create Account',
+                            _usePhoneAuth
+                                ? (_otpSent ? 'Verify OTP & Continue' : 'Send OTP')
+                                : (_isLogin ? 'Sign In' : 'Create Account'),
                             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                   ),
@@ -807,10 +1010,14 @@ class _AuthScreenState extends State<AuthScreen> {
                         style: const TextStyle(color: Colors.white54, fontSize: 13),
                       ),
                       GestureDetector(
-                        onTap: () => setState(() {
-                          _isLogin = !_isLogin;
-                          _otpSent = false;
-                        }),
+                        onTap: _isLoading
+                            ? null
+                            : () => setState(() {
+                                  _isLogin = !_isLogin;
+                                  _otpSent = false;
+                                  _verificationId = null;
+                                  _otpController.clear();
+                                }),
                         child: Text(
                           _isLogin ? 'Register Now' : 'Sign In',
                           style: const TextStyle(color: AppTheme.primaryLight, fontWeight: FontWeight.bold, fontSize: 14),

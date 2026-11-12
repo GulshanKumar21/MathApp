@@ -349,44 +349,66 @@ class CloudFirestoreSyncService {
     required String email,
     String phone = '',
     String role = 'student',
+    bool isNewUser = false,
   }) async {
     if (uid.isEmpty) return false;
 
     // Strategy 1: Firestore Native SDK
     if (Firebase.apps.isNotEmpty) {
       try {
-        await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        final payload = <String, dynamic>{
           'uid': uid,
           'name': name,
           'email': email,
-          'phone': phone,
           'role': role,
-          'registeredAt': FieldValue.serverTimestamp(),
           'lastActive': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        };
+        if (phone.isNotEmpty) {
+          payload['phone'] = phone;
+        }
+        if (isNewUser) {
+          payload['registeredAt'] = FieldValue.serverTimestamp();
+        }
+        await FirebaseFirestore.instance.collection('users').doc(uid).set(
+          payload,
+          SetOptions(merge: true),
+        );
         return true;
       } catch (e) {
         debugPrint('Firestore SDK save user note: $e');
       }
     }
 
-    // Strategy 2: REST API
+    // Strategy 2: REST API (uses updateMask so existing progress fields are NEVER overwritten)
     try {
-      final docData = {
-        'fields': {
-          'uid': {'stringValue': uid},
-          'name': {'stringValue': name},
-          'email': {'stringValue': email},
-          'phone': {'stringValue': phone},
-          'role': {'stringValue': role},
-          'registeredAt': {'timestampValue': DateTime.now().toUtc().toIso8601String()},
-          'lastActive': {'timestampValue': DateTime.now().toUtc().toIso8601String()},
-        }
+      final nowIso = DateTime.now().toUtc().toIso8601String();
+      final fields = <String, dynamic>{
+        'uid': {'stringValue': uid},
+        'name': {'stringValue': name},
+        'email': {'stringValue': email},
+        'role': {'stringValue': role},
+        'lastActive': {'timestampValue': nowIso},
       };
+      final maskParams = <String>[
+        'updateMask.fieldPaths=uid',
+        'updateMask.fieldPaths=name',
+        'updateMask.fieldPaths=email',
+        'updateMask.fieldPaths=role',
+        'updateMask.fieldPaths=lastActive',
+      ];
+      if (phone.isNotEmpty) {
+        fields['phone'] = {'stringValue': phone};
+        maskParams.add('updateMask.fieldPaths=phone');
+      }
+      if (isNewUser) {
+        fields['registeredAt'] = {'timestampValue': nowIso};
+        maskParams.add('updateMask.fieldPaths=registeredAt');
+      }
 
+      final docData = {'fields': fields};
       final headers = await _getAuthHeaders();
       final response = await http.patch(
-        Uri.parse('$_firestoreBaseUrl/users/$uid'),
+        Uri.parse('$_firestoreBaseUrl/users/$uid?${maskParams.join('&')}'),
         headers: headers,
         body: json.encode(docData),
       ).timeout(const Duration(seconds: 12));
@@ -644,7 +666,7 @@ class CloudFirestoreSyncService {
           'name': cleanName,
           'email': cleanEmail,
           'phone': phone,
-          'role': (role.toLowerCase() == 'admin' || cleanEmail.contains('admin') || cleanEmail == 'gulshankumar.dev01@gmail.com') ? 'admin' : role,
+          'role': (role.toLowerCase() == 'admin' || cleanEmail == 'gulshankumar.dev01@gmail.com') ? 'admin' : role,
           'score': score,
           'accuracy': accuracy,
           'streak': streak,
@@ -667,7 +689,7 @@ class CloudFirestoreSyncService {
         if (phone.isNotEmpty && (existing['phone'] == null || existing['phone'].toString().isEmpty)) {
           existing['phone'] = phone;
         }
-        if (role.toLowerCase() == 'admin' || cleanEmail.contains('admin') || cleanEmail == 'gulshankumar.dev01@gmail.com' || existing['role']?.toString().toLowerCase() == 'admin') {
+        if (role.toLowerCase() == 'admin' || cleanEmail == 'gulshankumar.dev01@gmail.com' || existing['role']?.toString().toLowerCase() == 'admin') {
           existing['role'] = 'admin';
         }
         if (score > (existing['score'] as int? ?? 0)) {
@@ -1150,10 +1172,17 @@ class CloudFirestoreSyncService {
   Future<String> fetchUserRoleFromCloud(String uid, String email) async {
     final cleanEmail = email.trim().toLowerCase();
 
-    // 0. Instant known Admin check (direct email pattern)
-    if (cleanEmail == 'admin@speedmath.com' || cleanEmail == 'admin@gmail.com' || cleanEmail.startsWith('admin_')) {
-      return 'admin';
-    }
+    // 0. Require real authenticated Firebase user for privileged owner check
+    // Never grant admin blindly from unverified email patterns like 'admin_*'.
+    try {
+      final currentAuthUser = FirebaseAuth.instance.currentUser;
+      final authedEmail = currentAuthUser?.email?.trim().toLowerCase() ?? '';
+      if (currentAuthUser != null &&
+          authedEmail == 'gulshankumar.dev01@gmail.com' &&
+          (cleanEmail.isEmpty || cleanEmail == authedEmail)) {
+        return 'admin';
+      }
+    } catch (_) {}
 
     // 1. Native Firestore SDK check
     if (Firebase.apps.isNotEmpty) {

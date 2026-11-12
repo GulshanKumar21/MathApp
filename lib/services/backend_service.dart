@@ -136,6 +136,7 @@ class BackendService {
     required String email,
     String phone = '',
     String role = 'student',
+    bool isNewUser = false,
   }) async {
     try {
       return await _cloudFirestore.saveUserProfile(
@@ -144,6 +145,7 @@ class BackendService {
         email: email,
         phone: phone,
         role: role,
+        isNewUser: isNewUser,
       );
     } catch (e) {
       debugPrint('Backend user registration note: $e');
