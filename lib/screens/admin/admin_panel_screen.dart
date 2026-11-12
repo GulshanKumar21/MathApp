@@ -716,7 +716,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                     style: TextStyle(color: Colors.white38, fontSize: 10.5, fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    'v1.0.0+1',
+                    'v1.0.2+3',
                     style: TextStyle(color: AppTheme.gold, fontSize: 10.5, fontWeight: FontWeight.bold),
                   ),
                 ],
