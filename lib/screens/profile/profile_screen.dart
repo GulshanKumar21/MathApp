@@ -473,15 +473,13 @@ class ProfileScreen extends StatelessWidget {
               child: const Icon(Icons.alarm_on_rounded, color: Color(0xFFEF4444), size: 20),
             ),
             title: const Text(
-              'Math Wake-Up Alarm & Reminders',
+              'Math Wake-Up Alarm',
               style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
             ),
-            subtitle: Text(
-              state.mathAlarmEnabled
-                  ? 'Alarm: ${_formatAlarmTime(state.mathAlarmHour, state.mathAlarmMinute)} (Active) • Tap to configure'
-                  : 'Configure morning alarms, study alerts & challenges',
+            subtitle: const Text(
+              'Coming Soon',
               style: TextStyle(
-                color: state.mathAlarmEnabled ? const Color(0xFFEF4444) : Colors.white54,
+                color: Colors.white54,
                 fontSize: 11,
               ),
             ),
@@ -1407,13 +1405,6 @@ class ProfileScreen extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _formatAlarmTime(int hour, int min) {
-    final period = hour >= 12 ? 'PM' : 'AM';
-    final h = hour % 12 == 0 ? 12 : hour % 12;
-    final m = min.toString().padLeft(2, '0');
-    return '$h:$m $period';
   }
 
   // 🛡️ Master Admin Console Card

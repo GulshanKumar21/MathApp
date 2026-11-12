@@ -12,9 +12,6 @@ class SwiggyFlipkartSectionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<AppStateProvider>();
     final int currentSection = state.currentAppSection;
-    final bool isAlarmActive = state.mathAlarmEnabled;
-    final String alarmTimeStr =
-        '${state.mathAlarmHour % 12 == 0 ? 12 : state.mathAlarmHour % 12}:${state.mathAlarmMinute.toString().padLeft(2, '0')} ${state.mathAlarmHour >= 12 ? 'PM' : 'AM'}';
 
     // Alignment of sliding indicator: -1.0 (Left), 0.0 (Center), 1.0 (Right)
     final Alignment pillAlignment = currentSection == 0
@@ -105,8 +102,8 @@ class SwiggyFlipkartSectionBar extends StatelessWidget {
                   isSelected: currentSection == 1,
                   icon: Icons.alarm_rounded,
                   title: 'Math Alarm',
-                  subtitle: isAlarmActive ? alarmTimeStr : 'Alarm Off',
-                  isDotActive: isAlarmActive,
+                  subtitle: 'Coming Soon',
+                  badgeText: 'SOON',
                   onTap: () {
                     if (currentSection != 1) {
                       HapticFeedback.selectionClick();
@@ -146,7 +143,6 @@ class _TabItem extends StatelessWidget {
   final String title;
   final String subtitle;
   final String? badgeText;
-  final bool isDotActive;
   final VoidCallback onTap;
 
   const _TabItem({
@@ -155,7 +151,6 @@ class _TabItem extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.badgeText,
-    this.isDotActive = false,
     required this.onTap,
   });
 
@@ -202,17 +197,6 @@ class _TabItem extends StatelessWidget {
                             letterSpacing: -0.2,
                           ),
                         ),
-                        if (isDotActive) ...[
-                          const SizedBox(width: 4),
-                          Container(
-                            width: 5.5,
-                            height: 5.5,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFFBBF24),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ],
                         if (badgeText != null) ...[
                           const SizedBox(width: 4),
                           Container(
