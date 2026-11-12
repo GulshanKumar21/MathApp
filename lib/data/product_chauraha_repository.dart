@@ -8,7 +8,7 @@ class ProductChaurahaRepository {
     // 1. 108 Chauraha
     const ProductChaurahaModel(
       id: 'chauraha_108',
-      title: '108 Chauraha',
+      title: '108 Crossroads',
       subtitle: 'The 4-Way Multiplication Crossway',
       targetNumber: 108,
       primeFactorization: '108 = 2² × 3³ = 4 × 27',
@@ -30,7 +30,7 @@ class ProductChaurahaRepository {
         ),
         ChaurahaQuestion(
           id: 'q_108_2',
-          prompt: 'Identify the 2 factor pairs of 108 from this Chauraha:',
+          prompt: 'Identify the 2 factor pairs of 108 from this Crossroads:',
           target: 108,
           options: ['19 × 6', '36 × 3', '18 × 6', '15 × 7'],
           correctIndices: [1, 2],
@@ -50,7 +50,7 @@ class ProductChaurahaRepository {
     // 2. 180 Chauraha
     const ProductChaurahaModel(
       id: 'chauraha_180',
-      title: '180 Chauraha',
+      title: '180 Crossroads',
       subtitle: 'The Geometry & Percentage Master',
       targetNumber: 180,
       primeFactorization: '180 = 2² × 3² × 5 = 4 × 9 × 5',
@@ -73,7 +73,7 @@ class ProductChaurahaRepository {
         ),
         ChaurahaQuestion(
           id: 'q_180_2',
-          prompt: 'Select 2 correct branches for the 180 Chauraha:',
+          prompt: 'Select 2 correct branches for the 180 Crossroads:',
           target: 180,
           options: ['45 × 4', '14 × 13', '20 × 9', '25 × 7'],
           correctIndices: [0, 2],
@@ -93,7 +93,7 @@ class ProductChaurahaRepository {
     // 3. 144 Chauraha
     const ProductChaurahaModel(
       id: 'chauraha_144',
-      title: '144 Chauraha',
+      title: '144 Crossroads',
       subtitle: 'The Gross Square Crossroads (12²)',
       targetNumber: 144,
       primeFactorization: '144 = 2⁴ × 3² = 16 × 9 = 12²',
@@ -116,7 +116,7 @@ class ProductChaurahaRepository {
         ),
         ChaurahaQuestion(
           id: 'q_144_2',
-          prompt: 'Select 2 pairs that belong to the 144 Gross Chauraha:',
+          prompt: 'Select 2 pairs that belong to the 144 Gross Crossroads:',
           target: 144,
           options: ['19 × 7', '18 × 8', '13 × 11', '36 × 4'],
           correctIndices: [1, 3],
@@ -136,7 +136,7 @@ class ProductChaurahaRepository {
     // 4. 216 Chauraha
     const ProductChaurahaModel(
       id: 'chauraha_216',
-      title: '216 Chauraha',
+      title: '216 Crossroads',
       subtitle: 'The Cube of 6 Multiplier Crossway',
       targetNumber: 216,
       primeFactorization: '216 = 2³ × 3³ = 6³ = 8 × 27',
@@ -171,7 +171,7 @@ class ProductChaurahaRepository {
     // 5. 192 Chauraha
     const ProductChaurahaModel(
       id: 'chauraha_192',
-      title: '192 Chauraha',
+      title: '192 Crossroads',
       subtitle: 'The Mensuration Multiplier Crossroads',
       targetNumber: 192,
       primeFactorization: '192 = 2⁶ × 3 = 64 × 3',
@@ -194,7 +194,7 @@ class ProductChaurahaRepository {
         ),
         ChaurahaQuestion(
           id: 'q_192_2',
-          prompt: 'Select 2 correct branches for the 192 Chauraha:',
+          prompt: 'Select 2 correct branches for the 192 Crossroads:',
           target: 192,
           options: ['64 × 3', '96 × 2', '74 × 2', '28 × 7'],
           correctIndices: [0, 1],
@@ -243,8 +243,8 @@ class ProductChaurahaRepository {
     // 7. 72 Chauraha
     const ProductChaurahaModel(
       id: 'chauraha_72',
-      title: '72 Chauraha',
-      subtitle: 'The Divisibility & Rate Chauraha',
+      title: '72 Crossroads',
+      subtitle: 'The Divisibility & Rate Crossroads',
       targetNumber: 72,
       primeFactorization: '72 = 2³ × 3² = 8 × 9',
       examTip: 'Divisibility rule of 72 (divisible by both 8 & 9) is tested in almost every SSC CGL exam! Pairs 8×9, 12×6, 18×4, 24×3, 36×2.',
@@ -277,7 +277,7 @@ class ProductChaurahaRepository {
     // 8. 96 Chauraha
     const ProductChaurahaModel(
       id: 'chauraha_96',
-      title: '96 Chauraha',
+      title: '96 Crossroads',
       subtitle: 'The Standard Capacity Crossroads',
       targetNumber: 96,
       primeFactorization: '96 = 2⁵ × 3 = 32 × 3',
@@ -299,7 +299,7 @@ class ProductChaurahaRepository {
         ),
         ChaurahaQuestion(
           id: 'q_96_2',
-          prompt: 'Select 2 correct branches for the 96 Chauraha:',
+          prompt: 'Select 2 correct branches for the 96 Crossroads:',
           target: 96,
           options: ['24 × 4', '18 × 5', '32 × 3', '22 × 4'],
           correctIndices: [0, 2],
@@ -311,7 +311,7 @@ class ProductChaurahaRepository {
     // 9. 120 Chauraha
     const ProductChaurahaModel(
       id: 'chauraha_120',
-      title: '120 Chauraha',
+      title: '120 Crossroads',
       subtitle: 'The 5! Factorial & LCM Super-Hub',
       targetNumber: 120,
       primeFactorization: '120 = 2³ × 3 × 5 = 5! (Factorial)',
@@ -346,7 +346,7 @@ class ProductChaurahaRepository {
     // 10. 240 Chauraha
     const ProductChaurahaModel(
       id: 'chauraha_240',
-      title: '240 Chauraha',
+      title: '240 Crossroads',
       subtitle: 'The Speed, Time & Distance Double Gross',
       targetNumber: 240,
       primeFactorization: '240 = 2⁴ × 3 × 5 = 16 × 15',
@@ -373,7 +373,7 @@ class ProductChaurahaRepository {
     // 11. 360 Chauraha
     const ProductChaurahaModel(
       id: 'chauraha_360',
-      title: '360 Chauraha',
+      title: '360 Crossroads',
       subtitle: 'The Complete Circle & Pie Chart Master',
       targetNumber: 360,
       primeFactorization: '360 = 2³ × 3² × 5 = 36 × 10',

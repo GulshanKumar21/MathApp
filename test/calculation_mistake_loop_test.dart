@@ -146,7 +146,7 @@ void main() {
         
         final correctInt = int.tryParse(q.correctAnswer);
         if (correctInt != null) {
-          if (correctInt.abs() >= 10) {
+          if (correctInt.abs() >= 100) {
             final expectedUnit = (correctInt % 10).abs();
             for (var opt in q.options) {
               final optInt = int.tryParse(opt);
@@ -161,6 +161,11 @@ void main() {
             for (var opt in q.options) {
               final optInt = int.tryParse(opt);
               expect(optInt, isNotNull, reason: 'Option $opt should be an integer for topic ${topic.name}');
+              expect(
+                (optInt! - correctInt).abs(),
+                lessThanOrEqualTo(correctInt.abs() <= 25 ? 6 : 25),
+                reason: 'Option $opt must stay tight/close to $correctInt in topic ${topic.name}',
+              );
             }
           }
         }

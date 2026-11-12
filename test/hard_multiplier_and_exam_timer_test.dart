@@ -97,7 +97,7 @@ void main() {
           expect(q.options.contains(q.correctAnswer), isTrue);
 
           final correctVal = int.tryParse(q.correctAnswer);
-          if (correctVal != null && correctVal.abs() >= 10) {
+          if (correctVal != null && correctVal.abs() >= 100) {
             final correctLastChar = q.correctAnswer.substring(q.correctAnswer.length - 1);
             for (final opt in q.options) {
               expect(
@@ -107,14 +107,14 @@ void main() {
               );
             }
           } else if (correctVal != null) {
-            // Single-digit answers (< 10) have realistic nearby distractors
+            // Small/mid answers (< 100) have tight nearby distractors
             for (final opt in q.options) {
               final optVal = int.tryParse(opt);
               if (optVal != null) {
                 expect(
                   (optVal - correctVal).abs(),
-                  lessThanOrEqualTo(10),
-                  reason: 'Option $opt must be close to single-digit answer $correctVal in question ${q.prompt}',
+                  lessThanOrEqualTo(correctVal.abs() <= 25 ? 6 : 25),
+                  reason: 'Option $opt must be close to answer $correctVal in question ${q.prompt}',
                 );
               }
             }

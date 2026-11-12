@@ -9,6 +9,7 @@ import '../../models/math_models.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/app_state_provider.dart';
 import '../../data/dynamic_question_engine.dart';
+import '../practice/arithmetic_digit_selection_screen.dart';
 import '../practice/practice_quiz_screen.dart';
 import '../auth/auth_screen.dart';
 import '../../services/voice_reciter_helper.dart';
@@ -448,6 +449,7 @@ class _TableRevisionHubScreenState extends State<TableRevisionHubScreen> {
           isTimed: isTimed,
           perQuestionSeconds: perQuestionSeconds,
           questionCount: questions.length,
+          initialUseNumpad: _drillTimerDifficulty == QuizTimerDifficulty.hard,
         ),
       ),
     );
@@ -511,6 +513,9 @@ class _TableRevisionHubScreenState extends State<TableRevisionHubScreen> {
         // 1. Range Categories Selector (Tabs)
         _buildRangeCategorySelector(state.starredTables.length),
 
+        if (_selectedRangeCategory == 'multiply') ...[
+          Expanded(child: _buildEmbeddedMultiplicationHub(state)),
+        ] else ...[
         // 2. Table Pills Strip (1 to 50)
         _buildTableSelectorStrip(filteredTables, state),
 
@@ -563,6 +568,7 @@ class _TableRevisionHubScreenState extends State<TableRevisionHubScreen> {
           // 6. Sticky Test Myself Action Bar
           _buildBottomTestBar(),
         ],
+        ],
       ],
     );
 
@@ -576,7 +582,7 @@ class _TableRevisionHubScreenState extends State<TableRevisionHubScreen> {
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
           child: Text(
-            'Tables 1–50 Revision Hub',
+            'Tables & Multiply Hub',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
         ),
@@ -602,6 +608,7 @@ class _TableRevisionHubScreenState extends State<TableRevisionHubScreen> {
       {'id': '21-30', 'label': '21 – 30 (Advanced)', 'icon': Icons.bolt_rounded, 'color': AppTheme.accent},
       {'id': '31-40', 'label': '31 – 40 (Pro)', 'icon': Icons.trending_up_rounded, 'color': AppTheme.primaryLight},
       {'id': '41-50', 'label': '41 – 50 (Master)', 'icon': Icons.workspace_premium_rounded, 'color': AppTheme.purple},
+      {'id': 'multiply', 'label': '✖️ Multiply (1D–4D)', 'icon': Icons.close_rounded, 'color': const Color(0xFFEF4444)},
       {'id': 'starred', 'label': '⭐ Starred ($starredCount)', 'icon': Icons.star_rounded, 'color': AppTheme.gold},
       {'id': 'all', 'label': 'All 1 – 50', 'icon': Icons.grid_view_rounded, 'color': Colors.white70},
     ];
@@ -796,11 +803,6 @@ class _TableRevisionHubScreenState extends State<TableRevisionHubScreen> {
   }
 
   Widget _buildActiveTableHeader(bool isStarred, AppStateProvider state) {
-    final double health = state.getTableMemoryHealth(_selectedTable);
-    final Color memColor = state.getTableMemoryColor(_selectedTable);
-    final String memStatus = state.getTableMemoryStatusText(_selectedTable);
-    final int percent = (health * 100).toInt();
-
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -875,119 +877,178 @@ class _TableRevisionHubScreenState extends State<TableRevisionHubScreen> {
             ],
           ),
 
-          const SizedBox(height: 10),
-          // 🧠 Spaced Repetition Memory Health Bar (Ideas 1 + 3)
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: memColor.withValues(alpha: 0.25)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      health >= 0.65 ? Icons.battery_charging_full_rounded : Icons.battery_alert_rounded,
-                      size: 15,
-                      color: memColor,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Memory Health: $percent%',
-                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: memColor),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '($memStatus)',
-                      style: const TextStyle(fontSize: 10, color: Colors.white54),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(5),
-                        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.4)),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.alarm_on_rounded, size: 10, color: Color(0xFF818CF8)),
-                          SizedBox(width: 3),
-                          Text('3-Day Alert On', style: TextStyle(fontSize: 8.5, color: Color(0xFFC7D2FE), fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: health == 0.0 ? 0.05 : health,
-                    backgroundColor: Colors.white12,
-                    valueColor: AlwaysStoppedAnimation<Color>(memColor),
-                    minHeight: 5,
-                  ),
-                ),
-                const SizedBox(height: 7),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Decays over 3 days • Spaced Recall locks memory',
-                      style: TextStyle(fontSize: 9.5, color: Colors.white38),
-                    ),
-                    InkWell(
-                      borderRadius: BorderRadius.circular(6),
-                      onTap: () async {
-                        await state.recordTablePracticed(_selectedTable);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Row(
-                                children: [
-                                  const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Table $_selectedTable recharged to 100%! 3-Day Recall Alert set.',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                              backgroundColor: const Color(0xFF1E293B),
-                              duration: const Duration(seconds: 3),
-                            ),
-                          );
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.bolt_rounded, size: 12, color: Color(0xFF34D399)),
-                            SizedBox(width: 3),
-                            Text('Mark Learned (Refill 100%)', style: TextStyle(fontSize: 9.5, color: Color(0xFF34D399), fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildEmbeddedMultiplicationHub(AppStateProvider state) {
+    final digitModes = [
+      {'digits': 1, 'title': '1-Digit × 1-Digit', 'sub': '7 × 8 = 56 • Reflex recall', 'color': const Color(0xFF10B981)},
+      {'digits': 2, 'title': '2-Digit × 2-Digit', 'sub': '24 × 16 = 384 • Cross multiply', 'color': const Color(0xFF38BDF8)},
+      {'digits': 3, 'title': '3-Digit × Multi', 'sub': '125 × 14 = 1750 • Speed chunks', 'color': const Color(0xFFF59E0B)},
+      {'digits': 4, 'title': '4-Digit Master', 'sub': '1250 × 8 = 10000 • Exam pro', 'color': const Color(0xFFEF4444)},
+    ];
+
+    void launchDigits(int digits, String title) {
+      if (state.isGuestLimitReached) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const AuthScreen(initialIsLogin: false, isMandatory: true),
+          ),
+        );
+        return;
+      }
+      final questions = DynamicQuestionEngine.generateDigitSpecificQuestions(
+        type: TopicType.hardMultiplier,
+        digits: digits,
+        count: _drillQuestionCount,
+      );
+      final double? perQuestionSeconds = switch (_drillTimerDifficulty) {
+        QuizTimerDifficulty.easy => null,
+        QuizTimerDifficulty.medium => 10.0,
+        QuizTimerDifficulty.hard => 5.0,
+      };
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PracticeQuizScreen(
+            topic: TopicModel(
+              id: 'multiply_${digits}d',
+              title: 'Speed Multiply ($title)',
+              subtitle: '$digits-Digit Multiplication Speed Drill',
+              type: TopicType.hardMultiplier,
+              iconName: 'flash_on_rounded',
+            ),
+            customQuestions: questions,
+            onRegenerateQuestions: () => DynamicQuestionEngine.generateDigitSpecificQuestions(
+              type: TopicType.hardMultiplier,
+              digits: digits,
+              count: _drillQuestionCount,
+            ),
+            isTimed: _drillTimerDifficulty != QuizTimerDifficulty.easy,
+            perQuestionSeconds: perQuestionSeconds,
+            questionCount: _drillQuestionCount,
+            initialUseNumpad: _drillTimerDifficulty == QuizTimerDifficulty.hard,
+          ),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF312E81), Color(0xFF1E1B4B)],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.4)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.flash_on_rounded, color: AppTheme.gold, size: 24),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Speed Multiplication (1D–4D)',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Integrated inside Tables & Multiply hub • Choose digit tier or custom ceiling.',
+                      style: TextStyle(color: Colors.white70, fontSize: 11.5),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              const Text('Pace:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white70)),
+              const SizedBox(width: 6),
+              _buildPaceChip(QuizTimerDifficulty.easy, 'Easy (No Timer)', const Color(0xFF10B981)),
+              const SizedBox(width: 5),
+              _buildPaceChip(QuizTimerDifficulty.medium, 'Med (10s)', const Color(0xFFF59E0B)),
+              const SizedBox(width: 5),
+              _buildPaceChip(QuizTimerDifficulty.hard, 'Hard (5s Numpad)', const Color(0xFFEF4444)),
+              const SizedBox(width: 10),
+              _buildCountChip(10),
+              const SizedBox(width: 5),
+              _buildCountChip(20),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...digitModes.map((m) {
+          final color = m['color'] as Color;
+          final int d = m['digits'] as int;
+          final String title = m['title'] as String;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: color.withValues(alpha: 0.35)),
+            ),
+            child: ListTile(
+              onTap: () => launchDigits(d, title),
+              leading: CircleAvatar(
+                backgroundColor: color.withValues(alpha: 0.18),
+                child: Text('${d}D', style: TextStyle(color: color, fontWeight: FontWeight.w900)),
+              ),
+              title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: Text(m['sub'] as String, style: const TextStyle(color: Colors.white60, fontSize: 11.5)),
+              trailing: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: color,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () => launchDigits(d, title),
+                child: const Text('Start', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
+              ),
+            ),
+          );
+        }),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            side: const BorderSide(color: Colors.white24),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          icon: const Icon(Icons.tune_rounded, size: 18),
+          label: const Text('Custom Limit (Ceiling) & Full Options'),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ArithmeticDigitSelectionScreen(type: TopicType.hardMultiplier),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 

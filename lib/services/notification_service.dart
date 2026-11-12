@@ -3245,11 +3245,112 @@ triggerPlanAlerts();
 }
 }
 
-Future<void> cancelStudyPlanReminder() async {
-_studyPlanTimer?.cancel();
-_studyPlanRecurringTimer?.cancel();
-await cancelNotification(3300);
-}
+  Future<void> cancelStudyPlanReminder() async {
+    _studyPlanTimer?.cancel();
+    _studyPlanRecurringTimer?.cancel();
+    await cancelNotification(3300);
+  }
+
+  /// Schedules spaced native reminders across ALL core concepts for Addition,
+  /// Subtraction, or Division when requested from Learn Mode.
+  Future<int> scheduleTopicConceptReminders(TopicType topicType) async {
+    final List<Map<String, String>> concepts;
+    final int baseId;
+    final String topicName;
+
+    switch (topicType) {
+      case TopicType.addition:
+        baseId = 64100;
+        topicName = 'Speed Addition';
+        concepts = const [
+          {'concept': 'Split & Merge (Left-to-Right)', 'q': '68 + 57', 'a': '125'},
+          {'concept': 'Friend Number (Base-10 Rounding)', 'q': '89 + 46', 'a': '135'},
+          {'concept': 'Complementary 100s Pairing', 'q': '28 + 72 + 34 + 66', 'a': '200'},
+          {'concept': '10 Consecutive Numbers Sum', 'q': '41 + 42 + ... + 50', 'a': '455'},
+          {'concept': 'Decimal Equalizer Balancing', 'q': '4.7 + 0.38', 'a': '5.08'},
+          {'concept': '3-Digit Chunking Method', 'q': '348 + 526', 'a': '874'},
+        ];
+        break;
+      case TopicType.subtraction:
+        baseId = 64200;
+        topicName = 'Speed Subtraction';
+        concepts = const [
+          {'concept': 'Nikhilam (All from 9, Last from 10)', 'q': '10000 - 3648', 'a': '6352'},
+          {'concept': '2-Digit Reverse Rule (AB - BA)', 'q': '83 - 38', 'a': '45'},
+          {'concept': '3-Digit Reverse Rule (ABC - CBA)', 'q': '752 - 257', 'a': '495'},
+          {'concept': 'Constant Difference Rule', 'q': '84 - 39', 'a': '45'},
+          {'concept': 'Shopkeeper Step-Up Method', 'q': '143 - 88', 'a': '55'},
+          {'concept': 'Left-to-Right Staged Subtraction', 'q': '642 - 275', 'a': '367'},
+        ];
+        break;
+      case TopicType.division:
+        baseId = 64300;
+        topicName = 'Speed Division';
+        concepts = const [
+          {'concept': 'Division by 5 (Double & Shift)', 'q': '312 ÷ 5', 'a': '62.4'},
+          {'concept': 'Division by 25 (×4 & Shift 2)', 'q': '450 ÷ 25', 'a': '18'},
+          {'concept': 'Division by 125 (×8 & Shift 3)', 'q': '350 ÷ 125', 'a': '2.8'},
+          {'concept': 'Nikhilam Division by 9', 'q': '126 ÷ 9', 'a': '14'},
+          {'concept': 'Double & Divide by 100 (÷ 50)', 'q': '750 ÷ 50', 'a': '15'},
+          {'concept': 'Proportional Approximation', 'q': '4850 ÷ 20', 'a': '242.5'},
+        ];
+        break;
+      default:
+        return 0;
+    }
+
+    try {
+      final nowTz = tz.TZDateTime.now(tz.local);
+      for (int i = 0; i < concepts.length; i++) {
+        final c = concepts[i];
+        final delayMinutes = 30 + (i * 150);
+        final scheduledTz = nowTz.add(Duration(minutes: delayMinutes));
+        final int notifId = baseId + i;
+        final String formula = c['q']!;
+        final String answer = c['a']!;
+        final String conceptLabel = c['concept']!;
+
+        const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+          'prepvanta_concept_reminders',
+          'Topic Concept Reminders',
+          channelDescription: 'Spaced reminders covering every trick concept in Addition, Subtraction & Division',
+          importance: Importance.high,
+          priority: Priority.high,
+          playSound: true,
+          sound: RawResourceAndroidNotificationSound('custom_notification_sound'),
+          enableVibration: true,
+          visibility: NotificationVisibility.public,
+        );
+        const details = NotificationDetails(android: androidDetails);
+
+        try {
+          await _notificationsPlugin.zonedSchedule(
+            id: notifId,
+            title: '🧠 $topicName: $conceptLabel',
+            body: 'Quick recall: $formula = ? (Tap to solve & lock in)',
+            scheduledDate: scheduledTz,
+            notificationDetails: details,
+            androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+            payload: 'persistent|$notifId|$formula|$answer',
+          );
+        } catch (_) {
+          await _notificationsPlugin.zonedSchedule(
+            id: notifId,
+            title: '🧠 $topicName: $conceptLabel',
+            body: 'Quick recall: $formula = ? (Tap to solve & lock in)',
+            scheduledDate: scheduledTz,
+            notificationDetails: details,
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            payload: 'persistent|$notifId|$formula|$answer',
+          );
+        }
+      }
+      return concepts.length;
+    } catch (e) {
+      debugPrint('scheduleTopicConceptReminders error: $e');
+      return 0;
+    }
+  }
 
 // Schedule Math Wake-Up Alarm ("Solve 5 mistakes to dismiss alarm")
 Future<void> scheduleMathWakeUpAlarm({

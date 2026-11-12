@@ -148,7 +148,7 @@ class _ProductChaurahaHubScreenState extends State<ProductChaurahaHubScreen>
                 ),
                 const SizedBox(width: 8),
                 const Text(
-                  'Product Chauraha',
+                  'Product Crossroads',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Colors.white),
                 ),
               ],
@@ -162,7 +162,7 @@ class _ProductChaurahaHubScreenState extends State<ProductChaurahaHubScreen>
         ),
         actions: [
           IconButton(
-            tooltip: 'How Chaurahas Help in Exams',
+            tooltip: 'How Crossroads Help in Exams',
             icon: const Icon(Icons.help_outline_rounded, color: Colors.white70, size: 21),
             onPressed: _showInfoDialog,
           ),
@@ -467,7 +467,7 @@ class _ProductChaurahaHubScreenState extends State<ProductChaurahaHubScreen>
                           border: Border.all(color: themeColor.withValues(alpha: 0.5)),
                         ),
                         child: Text(
-                          chauraha.isBaseFormat ? 'MULTIPLIER BASE' : 'CHAURAHA',
+                          chauraha.isBaseFormat ? 'MULTIPLIER BASE' : 'CROSSROADS',
                           style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: themeColor),
                         ),
                       ),
@@ -876,7 +876,7 @@ class _ProductChaurahaHubScreenState extends State<ProductChaurahaHubScreen>
                       Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
                       SizedBox(width: 8),
                       Text(
-                        'CHAURAHA EXPLANATION',
+                        'CROSSROADS EXPLANATION',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w900,
@@ -1346,7 +1346,7 @@ class _ProductChaurahaHubScreenState extends State<ProductChaurahaHubScreen>
             ),
             const SizedBox(height: 6),
             const Text(
-              'You mastered the Product Chauraha Dual-Select Challenge!',
+              'You mastered the Product Crossroads Dual-Select Challenge!',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12.5, color: Colors.white70),
             ),
@@ -1434,7 +1434,7 @@ class _ProductChaurahaHubScreenState extends State<ProductChaurahaHubScreen>
           children: const [
             Icon(Icons.alt_route_rounded, color: Color(0xFFF59E0B)),
             SizedBox(width: 8),
-            Text('What is a Chauraha?', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            Text('What is Crossroads?', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
@@ -1442,7 +1442,7 @@ class _ProductChaurahaHubScreenState extends State<ProductChaurahaHubScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: const [
             Text(
-              'A "Product Chauraha" (गुणनफल चौराहा) represents a high-frequency number that appears as the product of multiple factor pairs across competitive exams (SSC CGL, Banking, CDS).\n\nFor example, 108 is a 4-way intersection:\n• 12 × 9 = 108\n• 18 × 6 = 108\n• 27 × 4 = 108\n• 36 × 3 = 108\n\nInstant recognition of these factor pairs saves 20–30 seconds per question in Simplification, LCM/HCF, Time & Work, and Geometry!',
+              'A "Product Crossroads" represents a high-frequency number that appears as the product of multiple factor pairs across competitive exams (SSC CGL, Banking, CDS).\n\nFor example, 108 is a 4-way intersection:\n• 12 × 9 = 108\n• 18 × 6 = 108\n• 27 × 4 = 108\n• 36 × 3 = 108\n\nInstant recognition of these factor pairs saves 20–30 seconds per question in Simplification, LCM/HCF, Time & Work, and Geometry!',
               style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.45),
             ),
           ],

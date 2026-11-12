@@ -204,6 +204,7 @@ class _ArithmeticDigitSelectionScreenState extends State<ArithmeticDigitSelectio
           isTimed: isTimed,
           perQuestionSeconds: perQuestionSeconds,
           questionCount: _questionCount,
+          initialUseNumpad: _timerDifficulty == QuizTimerDifficulty.hard,
         ),
       ),
     );

@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../auth/auth_screen.dart';
 import '../../widgets/interactive_triangle_visualizer.dart';
+import '../../services/notification_service.dart';
 import '../../services/voice_reciter_helper.dart';
 import '../../widgets/voice_studio_modal.dart';
 
@@ -275,7 +276,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
     );
   }
 
-  void _scheduleForTomorrow() {
+  Future<void> _scheduleForTomorrow() async {
     final state = context.read<AppStateProvider>();
     final tomorrow = DateTime.now().add(const Duration(days: 1));
     final scheduledTime = DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 9, 0);
@@ -291,12 +292,24 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
       sampleQ = sampleList.isNotEmpty ? '${sampleList.first.prompt} = ?' : '⚡ Speed Target Drill';
     }
 
-    state.setStudyPlan(
+    await state.setStudyPlan(
       topicId: topicId,
       topicTitle: topicTitle,
       targetTime: scheduledTime,
       sampleQuestion: sampleQ,
     );
+
+    int conceptCount = 0;
+    if (widget.topic.type == TopicType.addition ||
+        widget.topic.type == TopicType.subtraction ||
+        widget.topic.type == TopicType.division) {
+      conceptCount = await NotificationService().scheduleTopicConceptReminders(widget.topic.type);
+    }
+
+    if (!mounted) return;
+    final String msg = conceptCount > 0
+        ? '✅ Reminders scheduled across all $conceptCount $topicTitle concepts!'
+        : '✅ $topicTitle scheduled for tomorrow at 9:00 AM! Reminders active.';
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -304,9 +317,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
           children: [
             const Icon(Icons.check_circle_rounded, color: AppTheme.accent),
             const SizedBox(width: 10),
-            Expanded(
-              child: Text('✅ $topicTitle scheduled for tomorrow at 9:00 AM! Reminders active.'),
-            ),
+            Expanded(child: Text(msg)),
           ],
         ),
         backgroundColor: const Color(0xFF1E3A8A),
@@ -1814,7 +1825,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
     );
   }
 
-    // --- 6. ⚡ HARD-ON PRO MULTIPLIERS (Viral Maths Vedic Edition) ---
+    // --- 6. ⚡ HARD-ON PRO MULTIPLIERS (Vedic Speed Edition) ---
   Widget _buildHardMultiplierView() {
     // 1. Full 10 to 100 Consecutive Multiplication dataset categorized into 4 tiers
     final consecutiveTier1 = [
@@ -1866,7 +1877,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
       {'q': '99 × 100', 'a': '9900', 'trick': '100² - 100 = 9900'},
     ];
 
-    // 2. Worked Examples across Page 8, 9 & 10 Viral Maths Rules
+    // 2. Worked Examples across Page 8, 9 & 10 Speed Math Rules
     final workedExamples = [
       {
         'q': '17 × 18 = ?',
@@ -1885,7 +1896,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
       {
         'q': '65 × 75 = ?',
         'ans': '4875',
-        'trick': '⚡ Diff of 10 Ending in 5 (Viral Maths Rule)',
+        'trick': '⚡ Diff of 10 Ending in 5 (Vedic Rule)',
         'formula': '(Higher Tens Digit)² - 1 | 75',
         'steps': '1. Last 2 digits are ALWAYS 75\n2. Higher tens digit is 7 ➔ 7² - 1 = 48\n3. Combine: 4875'
       },
@@ -1979,7 +1990,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
                   Icon(Icons.bolt_rounded, color: AppTheme.gold, size: 24),
                   SizedBox(width: 8),
                   Text(
-                    '⚡ Speed Multipliers (Viral Maths Vedic Edition)',
+                    '⚡ Speed Multipliers (Vedic Speed Edition)',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15.5),
                   ),
                 ],
@@ -2144,7 +2155,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
     );
   }
 
-  // --- 7. ➕ SPEED ADDITION MASTERY (Viral Maths Vedic Edition) ---
+  // --- 7. ➕ SPEED ADDITION MASTERY (Vedic Speed Edition) ---
   Widget _buildAdditionView() {
     final workedExamples = [
       {
@@ -2159,7 +2170,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
       {
         'q': '89 + 46 = ?',
         'ans': '135',
-        'trick': '➕ Friend Number Rule (शून्यकरण / Base-10 Rounding)',
+        'trick': '➕ Friend Number Rule (Zero-Tail / Base-10 Rounding)',
         'formula': 'Round to 10/100, compensate from second term',
         'steps': '''1. Round 89 to 90 (+1)
 2. Compensate from 46: 46 - 1 = 45
@@ -2168,7 +2179,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
       {
         'q': '28 + 72 + 34 + 66 = ?',
         'ans': '200',
-        'trick': '➕ Complementary 100s Pairing (जोड़ी बनाओ विधि)',
+        'trick': '➕ Complementary 100s Pairing (Pair-to-100 Trick)',
         'formula': 'Identify pairs that sum to 100',
         'steps': '''1. Pair (28 + 72) = 100
 2. Pair (34 + 66) = 100
@@ -2230,14 +2241,14 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
                   Icon(Icons.add_circle_outline_rounded, color: AppTheme.gold, size: 24),
                   SizedBox(width: 8),
                   Text(
-                    '➕ Speed Addition (Viral Maths)',
+                    '➕ Speed Addition (Vedic Speed)',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
                   ),
                 ],
               ),
               SizedBox(height: 6),
               Text(
-                'Master Left-to-Right Split, Friend Number (शून्यकरण) & Complementary 100-Pairing to add in seconds without pencil & paper!',
+                'Master Left-to-Right Split, Friend Number (Base-10 Rounding) & Complementary 100-Pairing to add in seconds without pencil & paper!',
                 style: TextStyle(color: Colors.white70, fontSize: 12.5, height: 1.4),
               ),
             ],
@@ -2245,7 +2256,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
         ),
         const SizedBox(height: 16),
         const Text(
-          'Viral Maths Addition Formulas & Step-by-Step Demos',
+          'Speed Math Addition Formulas & Step-by-Step Demos',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
         ),
         const SizedBox(height: 10),
@@ -2266,13 +2277,13 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
     );
   }
 
-  // --- 8. ➖ SPEED SUBTRACTION MASTERY (Viral Maths Vedic Edition) ---
+  // --- 8. ➖ SPEED SUBTRACTION MASTERY (Vedic Speed Edition) ---
   Widget _buildSubtractionView() {
     final workedExamples = [
       {
         'q': '10000 - 3648 = ?',
         'ans': '6352',
-        'trick': '➖ All From 9, Last From 10 (निखिलं नवतश्चरमं दशतः)',
+        'trick': '➖ All From 9, Last From 10 (Nikhilam 9-10 Sutra)',
         'formula': 'Subtract digits from 9, last digit from 10',
         'steps': '''1. Subtract from 9: 9 - 3 = 6
 2. Subtract from 9: 9 - 6 = 3
@@ -2301,7 +2312,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
       {
         'q': '84 - 39 = ?',
         'ans': '45',
-        'trick': '➖ Constant Difference Rule (समान अंतर नियम)',
+        'trick': '➖ Constant Difference Rule (Equal Shift Rule)',
         'formula': '(A + k) - (B + k) = A - B',
         'steps': '''1. Add +1 to both numbers to make 39 a clean 40
 2. (84 + 1) - (39 + 1) = 85 - 40
@@ -2310,7 +2321,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
       {
         'q': '143 - 88 = ?',
         'ans': '55',
-        'trick': '➖ Shopkeeper\'s Add-to-Reach Method (सीढ़ी विधि)',
+        'trick': '➖ Shopkeeper\'s Add-to-Reach Method (Step-Up Trick)',
         'formula': 'Step up from smaller to bigger number',
         'steps': '''1. Step up from 88 to 100: +12
 2. Step up from 100 to 143: +43
@@ -2353,7 +2364,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
                   Icon(Icons.remove_circle_outline_rounded, color: AppTheme.gold, size: 24),
                   SizedBox(width: 8),
                   Text(
-                    '➖ Speed Subtraction (Viral Maths)',
+                    '➖ Speed Subtraction (Vedic Speed)',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
                   ),
                 ],
@@ -2368,7 +2379,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
         ),
         const SizedBox(height: 16),
         const Text(
-          'Viral Maths Subtraction Formulas & Step-by-Step Demos',
+          'Speed Math Subtraction Formulas & Step-by-Step Demos',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
         ),
         const SizedBox(height: 10),
@@ -2389,7 +2400,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
     );
   }
 
-  // --- 9. ➗ SPEED DIVISION MASTERY (Viral Maths Vedic Edition) ---
+  // --- 9. ➗ SPEED DIVISION MASTERY (Vedic Speed Edition) ---
   Widget _buildDivisionView() {
     final workedExamples = [
       {
@@ -2482,7 +2493,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
                   Icon(Icons.safety_divider_rounded, color: AppTheme.gold, size: 24),
                   SizedBox(width: 8),
                   Text(
-                    '➗ Speed Division (Viral Maths)',
+                    '➗ Speed Division (Vedic Speed)',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
                   ),
                 ],
@@ -2497,7 +2508,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
         ),
         const SizedBox(height: 16),
         const Text(
-          'Viral Maths Division Formulas & Step-by-Step Demos',
+          'Speed Math Division Formulas & Step-by-Step Demos',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
         ),
         const SizedBox(height: 10),

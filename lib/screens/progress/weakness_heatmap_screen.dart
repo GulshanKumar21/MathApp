@@ -71,6 +71,75 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
     };
   }
 
+  Map<String, Set<int>> _extractAttemptedNumbers(
+    AppStateProvider state,
+    Map<String, Map<int, int>> mistakesMap,
+  ) {
+    final Set<int> tables = Set<int>.from(state.tablePracticeTimestamps.keys);
+    final Set<int> squares = {};
+    final Set<int> cubes = {};
+    final Set<int> multipliers = {};
+
+    // Anything with recorded mistakes was definitely attempted
+    tables.addAll((mistakesMap['tables'] ?? {}).keys);
+    squares.addAll((mistakesMap['squares'] ?? {}).keys);
+    cubes.addAll((mistakesMap['cubes'] ?? {}).keys);
+    multipliers.addAll((mistakesMap['multipliers'] ?? {}).keys);
+
+    for (final h in state.history) {
+      final tid = h.topicId;
+      if (tid.startsWith('table_')) {
+        final t = int.tryParse(tid.replaceFirst('table_', ''));
+        if (t != null) tables.add(t);
+      } else if (tid == 'tables_all_1_10') {
+        for (int n = 1; n <= 10; n++) { tables.add(n); }
+      } else if (tid == 'tables_all_11_20') {
+        for (int n = 11; n <= 20; n++) { tables.add(n); }
+      } else if (tid == 'tables_all_21_50') {
+        for (int n = 21; n <= 30; n++) { tables.add(n); }
+      } else if (tid.startsWith('tables_mix_')) {
+        for (final part in tid.replaceFirst('tables_mix_', '').split('_')) {
+          final t = int.tryParse(part);
+          if (t != null) tables.add(t);
+        }
+      } else if (tid.startsWith('squares_focus_')) {
+        final n = int.tryParse(tid.replaceFirst('squares_focus_', ''));
+        if (n != null) squares.add(n);
+      } else if (tid.startsWith('squares_')) {
+        final parts = tid.replaceFirst('squares_', '').split('_');
+        if (parts.length == 2) {
+          final a = int.tryParse(parts[0]);
+          final b = int.tryParse(parts[1]);
+          if (a != null && b != null) {
+            for (int n = a; n <= b; n++) { squares.add(n); }
+          }
+        }
+      } else if (tid.startsWith('cubes_focus_')) {
+        final n = int.tryParse(tid.replaceFirst('cubes_focus_', ''));
+        if (n != null) cubes.add(n);
+      } else if (tid.startsWith('cubes_')) {
+        final parts = tid.replaceFirst('cubes_', '').split('_');
+        if (parts.length == 2) {
+          final a = int.tryParse(parts[0]);
+          final b = int.tryParse(parts[1]);
+          if (a != null && b != null) {
+            for (int n = a; n <= b; n++) { cubes.add(n); }
+          }
+        }
+      } else if (tid.startsWith('hard_multiplier_')) {
+        final n = int.tryParse(tid.replaceFirst('hard_multiplier_', ''));
+        if (n != null) multipliers.add(n);
+      }
+    }
+
+    return {
+      'tables': tables,
+      'squares': squares,
+      'cubes': cubes,
+      'multipliers': multipliers,
+    };
+  }
+
   void _startAIWeaknessEliminationDrill(BuildContext context, AppStateProvider state) {
     final mistakes = state.mistakes;
     final extracted = _extractUserMistakeCounts(mistakes);
@@ -215,6 +284,12 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
     final userWeakCubes = extracted['cubes'] ?? {};
     final userWeakMultipliers = extracted['multipliers'] ?? {};
 
+    final attempted = _extractAttemptedNumbers(state, extracted);
+    final attemptedTables = attempted['tables'] ?? {};
+    final attemptedSquares = attempted['squares'] ?? {};
+    final attemptedCubes = attempted['cubes'] ?? {};
+    final attemptedMultipliers = attempted['multipliers'] ?? {};
+
     // Dynamic calculation health based on actual recorded error bottlenecks
     final totalBottlenecks = userWeakTables.values.where((c) => c >= 2).length +
         userWeakSquares.values.where((c) => c >= 2).length +
@@ -355,13 +430,16 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
 
           // 2. Legend Bar
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 10,
+              runSpacing: 6,
               children: [
-                _buildLegendItem('Fast (<1.5s)', const Color(0xFF10B981)),
-                _buildLegendItem('Average (2-3s)', Colors.amber),
-                _buildLegendItem('Weak (>3.5s)', AppTheme.error),
+                _buildLegendItem('Fast', const Color(0xFF10B981)),
+                _buildLegendItem('Average', Colors.amber),
+                _buildLegendItem('Weak', AppTheme.error),
+                _buildLegendItem('Unattempted', const Color(0xFF64748B)),
               ],
             ),
           ),
@@ -372,10 +450,10 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildTablesTab(context, userWeakTables),
-                _buildSquaresTab(context, userWeakSquares),
-                _buildCubesTab(context, userWeakCubes),
-                _buildMultipliersTab(context, userWeakMultipliers),
+                _buildTablesTab(context, userWeakTables, attemptedTables),
+                _buildSquaresTab(context, userWeakSquares, attemptedSquares),
+                _buildCubesTab(context, userWeakCubes, attemptedCubes),
+                _buildMultipliersTab(context, userWeakMultipliers, attemptedMultipliers),
               ],
             ),
           ),
@@ -411,7 +489,7 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
   }
 
   // TAB 1: TABLES (1 to 30)
-  Widget _buildTablesTab(BuildContext context, Map<int, int> userWeakTables) {
+  Widget _buildTablesTab(BuildContext context, Map<int, int> userWeakTables, Set<int> attemptedTables) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -422,6 +500,7 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
           end: 10,
           prefix: 'T',
           mistakeCounts: userWeakTables,
+          attemptedSet: attemptedTables,
           onTapNumber: (n) => _startTableDrill(context, n),
         ),
         const SizedBox(height: 20),
@@ -432,6 +511,7 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
           end: 20,
           prefix: 'T',
           mistakeCounts: userWeakTables,
+          attemptedSet: attemptedTables,
           onTapNumber: (n) => _startTableDrill(context, n),
         ),
         const SizedBox(height: 20),
@@ -442,6 +522,7 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
           end: 30,
           prefix: 'T',
           mistakeCounts: userWeakTables,
+          attemptedSet: attemptedTables,
           onTapNumber: (n) => _startTableDrill(context, n),
         ),
       ],
@@ -449,7 +530,7 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
   }
 
   // TAB 2: SQUARES (1 to 50) Divided into 5 neat sections
-  Widget _buildSquaresTab(BuildContext context, Map<int, int> userWeakSquares) {
+  Widget _buildSquaresTab(BuildContext context, Map<int, int> userWeakSquares, Set<int> attemptedSquares) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -461,6 +542,7 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
           prefix: 'Sq',
           isSquare: true,
           mistakeCounts: userWeakSquares,
+          attemptedSet: attemptedSquares,
           onTapNumber: (n) => _startSquareDrill(context, n),
         ),
         const SizedBox(height: 20),
@@ -472,6 +554,7 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
           prefix: 'Sq',
           isSquare: true,
           mistakeCounts: userWeakSquares,
+          attemptedSet: attemptedSquares,
           onTapNumber: (n) => _startSquareDrill(context, n),
         ),
         const SizedBox(height: 20),
@@ -483,6 +566,7 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
           prefix: 'Sq',
           isSquare: true,
           mistakeCounts: userWeakSquares,
+          attemptedSet: attemptedSquares,
           onTapNumber: (n) => _startSquareDrill(context, n),
         ),
         const SizedBox(height: 20),
@@ -494,6 +578,7 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
           prefix: 'Sq',
           isSquare: true,
           mistakeCounts: userWeakSquares,
+          attemptedSet: attemptedSquares,
           onTapNumber: (n) => _startSquareDrill(context, n),
         ),
         const SizedBox(height: 20),
@@ -505,6 +590,7 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
           prefix: 'Sq',
           isSquare: true,
           mistakeCounts: userWeakSquares,
+          attemptedSet: attemptedSquares,
           onTapNumber: (n) => _startSquareDrill(context, n),
         ),
       ],
@@ -512,7 +598,7 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
   }
 
   // TAB 3: CUBES (1 to 30) Divided into 3 neat sections
-  Widget _buildCubesTab(BuildContext context, Map<int, int> userWeakCubes) {
+  Widget _buildCubesTab(BuildContext context, Map<int, int> userWeakCubes, Set<int> attemptedCubes) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -524,6 +610,7 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
           prefix: 'Cb',
           isCube: true,
           mistakeCounts: userWeakCubes,
+          attemptedSet: attemptedCubes,
           onTapNumber: (n) => _startCubeDrill(context, n),
         ),
         const SizedBox(height: 20),
@@ -535,6 +622,7 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
           prefix: 'Cb',
           isCube: true,
           mistakeCounts: userWeakCubes,
+          attemptedSet: attemptedCubes,
           onTapNumber: (n) => _startCubeDrill(context, n),
         ),
         const SizedBox(height: 20),
@@ -546,6 +634,7 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
           prefix: 'Cb',
           isCube: true,
           mistakeCounts: userWeakCubes,
+          attemptedSet: attemptedCubes,
           onTapNumber: (n) => _startCubeDrill(context, n),
         ),
       ],
@@ -553,7 +642,7 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
   }
 
   // TAB 4: HARD MULTIPLIERS (Dynamic accuracy & latency)
-  Widget _buildMultipliersTab(BuildContext context, Map<int, int> multiplierErrors) {
+  Widget _buildMultipliersTab(BuildContext context, Map<int, int> multiplierErrors, Set<int> attemptedMultipliers) {
     final highYieldMultipliers = [
       {'base': 12, 'label': '12 × 2D', 'desc': 'Breakdown: (10 × N) + (2 × N)'},
       {'base': 13, 'label': '13 × 2D', 'desc': 'Breakdown: (10 × N) + (3 × N)'},
@@ -576,9 +665,15 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
         final item = highYieldMultipliers[idx];
         final base = item['base'] as int;
         final errors = multiplierErrors[base] ?? 0;
-        final bool isWeak = errors > 0;
-        final color = isWeak ? (errors >= 2 ? AppTheme.error : Colors.amber) : const Color(0xFF10B981);
-        final tag = isWeak ? (errors >= 2 ? 'WEAK ($errors)' : 'REVIEW') : 'FAST';
+        final bool isAttempted = attemptedMultipliers.contains(base) || errors > 0;
+        final color = !isAttempted
+            ? const Color(0xFF64748B)
+            : (errors >= 2
+                ? AppTheme.error
+                : (errors == 1 ? Colors.amber : const Color(0xFF10B981)));
+        final tag = !isAttempted
+            ? 'NEW'
+            : (errors >= 2 ? 'WEAK ($errors)' : (errors == 1 ? 'REVIEW' : 'FAST'));
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -694,6 +789,7 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
     bool isSquare = false,
     bool isCube = false,
     required Map<int, int> mistakeCounts,
+    required Set<int> attemptedSet,
     required Function(int) onTapNumber,
   }) {
     final count = end - start + 1;
@@ -711,11 +807,16 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
       itemBuilder: (ctx, index) {
         final n = start + index;
         final int errorCount = mistakeCounts[n] ?? 0;
-        Color color = const Color(0xFF10B981); // Green default (<1.5s Fast / No Mistakes)
-        String tag = 'Fast';
-        String speed = '<1.5s';
+        final bool isAttempted = attemptedSet.contains(n) || errorCount > 0;
+        Color color;
+        String tag;
+        String speed;
 
-        if (errorCount >= 2) {
+        if (!isAttempted) {
+          color = const Color(0xFF64748B); // Grey for unattempted cells
+          tag = 'New';
+          speed = 'Unattempted';
+        } else if (errorCount >= 2) {
           color = AppTheme.error;
           tag = 'Weak ($errorCount err)';
           speed = '>3.5s';
@@ -723,6 +824,10 @@ class _WeaknessHeatmapScreenState extends State<WeaknessHeatmapScreen> with Sing
           color = Colors.amber;
           tag = 'Review (1 err)';
           speed = '2-3s';
+        } else {
+          color = const Color(0xFF10B981); // Green for attempted & mastered
+          tag = 'Fast';
+          speed = '<1.5s';
         }
 
         return GestureDetector(

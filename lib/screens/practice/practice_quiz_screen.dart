@@ -22,6 +22,7 @@ class PracticeQuizScreen extends StatefulWidget {
   final int questionCount;
   final List<QuestionModel>? customQuestions;
   final List<QuestionModel> Function()? onRegenerateQuestions;
+  final bool initialUseNumpad;
 
   const PracticeQuizScreen({
     super.key,
@@ -31,6 +32,7 @@ class PracticeQuizScreen extends StatefulWidget {
     this.questionCount = 15,
     this.customQuestions,
     this.onRegenerateQuestions,
+    this.initialUseNumpad = false,
   });
 
   @override
@@ -62,6 +64,9 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
   int _secondsElapsed = 0;
   final List<MistakeModel> _sessionMistakes = [];
 
+  // ⏱️ Pause flag while reading Quick Tip
+  bool _isTimerPaused = false;
+
   // Per-question strict timer (Easy: null, Medium: 10s, Hard: 5s, Exam: 2.5s)
   Timer? _perQuestionTimer;
   late double? _currentPerQuestionSeconds;
@@ -70,6 +75,8 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
   @override
   void initState() {
     super.initState();
+    _useNumpad = widget.initialUseNumpad ||
+        (widget.perQuestionSeconds != null && widget.perQuestionSeconds! <= 5.0);
     if (widget.perQuestionSeconds != null) {
       _currentPerQuestionSeconds = widget.perQuestionSeconds;
     } else if (widget.isTimed) {
@@ -89,7 +96,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
 
     if (widget.isTimed) {
       _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-        if (mounted) {
+        if (mounted && !_isTimerPaused) {
           setState(() {
             _secondsElapsed++;
           });
@@ -201,6 +208,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
         timer.cancel();
         return;
       }
+      if (_isTimerPaused) return;
       setState(() {
         _questionSecondsLeft -= 0.05;
         if (_questionSecondsLeft <= 0.0) {
@@ -673,9 +681,9 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
     context.read<AppStateProvider>().triggerHapticFeedback();
   }
 
-  void _showTrickHintSheet() {
+  Future<void> _showTrickHintSheet() async {
     final currentQ = _questions[_currentIndex];
-    String title = 'Speed Calculation Hint';
+    String title = 'Quick Tip';
     String trick = 'Break down complex numbers into tens and units (e.g. 24 × 6 = 20 × 6 + 4 × 6 = 120 + 24 = 144).';
 
     switch (widget.topic.type) {
@@ -700,6 +708,10 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
         title = 'Complement Method';
         trick = 'Subtract the nearest round number and add back the difference (e.g. 84 - 29 = 84 - 30 + 1 = 55).';
         break;
+      case TopicType.division:
+        title = 'Split & Reverse Division Rule';
+        trick = 'Ask "what × divisor gives dividend?", or split dividend into friendly multiples (e.g. 168 ÷ 7 = (140 + 28) ÷ 7 = 20 + 4 = 24).';
+        break;
       case TopicType.fractions:
         title = 'Percentage & Fraction Conversion Rule';
         trick = '1/2 = 50%, 1/3 = 33.33%, 1/4 = 25%, 1/5 = 20%, 1/6 = 16.66%, 1/7 = 14.28%, 1/8 = 12.5%. Convert to fractions for lightning mental math!';
@@ -708,56 +720,110 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
         break;
     }
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accent.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.lightbulb_rounded, color: AppTheme.gold, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceLight.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    if (mounted) {
+      setState(() => _isTimerPaused = true);
+    }
+
+    try {
+      await showModalBottomSheet(
+        context: context,
+        backgroundColor: AppTheme.surface,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+        builder: (ctx) => Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Text('Problem: ${currentQ.prompt}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cyan)),
-                  const SizedBox(height: 8),
-                  Text(trick, style: const TextStyle(fontSize: 13.5, color: Colors.white70, height: 1.4)),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accent.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.lightbulb_rounded, color: AppTheme.gold, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                    ),
+                    child: const Text(
+                      '⏸ Paused',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amberAccent),
+                    ),
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 18),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryLight,
-                minimumSize: const Size.fromHeight(46),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceLight.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Problem: ${currentQ.prompt}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cyan)),
+                    const SizedBox(height: 8),
+                    Text(trick, style: const TextStyle(fontSize: 13.5, color: Colors.white70, height: 1.4)),
+                  ],
+                ),
               ),
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Got it! Back to Practice'),
+              const SizedBox(height: 18),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryLight,
+                  minimumSize: const Size.fromHeight(46),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Resume Practice'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isTimerPaused = false);
+      }
+    }
+  }
+
+  Widget _buildQuickTipButton() {
+    return InkWell(
+      onTap: _showTrickHintSheet,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppTheme.cyan.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.cyan.withValues(alpha: 0.5)),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lightbulb_outline_rounded, size: 15, color: AppTheme.cyan),
+            SizedBox(width: 4),
+            Text(
+              'Quick Tip',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.cyan,
+              ),
             ),
           ],
         ),
@@ -1043,10 +1109,14 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: CustomScrollView(
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Progress indicator & Question Counter
               Row(
@@ -1235,34 +1305,8 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      // Speed Trick Hint Button
-                      InkWell(
-                        onTap: _showTrickHintSheet,
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppTheme.cyan.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppTheme.cyan.withValues(alpha: 0.5)),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.lightbulb_outline_rounded, size: 15, color: AppTheme.cyan),
-                              SizedBox(width: 4),
-                              Text(
-                                'Trick Tip',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.cyan,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                      // Quick Tip Button (pauses timer)
+                      _buildQuickTipButton(),
                     ],
                   ),
                 ),
@@ -1297,6 +1341,10 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
                   ],
                 ),
               ] else ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Center(child: _buildQuickTipButton()),
+                ),
                 // Numpad Typed Answer Preview Box
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
@@ -1352,10 +1400,13 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
                   submitColor: const Color(0xFF8B5CF6),
                 ),
               ],
-              const SizedBox(height: 12),
-            ],
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
           ),
-        ),
+        ],
+      ),
       ),
     );
   }

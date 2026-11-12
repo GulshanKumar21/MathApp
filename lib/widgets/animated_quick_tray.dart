@@ -5,6 +5,7 @@ class QuickActionItem {
   final String title;
   final String? badge;
   final IconData icon;
+  final Widget? customIcon;
   final List<Color> gradientColors;
   final Color? iconColor;
   final VoidCallback onTap;
@@ -14,6 +15,7 @@ class QuickActionItem {
     required this.title,
     this.badge,
     required this.icon,
+    this.customIcon,
     required this.gradientColors,
     this.iconColor,
     required this.onTap,
@@ -75,7 +77,7 @@ class AnimatedQuickTray extends StatelessWidget {
                           ),
                         ),
                         child: Center(
-                          child: Icon(item.icon, color: item.iconColor ?? Colors.white, size: 28),
+                          child: item.customIcon ?? Icon(item.icon, color: item.iconColor ?? Colors.white, size: 28),
                         ),
                       ),
                       if (item.badge != null)

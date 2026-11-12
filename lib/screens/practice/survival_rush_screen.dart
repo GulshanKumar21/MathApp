@@ -241,7 +241,7 @@ class _SurvivalRushScreenState extends State<SurvivalRushScreen> with SingleTick
     return Scaffold(
       backgroundColor: _isGameOver ? const Color(0xFF14141E) : AppTheme.bgDark,
       appBar: AppBar(
-        title: const Text('⚡ 5s Speed Blitz (15 Viral Tricks Qs)'),
+        title: const Text('⚡ 5s Speed Blitz (15 Speed Tricks Qs)'),
         backgroundColor: Colors.transparent,
       ),
       body: SafeArea(
@@ -345,7 +345,7 @@ class _SurvivalRushScreenState extends State<SurvivalRushScreen> with SingleTick
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
-                  '⚡ VIRAL TRICKS REFLEX',
+                  '⚡ SPEED TRICKS REFLEX',
                   style: TextStyle(letterSpacing: 1.5, fontSize: 11, fontWeight: FontWeight.w900, color: AppTheme.accent),
                 ),
               ),

@@ -91,7 +91,7 @@ class DynamicQuestionEngine {
         );
 
       case TopicType.hardMultiplier:
-        // 🔥 Viral Maths Speed Multipliers & Consecutive Multiplications (Page 8, 9, 10)
+        // 🔥 Speed Math Speed Multipliers & Consecutive Multiplications (Page 8, 9, 10)
         final mulType = _rnd.nextInt(8);
         if (mulType == 0) {
           // 1. Consecutive Numbers: n × (n + 1) = n² + n (e.g. 12×13, 13×14, 16×17, 17×18, 24×25, 35×36)
@@ -105,7 +105,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Consecutive Rule: $n² + $n = ${n * n} + $n = $ans (or ${n + 1}² - ${n + 1} = $ans)',
+            explanation: '⚡ Vedic Consecutive Rule: $n² + $n = ${n * n} + $n = $ans (or ${n + 1}² - ${n + 1} = $ans)',
           );
         } else if (mulType == 1) {
           // 2. Alternate Consecutive Numbers (Gap of 2): (N-1)(N+1) = N² - 1
@@ -121,7 +121,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Midpoint Rule: ($mid - 1)($mid + 1) = $mid² - 1 = ${mid * mid} - 1 = $ans',
+            explanation: '⚡ Vedic Midpoint Rule: ($mid - 1)($mid + 1) = $mid² - 1 = ${mid * mid} - 1 = $ans',
           );
         } else if (mulType == 2) {
           // 3. Difference of 10 Ending in 5: (HigherTen² - 1) | 75 (e.g. 15×25, 25×35, 45×55, 65×75, 85×95)
@@ -139,7 +139,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Diff 10 Ending 5: ($highTen² - 1) | 75 = ${highTen * highTen - 1}75 = $ans',
+            explanation: '⚡ Vedic Diff 10 Ending 5: ($highTen² - 1) | 75 = ${highTen * highTen - 1}75 = $ans',
           );
         } else if (mulType == 3) {
           // 4. Powers of 5 (× 25 or × 125)
@@ -156,7 +156,7 @@ class DynamicQuestionEngine {
               correctAnswer: '$ans',
               options: options,
               difficulty: difficulty,
-              explanation: '⚡ Viral Power of 5: ($a ÷ 8) × 1000 = $q × 1000 = $ans',
+              explanation: '⚡ Vedic Power of 5: ($a ÷ 8) × 1000 = $q × 1000 = $ans',
             );
           } else {
             int q = _rnd.nextInt(25) + 3; // 3 to 27
@@ -170,7 +170,7 @@ class DynamicQuestionEngine {
               correctAnswer: '$ans',
               options: options,
               difficulty: difficulty,
-              explanation: '⚡ Viral Magical 25: ($a ÷ 4) × 100 = $q × 100 = $ans',
+              explanation: '⚡ Vedic Magical 25: ($a ÷ 4) × 100 = $q × 100 = $ans',
             );
           }
         } else if (mulType == 4) {
@@ -189,7 +189,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Ekadhikena Rule: $tens × ($tens + 1) | $u1 × $u2 = ${tens * (tens + 1)}${u1 * u2 < 10 ? '0' : ''}${u1 * u2} = $ans',
+            explanation: '⚡ Vedic Ekadhikena Rule: $tens × ($tens + 1) | $u1 × $u2 = ${tens * (tens + 1)}${u1 * u2 < 10 ? '0' : ''}${u1 * u2} = $ans',
           );
         } else if (mulType == 5) {
           // 6. 11 Sandwich Rule: AB * 11
@@ -205,7 +205,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral 11-Sandwich: Split $d1 and $d2, middle is ($d1 + $d2) = $ans',
+            explanation: '⚡ Vedic 11-Sandwich: Split $d1 and $d2, middle is ($d1 + $d2) = $ans',
           );
         } else if (mulType == 6) {
           // 7. Base 100 Method (below 100: e.g. 94 * 97)
@@ -224,7 +224,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Base-100: ($a - $diff2) | ($diff1 × $diff2) = ${a - diff2}$diffStr = $ans',
+            explanation: '⚡ Vedic Base-100: ($a - $diff2) | ($diff1 × $diff2) = ${a - diff2}$diffStr = $ans',
           );
         } else {
           // 8. Half & Double Rule (When one number ends in 5: e.g. 14 × 15, 16 × 35)
@@ -239,12 +239,12 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Half & Double: ($ev ÷ 2) × ($fv × 2) = ${ev ~/ 2} × ${fv * 2} = $ans',
+            explanation: '⚡ Vedic Half & Double: ($ev ÷ 2) × ($fv × 2) = ${ev ~/ 2} × ${fv * 2} = $ans',
           );
         }
 
       case TopicType.squares:
-        // 🔥 Viral Maths Speed Squares & Instant Square Roots
+        // 🔥 Speed Math Speed Squares & Instant Square Roots
         final sqType = _rnd.nextInt(4);
         if (sqType == 0) {
           // Numbers ending in 5: (n5)² = n(n+1) | 25
@@ -259,7 +259,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Ending-in-5 Trick: $tens × (${tens + 1}) | 25 = ${tens * (tens + 1)}25 = $ans',
+            explanation: '⚡ Vedic Ending-in-5 Trick: $tens × (${tens + 1}) | 25 = ${tens * (tens + 1)}25 = $ans',
           );
         } else if (sqType == 1) {
           // Base 50 Method (41 to 59)
@@ -277,7 +277,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Base-50 Trick: (25 ${diff >= 0 ? '+' : '-'} $dAbs) | $dAbs² = ${25 + diff}$dSqStr = $ans',
+            explanation: '⚡ Vedic Base-50 Trick: (25 ${diff >= 0 ? '+' : '-'} $dAbs) | $dAbs² = ${25 + diff}$dSqStr = $ans',
           );
         } else if (sqType == 2) {
           // Base 100 Method (91 to 109)
@@ -295,7 +295,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Base-100 Trick: ($n ${diff >= 0 ? '+' : '-'} $dAbs) | $dAbs² = ${n + diff}$dSqStr = $ans',
+            explanation: '⚡ Vedic Base-100 Trick: ($n ${diff >= 0 ? '+' : '-'} $dAbs) | $dAbs² = ${n + diff}$dSqStr = $ans',
           );
         } else {
           // Instant Square Root
@@ -309,12 +309,12 @@ class DynamicQuestionEngine {
             correctAnswer: '$root',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral 2-Second Square Root: Nearest base square & last digit check ➔ √$sqVal = $root',
+            explanation: '⚡ Vedic 2-Second Square Root: Nearest base square & last digit check ➔ √$sqVal = $root',
           );
         }
 
       case TopicType.cubes:
-        // 🔥 Viral Maths Speed Cubes & 3-Second Mental Cube Roots
+        // 🔥 Speed Math Speed Cubes & 3-Second Mental Cube Roots
         final cubeType = _rnd.nextInt(3);
         if (cubeType == 0) {
           // 3-Second Mental Cube Root of up to 6-digit numbers
@@ -329,7 +329,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$root',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral 3-Second Cube Root: Last digit $lastDigit pairs with $lastDigit. Drop last 3 digits, find nearest cube base ➔ $root',
+            explanation: '⚡ Vedic 3-Second Cube Root: Last digit $lastDigit pairs with $lastDigit. Drop last 3 digits, find nearest cube base ➔ $root',
           );
         } else if (cubeType == 1) {
           // Invariant Unit Digits (ends in 0, 1, 4, 5, 6, 9)
@@ -344,7 +344,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Invariant Unit Rule: Cubes ending in ${n % 10} ALWAYS have root ending in ${n % 10} ➔ $n³ = $ans',
+            explanation: '⚡ Vedic Invariant Unit Rule: Cubes ending in ${n % 10} ALWAYS have root ending in ${n % 10} ➔ $n³ = $ans',
           );
         } else {
           int n = _rnd.nextInt(20) + 11;
@@ -357,7 +357,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Cube: $n × $n × $n = $ans',
+            explanation: '⚡ Vedic Cube: $n × $n × $n = $ans',
           );
         }
 
@@ -460,7 +460,7 @@ class DynamicQuestionEngine {
         );
 
       case TopicType.addition:
-        // Viral Speed Addition: 100-Pairing, 10 Consecutive Numbers & Left-to-Right Split
+        // Vedic Speed Addition: 100-Pairing, 10 Consecutive Numbers & Left-to-Right Split
         final addType = _rnd.nextInt(3);
         if (addType == 0) {
           int p1 = (_rnd.nextInt(8) + 1) * 10 + (_rnd.nextInt(8) + 1);
@@ -475,7 +475,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral 100-Pairing: ($p1 + $p2) + $third = 100 + $third = $ans',
+            explanation: '⚡ Vedic 100-Pairing: ($p1 + $p2) + $third = 100 + $third = $ans',
           );
         } else if (addType == 1) {
           // 10 Consecutive Numbers Sum Shortcut (5th number + append 5)
@@ -491,7 +491,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral 10 Consecutive Numbers: 5th number is $fifth, append 5 ➔ $fifth' + '5 = $ans',
+            explanation: '⚡ Vedic 10 Consecutive Numbers: 5th number is $fifth, append 5 ➔ $fifth' + '5 = $ans',
           );
         } else {
           int a = _rnd.nextInt(89) + 11;
@@ -513,12 +513,12 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Split & Merge: ($aTens + $bTens) + ($aUnits + $bUnits) = ${aTens + bTens} + ${aUnits + bUnits} = $ans',
+            explanation: '⚡ Vedic Split & Merge: ($aTens + $bTens) + ($aUnits + $bUnits) = ${aTens + bTens} + ${aUnits + bUnits} = $ans',
           );
         }
 
       case TopicType.subtraction:
-        // Viral Speed Subtraction: Reverse 2-Digit, Reverse 3-Digit, Nikhilam & Constant Diff
+        // Vedic Speed Subtraction: Reverse 2-Digit, Reverse 3-Digit, Nikhilam & Constant Diff
         final subType = _rnd.nextInt(5);
         if (subType == 0) {
           int d1 = _rnd.nextInt(6) + 4; // 4 to 9
@@ -534,7 +534,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Reverse Rule (AB - BA): 9 × ($d1 - $d2) = 9 × ${d1 - d2} = $ans',
+            explanation: '⚡ Vedic Reverse Rule (AB - BA): 9 × ($d1 - $d2) = 9 × ${d1 - d2} = $ans',
           );
         } else if (subType == 1) {
           // 3-Digit Reverse Rule: ABC - CBA = 99 × (A - C)
@@ -552,7 +552,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral 3-Digit Reverse Rule (ABC - CBA): 99 × ($a - $c) = 99 × ${a - c} = $ans',
+            explanation: '⚡ Vedic 3-Digit Reverse Rule (ABC - CBA): 99 × ($a - $c) = 99 × ${a - c} = $ans',
           );
         } else if (subType == 2) {
           int base = (difficulty >= 2) ? 10000 : 1000;
@@ -566,7 +566,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Nikhilam Rule: All from 9, last from 10 ➔ Zero borrowing = $ans',
+            explanation: '⚡ Vedic Nikhilam Rule: All from 9, last from 10 ➔ Zero borrowing = $ans',
           );
         } else if (subType == 3) {
           int tensB = _rnd.nextInt(5) + 2;
@@ -581,7 +581,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Constant Difference: ($aVal + 1) - ($bVal + 1) = ${aVal + 1} - ${bVal + 1} = $ans',
+            explanation: '⚡ Vedic Constant Difference: ($aVal + 1) - ($bVal + 1) = ${aVal + 1} - ${bVal + 1} = $ans',
           );
         } else {
           int a = _rnd.nextInt(80) + 20;
@@ -595,12 +595,12 @@ class DynamicQuestionEngine {
             correctAnswer: '$ans',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Left-to-Right Subtraction: $a - $b = $ans',
+            explanation: '⚡ Vedic Left-to-Right Subtraction: $a - $b = $ans',
           );
         }
 
       case TopicType.division:
-        // Viral Speed Division: Magical 5, 25 & Nikhilam 9
+        // Vedic Speed Division: Magical 5, 25 & Nikhilam 9
         final divType = _rnd.nextInt(4);
         if (divType == 0) {
           int q = _rnd.nextInt(150) + 12;
@@ -613,7 +613,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$q',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Double & Shift: ($divd × 2) ÷ 10 = ${divd * 2} ÷ 10 = $q',
+            explanation: '⚡ Vedic Double & Shift: ($divd × 2) ÷ 10 = ${divd * 2} ÷ 10 = $q',
           );
         } else if (divType == 1) {
           int q = _rnd.nextInt(40) + 4;
@@ -626,7 +626,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$q',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Multiply by 4: ($divd × 4) ÷ 100 = ${divd * 4} ÷ 100 = $q',
+            explanation: '⚡ Vedic Multiply by 4: ($divd × 4) ÷ 100 = ${divd * 4} ÷ 100 = $q',
           );
         } else if (divType == 2) {
           int q = _rnd.nextInt(35) + 4;
@@ -639,7 +639,7 @@ class DynamicQuestionEngine {
             correctAnswer: '$q',
             options: options,
             difficulty: difficulty,
-            explanation: '⚡ Viral Nikhilam Division: $divd ÷ 9 = $q (Digit sum = 9)',
+            explanation: '⚡ Vedic Nikhilam Division: $divd ÷ 9 = $q (Digit sum = 9)',
           );
         } else {
           int divisor = _rnd.nextInt(8) + 2;
@@ -684,7 +684,7 @@ class DynamicQuestionEngine {
         );
 
       case TopicType.hardMultiplier:
-        // 🔥 Viral Maths Speed Multipliers & Consecutive Multiplications (Page 8, 9, 10)
+        // 🔥 Speed Math Speed Multipliers & Consecutive Multiplications (Page 8, 9, 10)
         final mulType = seededRnd.nextInt(8);
         if (mulType == 0) {
           // 1. Consecutive Numbers: n × (n + 1) = n² + n
@@ -697,7 +697,7 @@ class DynamicQuestionEngine {
             prompt: '$n × ${n + 1} = ?',
             correctAnswer: '$ans',
             options: options,
-            explanation: '⚡ Viral Consecutive Rule: $n² + $n = ${n * n} + $n = $ans (or ${n + 1}² - ${n + 1} = $ans)',
+            explanation: '⚡ Vedic Consecutive Rule: $n² + $n = ${n * n} + $n = $ans (or ${n + 1}² - ${n + 1} = $ans)',
           );
         } else if (mulType == 1) {
           // 2. Alternate Consecutive Numbers (Gap of 2): (N-1)(N+1) = N² - 1
@@ -712,7 +712,7 @@ class DynamicQuestionEngine {
             prompt: '$a × $b = ?',
             correctAnswer: '$ans',
             options: options,
-            explanation: '⚡ Viral Midpoint Rule: ($mid - 1)($mid + 1) = $mid² - 1 = ${mid * mid} - 1 = $ans',
+            explanation: '⚡ Vedic Midpoint Rule: ($mid - 1)($mid + 1) = $mid² - 1 = ${mid * mid} - 1 = $ans',
           );
         } else if (mulType == 2) {
           // 3. Difference of 10 Ending in 5: (HigherTen² - 1) | 75
@@ -729,7 +729,7 @@ class DynamicQuestionEngine {
             prompt: '$a × $b = ?',
             correctAnswer: '$ans',
             options: options,
-            explanation: '⚡ Viral Diff 10 Ending 5: ($highTen² - 1) | 75 = ${highTen * highTen - 1}75 = $ans',
+            explanation: '⚡ Vedic Diff 10 Ending 5: ($highTen² - 1) | 75 = ${highTen * highTen - 1}75 = $ans',
           );
         } else if (mulType == 3) {
           // 4. Powers of 5 (× 25 or × 125)
@@ -745,7 +745,7 @@ class DynamicQuestionEngine {
               prompt: '$a × 125 = ?',
               correctAnswer: '$ans',
               options: options,
-              explanation: '⚡ Viral Power of 5: ($a ÷ 8) × 1000 = $q × 1000 = $ans',
+              explanation: '⚡ Vedic Power of 5: ($a ÷ 8) × 1000 = $q × 1000 = $ans',
             );
           } else {
             int q = seededRnd.nextInt(25) + 3;
@@ -758,7 +758,7 @@ class DynamicQuestionEngine {
               prompt: '$a × 25 = ?',
               correctAnswer: '$ans',
               options: options,
-              explanation: '⚡ Viral Magical 25: ($a ÷ 4) × 100 = $q × 100 = $ans',
+              explanation: '⚡ Vedic Magical 25: ($a ÷ 4) × 100 = $q × 100 = $ans',
             );
           }
         } else if (mulType == 4) {
@@ -776,7 +776,7 @@ class DynamicQuestionEngine {
             prompt: '$a × $b = ?',
             correctAnswer: '$ans',
             options: options,
-            explanation: '⚡ Viral Ekadhikena Rule: $tens × ($tens + 1) | $u1 × $u2 = ${tens * (tens + 1)}${u1 * u2 < 10 ? '0' : ''}${u1 * u2} = $ans',
+            explanation: '⚡ Vedic Ekadhikena Rule: $tens × ($tens + 1) | $u1 × $u2 = ${tens * (tens + 1)}${u1 * u2 < 10 ? '0' : ''}${u1 * u2} = $ans',
           );
         } else if (mulType == 5) {
           // 6. 11 Sandwich Rule: AB * 11
@@ -791,7 +791,7 @@ class DynamicQuestionEngine {
             prompt: '$a × 11 = ?',
             correctAnswer: '$ans',
             options: options,
-            explanation: '⚡ Viral 11-Sandwich: Split $d1 and $d2, middle is ($d1 + $d2) = $ans',
+            explanation: '⚡ Vedic 11-Sandwich: Split $d1 and $d2, middle is ($d1 + $d2) = $ans',
           );
         } else if (mulType == 6) {
           // 7. Base 100 Method (below 100: e.g. 94 * 97)
@@ -809,7 +809,7 @@ class DynamicQuestionEngine {
             prompt: '$a × $b = ?',
             correctAnswer: '$ans',
             options: options,
-            explanation: '⚡ Viral Base-100: ($a - $diff2) | ($diff1 × $diff2) = ${a - diff2}$diffStr = $ans',
+            explanation: '⚡ Vedic Base-100: ($a - $diff2) | ($diff1 × $diff2) = ${a - diff2}$diffStr = $ans',
           );
         } else {
           // 8. Half & Double Rule
@@ -823,7 +823,7 @@ class DynamicQuestionEngine {
             prompt: '$ev × $fv = ?',
             correctAnswer: '$ans',
             options: options,
-            explanation: '⚡ Viral Half & Double: ($ev ÷ 2) × ($fv × 2) = ${ev ~/ 2} × ${fv * 2} = $ans',
+            explanation: '⚡ Vedic Half & Double: ($ev ÷ 2) × ($fv × 2) = ${ev ~/ 2} × ${fv * 2} = $ans',
           );
         }
 
@@ -909,23 +909,23 @@ class DynamicQuestionEngine {
   static List<String> _generateSmartDistractors(int correct, {required List<int> delta}) {
     Set<int> opts = {correct};
 
-    // 1. SINGLE-DIGIT RULE (< 10):
-    // For single-digit answers (e.g. 2 + 2 = 4), do NOT force identical unit digit (not 4, 14, 24, 34).
-    // Instead provide realistic nearby small numbers close to the answer (e.g., 4, 5, 8, 1, 3, 6).
-    if (correct.abs() < 10) {
-      final smallPool = [1, -1, 2, -2, 3, -3, 4, -4, 5, -5]..shuffle();
-      for (int d in smallPool) {
+    // 1. SMALL-NUMBER RULE (<= 25):
+    // Keep options ultra-close & tricky (e.g. for 12 -> 10, 11, 12, 14 instead of 2, 12, 32, 52).
+    if (correct.abs() <= 25) {
+      final int minAllowed = correct < 10 ? 0 : 1;
+      final closeOffsets = [1, -1, 2, -2, 3, -3, 4, -4, 5, -5]..shuffle();
+      for (int d in closeOffsets) {
         if (opts.length >= 4) break;
         int cand = correct + d;
-        if (cand >= 0 && cand != correct) {
+        if (cand >= minAllowed && cand != correct) {
           opts.add(cand);
         }
       }
 
       int step = 1;
       while (opts.length < 4) {
-        if (correct + step >= 0) opts.add(correct + step);
-        if (opts.length < 4 && correct - step >= 0) opts.add(correct - step);
+        if (correct + step >= minAllowed) opts.add(correct + step);
+        if (opts.length < 4 && correct - step >= minAllowed) opts.add(correct - step);
         step++;
       }
 
@@ -934,12 +934,39 @@ class DynamicQuestionEngine {
       return list;
     }
 
-    // 2. MULTI-DIGIT RULE (>= 10):
-    // Competitive exam benchmark: All options strictly share the exact same unit digit!
+    // 2. MID TWO-DIGIT RULE (26..99):
+    // Mix unit-digit traps (±10, ±20) with tight neighbor slips (±1, ±2, ±3) so options stay close.
+    if (correct.abs() < 100) {
+      final midOffsets = [10, -10, 1, -1, 2, -2, 3, -3, 20, -20]..shuffle();
+      for (int d in delta) {
+        if (d != 0 && d.abs() <= 20) {
+          int cand = correct + d;
+          if (cand > 0 && cand != correct) opts.add(cand);
+        }
+        if (opts.length >= 4) break;
+      }
+      for (int d in midOffsets) {
+        if (opts.length >= 4) break;
+        int cand = correct + d;
+        if (cand > 0 && cand != correct) opts.add(cand);
+      }
+
+      int step = 1;
+      while (opts.length < 4) {
+        if (correct + step > 0) opts.add(correct + step);
+        if (opts.length < 4 && correct - step > 0) opts.add(correct - step);
+        step++;
+      }
+
+      List<String> list = opts.take(4).map((e) => e.toString()).toList();
+      list.shuffle();
+      return list;
+    }
+
+    // 3. LARGE MULTI-DIGIT RULE (>= 100):
+    // Competitive exam benchmark: Options share the exact same unit digit!
     final int unit = (correct % 10).abs();
 
-    // Use multiples of 10 from passed deltas or standard competitive exam offsets
-    // so every option is guaranteed to have the exact same unit digit!
     List<int> validDeltas = [];
     for (int d in delta) {
       if (d != 0 && d % 10 == 0) {
@@ -949,8 +976,8 @@ class DynamicQuestionEngine {
 
     final pool = [
       10, -10, 20, -20, 30, -30, 40, -40, 50, -50,
-      if (correct >= 80) ...[60, -60, 70, -70, 80, -80, 100, -100],
-      if (correct >= 250) ...[100, -100, 200, -200],
+      if (correct >= 150) ...[60, -60, 70, -70, 80, -80, 100, -100],
+      if (correct >= 400) ...[100, -100, 200, -200],
     ];
     validDeltas.addAll(pool);
     validDeltas.shuffle();
@@ -1945,14 +1972,25 @@ class DynamicQuestionEngine {
         int a = 0, b = 0;
         String prompt = '';
         for (int attempt = 0; attempt < 25; attempt++) {
-          if (maxNumberLimit != null && maxNumberLimit >= 2) {
-            int maxVal = min(digits == 1 ? 9 : (digits == 2 ? 99 : (digits == 3 ? 999 : 9999)), maxNumberLimit);
-            if (maxVal < 2) maxVal = 2;
-            int defaultMin = (digits == 1) ? 2 : (digits == 2 ? 10 : (digits == 3 ? 100 : 1000));
-            int minVal = defaultMin >= maxVal ? max(2, maxVal ~/ 2) : defaultMin;
-            int span = max(1, maxVal - minVal + 1);
-            a = rnd.nextInt(span) + minVal;
-            b = rnd.nextInt(span) + minVal;
+          if (maxNumberLimit != null && maxNumberLimit >= 4) {
+            final int digitMax = digits == 1 ? 9 : (digits == 2 ? 99 : (digits == 3 ? 999 : 9999));
+            final int digitMin = digits == 1 ? 2 : (digits == 2 ? 10 : (digits == 3 ? 100 : 1000));
+            final int cap = min(digitMax, maxNumberLimit);
+            if (maxNumberLimit >= digitMin * 2) {
+              final int maxA = min(cap, maxNumberLimit - digitMin);
+              final int spanA = max(1, maxA - digitMin + 1);
+              a = rnd.nextInt(spanA) + digitMin;
+              final int maxB = min(cap, maxNumberLimit - a);
+              final int spanB = max(1, maxB - digitMin + 1);
+              b = rnd.nextInt(spanB) + digitMin;
+            } else {
+              // Ceiling is tighter than two operands of this digit tier: keep both operands AND sum <= maxNumberLimit
+              final int minA = max(2, min(cap ~/ 2, maxNumberLimit - 2));
+              final int maxA = max(minA, min(cap, maxNumberLimit - 2));
+              a = rnd.nextInt(maxA - minA + 1) + minA;
+              final int maxB = max(2, min(cap, maxNumberLimit - a));
+              b = rnd.nextInt(max(1, maxB - 1)) + 1;
+            }
           } else {
             if (digits == 1) {
               a = rnd.nextInt(8) + 2; // 2 to 9
@@ -1996,18 +2034,21 @@ class DynamicQuestionEngine {
         int a = 0, b = 0;
         String prompt = '';
         for (int attempt = 0; attempt < 25; attempt++) {
-          if (maxNumberLimit != null && maxNumberLimit >= 2) {
-            int maxVal = min(digits == 1 ? 9 : (digits == 2 ? 99 : (digits == 3 ? 999 : 9999)), maxNumberLimit);
-            if (maxVal < 3) maxVal = 3;
-            int defaultMin = (digits == 1) ? 3 : (digits == 2 ? 12 : (digits == 3 ? 110 : 1100));
-            int minVal = defaultMin >= maxVal ? max(3, maxVal ~/ 2) : defaultMin;
-            int span = max(1, maxVal - minVal + 1);
+          if (maxNumberLimit != null && maxNumberLimit >= 3) {
+            final int digitMaxA = digits == 1 ? min(18, maxNumberLimit) : (digits == 2 ? 99 : (digits == 3 ? 999 : 9999));
+            final int maxVal = min(digitMaxA, maxNumberLimit);
+            final int defaultMin = digits == 1
+                ? (maxVal >= 10 ? 6 : 3)
+                : (digits == 2 ? 15 : (digits == 3 ? 120 : 1100));
+            final int minVal = defaultMin >= maxVal ? max(3, maxVal ~/ 2) : defaultMin;
+            final int span = max(1, maxVal - minVal + 1);
             a = rnd.nextInt(span) + minVal;
-            int bMax = a - 1;
-            int bMin = (digits == 1) ? 1 : (digits == 2 ? min(10, bMax) : (digits == 3 ? min(100, bMax) : min(1000, bMax)));
-            if (bMin >= bMax) {
-              bMin = 1;
-            }
+
+            final int bMax = max(1, a - 1);
+            final int preferredBMin = digits == 1
+                ? 2
+                : (digits == 2 ? min(10, bMax) : (digits == 3 ? min(100, bMax) : min(1000, bMax)));
+            final int bMin = preferredBMin >= bMax ? 1 : preferredBMin;
             b = rnd.nextInt(bMax - bMin + 1) + bMin;
           } else {
             if (digits == 1) {
@@ -2103,21 +2144,18 @@ class DynamicQuestionEngine {
         int divisor = 2, quotient = 2, dividend = 4;
         String prompt = '';
         for (int attempt = 0; attempt < 25; attempt++) {
-          if (maxNumberLimit != null && maxNumberLimit >= 2) {
-            int maxDividend = max(4, maxNumberLimit);
-            int maxD = min(20, maxDividend ~/ 2);
-            if (maxD < 2) maxD = 2;
+          if (maxNumberLimit != null && maxNumberLimit >= 4) {
+            final int maxDividend = maxNumberLimit;
+            final int tierMaxDivisor = digits == 1 ? 9 : (digits == 2 ? 15 : 25);
+            final int maxD = max(2, min(tierMaxDivisor, maxDividend ~/ 2));
             divisor = rnd.nextInt(maxD - 1) + 2;
 
-            int maxQ = maxDividend ~/ divisor;
-            if (maxQ < 2) {
-              divisor = 2;
-              maxQ = max(2, maxDividend ~/ 2);
-            }
-            int minQ = (digits == 1) ? 2 : (digits == 2 ? min(10, maxQ) : (digits == 3 ? min(100, maxQ) : min(1000, maxQ)));
-            if (minQ >= maxQ) {
-              minQ = 2;
-            }
+            final int tierMaxQ = digits == 1 ? 9 : 9999;
+            final int maxQ = max(2, min(tierMaxQ, maxDividend ~/ divisor));
+            final int tierMinQ = digits == 1
+                ? 2
+                : (digits == 2 ? 10 : (digits == 3 ? 100 : 1000));
+            final int minQ = tierMinQ >= maxQ ? 2 : tierMinQ;
             quotient = rnd.nextInt(maxQ - minQ + 1) + minQ;
             dividend = divisor * quotient;
           } else {
@@ -2165,13 +2203,13 @@ class DynamicQuestionEngine {
   static final List<String> _recentBlitzFirstPrompts = [];
   static const int _maxBlitzHistory = 100;
 
-  /// Generates a curated set of 15 high-speed Viral Maths trick questions
+  /// Generates a curated set of 15 high-speed Speed Math trick questions
   /// specifically designed for the 5s Speed Blitz challenge!
   /// Strictly guarantees:
   /// 1. Fresh, non-repeating questions across successive sessions & re-opens.
   /// 2. Brand new starting question on every game restart (never opens with same Q twice in a row).
   /// 3. Zero duplicate prompts within the same 15-question round.
-  /// 4. Balanced distribution across all Viral Maths trick categories.
+  /// 4. Balanced distribution across all Speed Math trick categories.
   static List<QuestionModel> generateSpeedBlitzTricksSet({int count = 15}) {
     List<QuestionModel> list = [];
     final rnd = Random(); // Use fresh entropy on each call

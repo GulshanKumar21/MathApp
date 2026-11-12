@@ -4,8 +4,8 @@ import '../../models/math_models.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/app_state_provider.dart';
 import '../../data/dynamic_question_engine.dart';
-import '../../data/content_repository.dart';
-import '../../widgets/animated_math_hero_banner.dart';
+import '../../widgets/daily_planner_card.dart';
+import '../../widgets/crossroads_108_logo.dart';
 import '../../widgets/animated_quick_tray.dart';
 import '../../widgets/animated_streak_badge.dart';
 import '../../widgets/swiggy_floating_action_pill.dart';
@@ -73,7 +73,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppStateProvider>();
-    final topics = state.topics;
 
     return Scaffold(
       appBar: AppBar(
@@ -154,32 +153,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
             _buildCoreCalculationPracticeSection(context, state),
             const SizedBox(height: 18),
 
-            // 2. ✨ Modern Animated Hero Banner with Vector Rocket & Floating Galaxy
-            AnimatedMathHeroBanner(
-              todaySolved: state.todayAttempted,
-              dailyTarget: state.dailyTarget,
-              streakDays: state.streakDays,
-              onStartSprint: () {
-                if (state.isGuestLimitReached) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const AuthScreen(
-                        initialIsLogin: false,
-                        isMandatory: true,
-                      ),
-                    ),
-                  );
-                  return;
-                }
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const ArithmeticDigitSelectionScreen(type: TopicType.hardMultiplier),
-                  ),
-                );
-              },
-            ),
+            // 2. 📅 Daily Planner for Speed Revision (Add & Remove items to memorize)
+            const DailyPlannerCard(),
             const SizedBox(height: 18),
 
             // 3. 🏎️ Mental Calculation Speedometer (RPM Gauge)
@@ -194,9 +169,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
             AnimatedQuickTray(
               items: [
                 QuickActionItem(
-                  title: 'Chauraha',
+                  title: 'Crossroads',
                   badge: 'NEW',
                   icon: Icons.alt_route_rounded,
+                  customIcon: const Crossroads108Logo(size: 46),
                   gradientColors: const [Color(0xFF2A2312), Color(0xFF1C180C)],
                   iconColor: const Color(0xFFF59E0B),
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductChaurahaHubScreen())),
@@ -249,82 +225,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
             _buildAIHeatmapHighlightCard(context, state),
             const SizedBox(height: 18),
 
-            // 6. Smart Prep Resume Banner (Flipkart-style: Pick up where you left off)
-            if (state.lastBrowsedTopicTitle.isNotEmpty) ...[
-              Container(
-                margin: const EdgeInsets.only(bottom: 18),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF111827),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF1F2937), width: 1.0),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.25),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF161F30),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF222F44)),
-                      ),
-                      child: const Icon(Icons.history_edu_rounded, color: Color(0xFF38BDF8), size: 24),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Text('Recently Browsed:', style: TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.bold)),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF161F30),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.4)),
-                                ),
-                                child: const Text('PICK UP', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 9, fontWeight: FontWeight.bold)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(state.lastBrowsedTopicTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-                          const SizedBox(height: 2),
-                          const Text('Tap to jump right into a 2-minute master quiz', style: TextStyle(fontSize: 12, color: Colors.white60)),
-                        ],
-                      ),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563EB),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      onPressed: () {
-                        final allTopics = topics.isNotEmpty ? topics : ContentRepository.getDefaultTopics();
-                        final matchedTopic = allTopics.firstWhere(
-                          (t) => t.id == state.lastBrowsedTopicId || state.lastBrowsedTopicId.contains(t.id),
-                          orElse: () => allTopics.first,
-                        );
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => LearnModeScreen(topic: matchedTopic)));
-                      },
-                      child: const Text('Resume', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+
 
             // 7. 🔥 High-Intensity Speed Drills (Survival Blitz & Numpad Speed Drill)
             const Text(
@@ -612,12 +513,12 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         'tag': '1D–4D',
       },
       {
-        'title': 'Tables (1–30)',
-        'sub': 'Foundation Tables Practice',
+        'title': 'Tables & Multiply',
+        'sub': 'Tables 1–50 & 1D–4D Speed Multiply',
         'type': TopicType.tables,
         'icon': Icons.grid_view_rounded,
         'color': const Color(0xFF818CF8), // Indigo Accent
-        'tag': '1–30',
+        'tag': '1–50 & ×',
       },
       {
         'title': 'Pythagorean Triples',

@@ -130,7 +130,7 @@ class VedicTricksRepository {
     ),
     VedicTrick(
       title: '10 ke Gap wale Numbers jinke last me 5 ho',
-      sutraName: 'Viral Maths Unit 5 Rule',
+      sutraName: 'Vedic Unit 5 Gap-10 Rule',
       category: 'Special Multiplications',
       rule: 'Dono ke last me 5 ho aur gap 10 ka ho: Last me hamesha 75 aayega, aur pehla hissa = (Bade tens digit)² - 1.',
       example: '15 × 25 = (2² - 1) | 75 = 375\n25 × 35 = (3² - 1) | 75 = 875\n35 × 45 = (4² - 1) | 75 = 1575\n45 × 55 = (5² - 1) | 75 = 2475',

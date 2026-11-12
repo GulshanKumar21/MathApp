@@ -394,7 +394,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       {
         'id': 'all',
         'title': 'Dashboard Overview',
-        'hindi': 'डैशबोर्ड (मुख्य पेज)',
+        'hindi': 'Dashboard (Main Page)',
         'icon': Icons.dashboard_rounded,
         'color': const Color(0xFF38BDF8),
         'badge': null,
@@ -402,7 +402,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       {
         'id': 'users',
         'title': 'Students & Subscriptions',
-        'hindi': 'विद्यार्थी और PRO पेमेंट्स',
+        'hindi': 'Students aur PRO Payments',
         'icon': Icons.people_alt_rounded,
         'color': const Color(0xFF10B981),
         'badge': '${state.totalRegisteredUsers}',
@@ -410,7 +410,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       {
         'id': 'mistakes',
         'title': 'Mistakes & Weak Areas',
-        'hindi': 'छात्रों की गलतियाँ (Analytics)',
+        'hindi': 'Students ki Mistakes (Analytics)',
         'icon': Icons.warning_amber_rounded,
         'color': const Color(0xFFEF4444),
         'badge': totalMistakes > 0 ? '$totalMistakes' : null,
@@ -418,7 +418,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       {
         'id': 'broadcasts',
         'title': 'Send Notifications',
-        'hindi': 'पुश नोटिफिकेशन भेजें',
+        'hindi': 'Push Notifications Bhejein',
         'icon': Icons.campaign_rounded,
         'color': const Color(0xFFF59E0B),
         'badge': '${state.broadcasts.length}',
@@ -426,7 +426,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       {
         'id': 'questions',
         'title': 'Questions Manager',
-        'hindi': 'प्रश्न बैंक (Add / Edit MCQs)',
+        'hindi': 'Question Bank (Add / Edit MCQs)',
         'icon': Icons.quiz_rounded,
         'color': const Color(0xFF8B5CF6),
         'badge': '${state.adminQuestions.length}',
@@ -434,7 +434,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       {
         'id': 'pdfs',
         'title': 'Study Notes & PDFs',
-        'hindi': 'स्टडी मटेरियल और नोट्स',
+        'hindi': 'Study Material aur Notes',
         'icon': Icons.picture_as_pdf_rounded,
         'color': const Color(0xFFEC4899),
         'badge': '${state.adminPdfMaterials.length}',
@@ -642,7 +642,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                       child: const Icon(Icons.remove_red_eye_rounded, color: AppTheme.accent, size: 18),
                     ),
                     title: const Text('Preview Student App', style: TextStyle(color: Colors.white70, fontSize: 12.5, fontWeight: FontWeight.w600)),
-                    subtitle: const Text('विद्यार्थी व्यू टेस्ट करें', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                    subtitle: const Text('Student View Test Karein', style: TextStyle(color: Colors.white38, fontSize: 10)),
                     onTap: () {
                       Navigator.pop(context);
                       state.setAdminStudentPreview(true);
@@ -662,7 +662,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                       child: const Icon(Icons.sync_rounded, color: Color(0xFF10B981), size: 18),
                     ),
                     title: const Text('Sync All Data Now', style: TextStyle(color: Colors.white70, fontSize: 12.5, fontWeight: FontWeight.w600)),
-                    subtitle: const Text('लाइव क्लाउड डेटा रिफ्रेश करें', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                    subtitle: const Text('Live Cloud Data Refresh Karein', style: TextStyle(color: Colors.white38, fontSize: 10)),
                     onTap: () async {
                       Navigator.pop(context);
                       await state.syncAllAdminDataFromCloud();
@@ -691,7 +691,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                       child: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 18),
                     ),
                     title: const Text('Sign Out Admin', style: TextStyle(color: Colors.redAccent, fontSize: 12.5, fontWeight: FontWeight.w600)),
-                    subtitle: const Text('एडमिन पैनल से बाहर निकलें', style: TextStyle(color: Colors.redAccent, fontSize: 10)),
+                    subtitle: const Text('Admin Panel se Exit Karein', style: TextStyle(color: Colors.redAccent, fontSize: 10)),
                     onTap: () {
                       Navigator.pop(context);
                       _confirmSignOut(context, state);

@@ -25,13 +25,12 @@ class _CalculationModulesHubScreenState extends State<CalculationModulesHubScree
   final List<String> _categories = [
     'All',
     'Add & Subtract',
-    'Tables (1–30)',
+    'Tables & Multiply',
     'Squares & Cubes',
-    'Hard Multipliers',
     'Fractions',
     'Division',
     'Pythagorean Triples',
-    'Product Chauraha',
+    'Product Crossroads',
   ];
 
   @override
@@ -124,8 +123,8 @@ class _CalculationModulesHubScreenState extends State<CalculationModulesHubScree
     if (_selectedCategory == 'Add & Subtract') {
       return allTopics.where((t) => t.type == TopicType.addition || t.type == TopicType.subtraction).toList();
     }
-    if (_selectedCategory == 'Tables (1–30)') {
-      return allTopics.where((t) => t.type == TopicType.tables).toList();
+    if (_selectedCategory == 'Tables & Multiply') {
+      return allTopics.where((t) => t.type == TopicType.tables || t.type == TopicType.hardMultiplier).toList();
     }
     if (_selectedCategory == 'Squares & Cubes') {
       return allTopics.where((t) => t.type == TopicType.squares || t.type == TopicType.cubes).toList();
@@ -139,10 +138,7 @@ class _CalculationModulesHubScreenState extends State<CalculationModulesHubScree
     if (_selectedCategory == 'Division') {
       return allTopics.where((t) => t.type == TopicType.division).toList();
     }
-    if (_selectedCategory == 'Hard Multipliers') {
-      return allTopics.where((t) => t.type == TopicType.hardMultiplier).toList();
-    }
-    if (_selectedCategory == 'Product Chauraha') {
+    if (_selectedCategory == 'Product Crossroads') {
       return allTopics.where((t) => t.type == TopicType.productChauraha).toList();
     }
     return allTopics;
