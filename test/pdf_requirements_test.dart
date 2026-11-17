@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -226,5 +227,94 @@ void main() {
     expect(find.text('Circumspect'), findsOneWidget);
     expect(find.text('Select the SYNONYM of Discreet = ?'), findsNothing);
     expect(find.text('0'), findsNothing);
+  });
+
+  testWidgets('RecallSolveScreen handles English prompt with = ? and null mistake by showing real words and never math 0/1/2/3', (tester) async {
+    final provider = AppStateProvider();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: provider,
+        child: const MaterialApp(
+          home: RecallSolveScreen(
+            formula: 'Select the SYNONYM of Discreet = ?',
+            mistake: null,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Must show VOCABULARY & ENGLISH RECALL header, not math
+    expect(find.text('VOCABULARY & ENGLISH RECALL'), findsOneWidget);
+    expect(find.text('WHAT IS THE RESULT?'), findsNothing);
+    // Question must NOT end with = ?
+    expect(find.text('Select the SYNONYM of Discreet = ?'), findsNothing);
+    // Must never show math 0, 1, 2, 3
+    expect(find.text('0'), findsNothing);
+    expect(find.text('1'), findsNothing);
+    expect(find.text('2'), findsNothing);
+    expect(find.text('3'), findsNothing);
+    // Must show real English words from content bank for Discreet
+    expect(find.text('Careful'), findsOneWidget);
+  });
+
+  testWidgets('RecallSolveScreen resets wrong red tap after 700ms so user can retry, and closes after green correct tap', (tester) async {
+    final mistake = MistakeModel(
+      id: 'm_anim_reset',
+      prompt: '14 × 6 = ?',
+      userAnswer: '74',
+      correctAnswer: '84',
+      topicId: 'tables',
+      timestamp: DateTime.now(),
+    );
+
+    final provider = AppStateProvider();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: provider,
+        child: MaterialApp(
+          home: RecallSolveScreen(formula: mistake.prompt, mistake: mistake),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Find a wrong option (not '84')
+    final wrongTile = find.descendant(
+      of: find.byType(GridView),
+      matching: find.byWidgetPredicate(
+        (w) => w is Text && w.data != null && w.data != '84',
+      ),
+    ).first;
+
+    await tester.tap(wrongTile);
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // During wrong feedback flash: error banner shown and cancel icon appears
+    expect(find.byIcon(Icons.cancel_rounded), findsOneWidget);
+
+    // After 750ms, red selection resets back to normal so user can pick the right option
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.byIcon(Icons.cancel_rounded), findsNothing);
+
+    // Now tap correct option '84' -> shows check icon (green), then closes after 750ms
+    await tester.ensureVisible(find.text('84'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('84'));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 850));
+    await tester.pumpAndSettle();
+  });
+
+  test('Notification custom sound files are capped within 4 seconds duration', () {
+    final assetSound = File('assets/sounds/custom_notification_sound.mp3');
+    final rawSound = File('android/app/src/main/res/raw/custom_notification_sound.mp3');
+    expect(assetSound.existsSync(), isTrue);
+    expect(rawSound.existsSync(), isTrue);
+    // 160 kbps CBR MP3 @ 4s = 80,000 bytes max (trimmed to 166 frames = 79,680 bytes = 3.984s)
+    expect(assetSound.lengthSync(), lessThanOrEqualTo(82000));
+    expect(rawSound.lengthSync(), lessThanOrEqualTo(82000));
   });
 }

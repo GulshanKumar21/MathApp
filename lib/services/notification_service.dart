@@ -58,12 +58,32 @@ Future<void> notificationTapBackground(NotificationResponse notificationResponse
 }
 
 class NotificationService {
-  /// Plays custom notification chime for in-app / foreground heads-up alerts
+  /// Plays custom notification chime for in-app / foreground heads-up alerts (capped at 4s)
   Future<void> playNotificationSound() async {
     try {
       final player = AudioPlayer();
+      bool isDisposed = false;
+      // ReleaseMode.stop ensures sound plays once and does NOT loop
+      await player.setReleaseMode(ReleaseMode.stop);
       await player.play(AssetSource('sounds/custom_notification_sound.mp3'));
-      player.onPlayerComplete.listen((_) => player.dispose());
+
+      final capTimer = Timer(const Duration(seconds: 4), () async {
+        if (isDisposed) return;
+        isDisposed = true;
+        try {
+          await player.stop();
+          await player.dispose();
+        } catch (_) {}
+      });
+
+      player.onPlayerComplete.listen((_) {
+        capTimer.cancel();
+        if (isDisposed) return;
+        isDisposed = true;
+        try {
+          player.dispose();
+        } catch (_) {}
+      });
     } catch (_) {}
   }
 
@@ -117,9 +137,20 @@ class NotificationService {
         enableVibration: true,
         showBadge: true,
       );
-      await _notificationsPlugin
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(recallChannel);
+      final androidPlugin = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      await androidPlugin?.createNotificationChannel(recallChannel);
+
+      const AndroidNotificationChannel silentFeedbackChannel = AndroidNotificationChannel(
+        'prepvanta_recall_feedback_v1',
+        'PrepVanta Recall Visual Updates',
+        description: 'Silent status updates when answering or restoring recall notifications',
+        importance: Importance.high,
+        playSound: false,
+        enableVibration: false,
+        showBadge: false,
+      );
+      await androidPlugin?.createNotificationChannel(silentFeedbackChannel);
 
       _ensureTimezonesInitialized();
       _isInitialized = true;
@@ -225,6 +256,17 @@ class NotificationService {
           showBadge: true,
         );
         await androidImpl?.createNotificationChannel(recallChannel);
+
+        const AndroidNotificationChannel silentFeedbackChannel = AndroidNotificationChannel(
+          'prepvanta_recall_feedback_v1',
+          'PrepVanta Recall Visual Updates',
+          description: 'Silent status updates when answering or restoring recall notifications',
+          importance: Importance.high,
+          playSound: false,
+          enableVibration: false,
+          showBadge: false,
+        );
+        await androidImpl?.createNotificationChannel(silentFeedbackChannel);
 
         const AndroidNotificationChannel starredChannel = AndroidNotificationChannel(
           'math_starred_tables_v2',
@@ -457,56 +499,8 @@ class NotificationService {
     required List<String> choices,
     required int stage,
   }) {
-    try {
-      final overlay = navigatorKey.currentState?.overlay;
-      if (overlay == null) return;
-
-      _activeBannerEntry?.remove();
-      _activeBannerEntry = null;
-
-      late OverlayEntry entry;
-      entry = OverlayEntry(
-        builder: (context) => _AnimatedHeadsUpBannerWidget(
-          formula: formula,
-          correctAnswer: correctAnswer,
-          notifId: notifId,
-          choices: choices,
-          stage: stage,
-          onDismiss: () {
-            entry.remove();
-            if (_activeBannerEntry == entry) _activeBannerEntry = null;
-          },
-          onAnswer: (choice) async {
-            entry.remove();
-            if (_activeBannerEntry == entry) _activeBannerEntry = null;
-            await handleNotificationAnswerAction('ans|$formula|$choice|$correctAnswer', notifId);
-          },
-          onSnooze: () async {
-            entry.remove();
-            if (_activeBannerEntry == entry) _activeBannerEntry = null;
-            await handleSnoozeAction('snooze|$formula|$correctAnswer', notifId);
-          },
-          onTapBody: () {
-            entry.remove();
-            if (_activeBannerEntry == entry) _activeBannerEntry = null;
-            final ctx = navigatorKey.currentContext;
-            if (ctx != null) {
-              _showInAppSolveOrSnoozeDialog(
-                ctx,
-                formula: formula,
-                correctAnswer: correctAnswer,
-                notifId: notifId,
-              );
-            }
-          },
-        ),
-      );
-
-      _activeBannerEntry = entry;
-      overlay.insert(entry);
-    } catch (e) {
-      debugPrint('Error showing in-app banner: $e');
-    }
+    // Intentionally disabled: Never show intrusive in-app notification banners while user is using the app.
+    return;
   }
 
   Future<void> _showInAppSolveOrSnoozeDialog(
@@ -585,6 +579,13 @@ class NotificationService {
                   ),
                 );
               }
+            },
+            onWrongAttempt: (choice) async {
+              await _recordWrongAnswerStateOnly(
+                formula: clean,
+                wrongOption: choice,
+                notifId: notifId,
+              );
             },
             onSnooze: () async {
               await handleSnoozeAction('snooze|$clean|$resolvedAnswer', notifId);
@@ -715,13 +716,17 @@ class NotificationService {
     }
   }
 
-  // Display an immediate notification
+  // Display an immediate notification (only when app is in background)
   Future<void> showNotification({
     required int id,
     required String title,
     required String body,
     String? payload,
   }) async {
+    if (_isAppInForeground) {
+      debugPrint('🛡️ App in foreground: suppressing immediate notification "$title"');
+      return;
+    }
     try {
       final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
         'math_speed_channel_v2',
@@ -868,8 +873,14 @@ class NotificationService {
     required String correctAnswer,
     String? wrongAttempt,
     String? summaryText,
+    bool isSilent = false,
   }) async {
     // Note: Mistake recall alerts are critical spaced learning reviews and must NEVER be suppressed by daily frequency limits!
+    // 🛡️ User directive: Never post notification alerts while app is in foreground (unless reacting to notification action)
+    if (_isAppInForeground && wrongAttempt == null) {
+      debugPrint('🛡️ App is in foreground: suppressing persistent notification for "$prompt"');
+      return;
+    }
     String formula = cleanPrompt(prompt);
     // 🛡️ Filter out any malformed / non-math questions
     if (!_isValidMathFormula(formula)) {
@@ -919,6 +930,7 @@ class NotificationService {
       correctAnswer: resolvedAnswer,
       wrongAttempt: wrongAttempt,
       summaryText: summaryText ?? queueSummary,
+      isSilent: isSilent,
     );
 
     // NOTE: No short watchdog timer here — ongoing: true + FLAG_NO_CLEAR prevent swipe-away natively.
@@ -1027,32 +1039,43 @@ class NotificationService {
     required String correctAnswer,
     String? wrongAttempt,
     String? summaryText,
+    bool isSilent = false,
   }) async {
+    if (_isAppInForeground && wrongAttempt == null) {
+      debugPrint('🛡️ App is in foreground: strictly suppressing recall notification alert for "$formula"');
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     final int currentStage = prefs.getInt('repetition_stage_$formula') ?? 1;
+    final bool isWrongState = wrongAttempt != null && wrongAttempt.isNotEmpty;
 
     final String stageName = currentStage == 1
         ? '🔴 30-Min Recall'
         : (currentStage == 2 ? '🟠 3-Hour Reinforcement' : '🟢 Next-Day Retention');
 
-    final String displayTitle = wrongAttempt != null
-        ? '❌ Galat! $formula = ?'
+    final String displayTitle = isWrongState
+        ? '❌ Galat ($wrongAttempt)! $formula = ?'
         : '$stageName: $formula = ?';
 
     // Generate shuffled choices ONCE so body text and action buttons show SAME order!
     final List<String> shuffledChoices = _buildThreeAnswerChoices(options, correctAnswer);
     final String optionsLine = _buildNotificationOptionsLine(shuffledChoices);
 
-    final String displayBody = wrongAttempt != null
-        ? '❌ Galat ($wrongAttempt)\n$optionsLine'
+    final String displayBody = isWrongState
+        ? '❌ Try again — pick the right option:\n$optionsLine'
         : optionsLine;
+
+    final String titleHexColor = isWrongState ? '#EF4444' : '#22C55E';
+    final Color accentColor = isWrongState ? const Color(0xFFEF4444) : const Color(0xFF22C55E);
 
     final BigTextStyleInformation bigTextStyle = BigTextStyleInformation(
       displayBody,
       htmlFormatBigText: true,
-      contentTitle: '<font color="#22C55E"><b>$displayTitle</b></font>',
+      contentTitle: '<font color="$titleHexColor"><b>$displayTitle</b></font>',
       htmlFormatContentTitle: true,
-      summaryText: summaryText ?? 'Scientific Spaced Repetition (Stage $currentStage/3)',
+      summaryText: isWrongState
+          ? 'Incorrect attempt — question stays active!'
+          : (summaryText ?? 'Scientific Spaced Repetition (Stage $currentStage/3)'),
       htmlFormatSummaryText: true,
     );
 
@@ -1064,27 +1087,31 @@ class NotificationService {
 
     try {
       final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-        'prepvanta_animated_recall_v4',
-        'PrepVanta Spaced Repetition Recall',
-        channelDescription: 'Spaced repetition alerts: 30 min, 3 hr, next day',
-        importance: Importance.max,
+        isSilent ? 'prepvanta_recall_feedback_v1' : 'prepvanta_animated_recall_v4',
+        isSilent ? 'PrepVanta Recall Visual Updates' : 'PrepVanta Spaced Repetition Recall',
+        channelDescription: isSilent
+            ? 'Silent visual feedback updates for recall notifications'
+            : 'Spaced repetition alerts: 30 min, 3 hr, next day',
+        importance: isSilent ? Importance.high : Importance.max,
         priority: Priority.max,
         ongoing: true,
         autoCancel: false,
         additionalFlags: Int32List.fromList([34]), // FLAG_ONGOING_EVENT(2) + FLAG_NO_CLEAR(32) = Cannot dismiss with Clear All
         subText: summaryText ?? 'Stage $currentStage of 3',
-        enableVibration: true,
-        vibrationPattern: Int64List.fromList([0, 150, 80, 250, 80, 350, 80, 500]),
-        playSound: true,
-        sound: const RawResourceAndroidNotificationSound('custom_notification_sound'),
+        enableVibration: !isSilent,
+        vibrationPattern: isSilent ? null : Int64List.fromList([0, 150, 80, 250, 80, 350, 80, 500]),
+        playSound: !isSilent,
+        sound: isSilent ? null : const RawResourceAndroidNotificationSound('custom_notification_sound'),
+        onlyAlertOnce: isSilent,
+        silent: isSilent,
         enableLights: true,
-        ledColor: const Color(0xFF22C55E),
+        ledColor: accentColor,
         ledOnMs: 600,
         ledOffMs: 400,
         channelShowBadge: true,
         showWhen: true,
-        colorized: false,
-        color: const Color(0xFF22C55E),
+        colorized: isWrongState,
+        color: accentColor,
         category: AndroidNotificationCategory.reminder,
         visibility: NotificationVisibility.public,
         styleInformation: bigTextStyle,
@@ -1100,26 +1127,71 @@ class NotificationService {
         notificationDetails: details,
         payload: 'persistent|$id|$formula|$correctAnswer',
       );
-      await incrementDailyNotificationCount();
+      if (!isSilent) {
+        await incrementDailyNotificationCount();
+      }
 
-      // Trigger animated in-app slide-down banner if app is currently in foreground
-      try {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _showInAppAnimatedHeadsUpBanner(
-            formula: formula,
-            correctAnswer: correctAnswer,
-            notifId: id,
-            choices: shuffledChoices,
-            stage: currentStage,
-          );
-        });
-      } catch (_) {}
+      // Trigger animated in-app slide-down banner if app is currently in foreground (skip on silent shade refreshes)
+      if (!isSilent) {
+        try {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _showInAppAnimatedHeadsUpBanner(
+              formula: formula,
+              correctAnswer: correctAnswer,
+              notifId: id,
+              choices: shuffledChoices,
+              stage: currentStage,
+            );
+          });
+        } catch (_) {}
+      }
     } catch (e) {
       debugPrint('Persistent recall notification error: $e');
     }
   }
 
-  // Intercept swipe-away / clear-all action: If user somehow dismisses without answering, re-post immediately!
+  /// Flashes a green confirmation banner on the OS notification before cancelling it
+  Future<void> _showGreenSolvedNotification({
+    required int id,
+    required String formula,
+    required String correctAnswer,
+  }) async {
+    try {
+      final BigTextStyleInformation bigTextStyle = BigTextStyleInformation(
+        '🎉 Memory boost locked! Clearing alert...',
+        htmlFormatBigText: true,
+        contentTitle: '<font color="#22C55E"><b>✅ Sahi Jawab! $formula = $correctAnswer</b></font>',
+        htmlFormatContentTitle: true,
+        summaryText: 'Solved Correctly',
+      );
+      final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        'prepvanta_recall_feedback_v1',
+        'PrepVanta Recall Visual Updates',
+        channelDescription: 'Silent visual feedback updates for recall notifications',
+        importance: Importance.high,
+        priority: Priority.high,
+        ongoing: false,
+        autoCancel: true,
+        playSound: false,
+        enableVibration: false,
+        onlyAlertOnce: true,
+        silent: true,
+        colorized: true,
+        color: const Color(0xFF22C55E),
+        category: AndroidNotificationCategory.status,
+        visibility: NotificationVisibility.public,
+        styleInformation: bigTextStyle,
+      );
+      await _notificationsPlugin.show(
+        id: id,
+        title: '✅ Sahi Jawab! $formula = $correctAnswer',
+        body: '🎉 Memory boost locked! Clearing alert...',
+        notificationDetails: NotificationDetails(android: androidDetails),
+      );
+    } catch (_) {}
+  }
+
+  // Intercept swipe-away / clear-all action: If user dismisses without answering, re-post silently AND schedule a 5-min AlarmManager backup!
   Future<void> handleNotificationDismissed(NotificationResponse response) async {
     debugPrint('🚨 Notification dismissed/swiped: id=${response.id}, payload=${response.payload}');
 
@@ -1139,13 +1211,34 @@ class NotificationService {
         final bool isSolved = await isCalculationSolved(formula);
         if (isSolved) return;
 
-        debugPrint('🔒 User tried to swipe recall notification! Re-posting: $formula');
+        final prefs = await SharedPreferences.getInstance();
+        if (isFormulaSnoozed(formula, prefs)) return;
+
+        debugPrint('🔒 User tried to swipe recall notification! Silent re-post + 5-min backup alarm: $formula');
+        // 1. Attempt silent immediate restore (works on Android <14)
         await showPersistentRecallNotification(
           id: notifId,
           prompt: formula,
           correctAnswer: correctAnswer,
           wrongAttempt: null,
+          isSilent: true,
         );
+
+        // 2. Android 14+ fallback: Android 14 allows swiping ongoing notifications and may drop
+        // immediate deleteIntent re-posts. Schedule a native AlarmManager comeback in 5 minutes!
+        try {
+          _ensureTimezonesInitialized();
+          final int stage = prefs.getInt('repetition_stage_$formula') ?? 1;
+          await _scheduleNativeAlarmFor(
+            notifId: notifId,
+            formula: formula,
+            answer: correctAnswer,
+            scheduledTz: tz.TZDateTime.now(tz.local).add(const Duration(minutes: 5)),
+            stage: stage,
+          );
+        } catch (e) {
+          debugPrint('Swipe-backup alarm schedule error: $e');
+        }
         return;
       }
     }
@@ -1434,6 +1527,36 @@ class NotificationService {
 
   // Handle immediate tap on answer options directly from the notification shade
 
+  /// Records wrong attempt stage reset in background without flashing/dismissing active UI banners
+  Future<void> _recordWrongAnswerStateOnly({
+    required String formula,
+    required String wrongOption,
+    required int notifId,
+  }) async {
+    try {
+      final clean = cleanPrompt(formula);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('repetition_stage_$clean', 1);
+      final dueAt = DateTime.now().add(const Duration(minutes: 30));
+      await prefs.setString('recall_due_at_$clean', dueAt.toIso8601String());
+      final ans = await getCorrectAnswerForFormula(clean);
+      if (notifId >= 55000 && notifId <= 55025) {
+        final activeTable = prefs.getInt('active_starred_table_number') ?? 0;
+        if (activeTable > 0) {
+          await _scheduleStarredTableSpaced(activeTable, delayMinutes: 30, stage: 1);
+        }
+      } else if (ans.isNotEmpty) {
+        await schedule1HourRecallNotification(
+          formula: clean,
+          correctAnswer: ans,
+          delayMinutes: 30,
+        );
+      }
+    } catch (e) {
+      debugPrint('Wrong answer state record note: $e');
+    }
+  }
+
   // Handle immediate tap on answer options directly from the notification shade
   Future<void> handleNotificationAnswerAction(String actionId, int? notificationId) async {
     final parts = actionId.split('|');
@@ -1452,8 +1575,14 @@ class NotificationService {
       _activeReminderTimers[notifId]?.cancel();
       _activeReminderTimers.remove(notifId);
 
-      _programmaticallyDismissedNotifIds.add(notifId);
-      await cancelNotification(notifId);
+      // Flash GREEN confirmation on the notification before removing it
+      if (_isInitialized) {
+        await _showGreenSolvedNotification(
+          id: notifId,
+          formula: formula,
+          correctAnswer: correctAnswer,
+        );
+      }
 
       final prefs = await SharedPreferences.getInstance();
       final hasRepetitionStage = prefs.containsKey('repetition_stage_$formula');
@@ -1461,8 +1590,8 @@ class NotificationService {
 
       if (hasRepetitionStage && currentStage < 3) {
         // Scientific Hermann Ebbinghaus Spaced Repetition Progression:
-        // Stage 1 (30-Min Recall) Correct -> Advance to Stage 2 (4-Hour Reinforcement)
-        // Stage 2 (4-Hour Reinforcement) Correct -> Advance to Stage 3 (Next-Day 9:00 AM Retention)
+        // Stage 1 (30-Min Recall) Correct -> Advance to Stage 2 (3-Hour Reinforcement)
+        // Stage 2 (3-Hour Reinforcement) Correct -> Advance to Stage 3 (Next-Day 9:00 AM Retention)
         final int nextStage = currentStage + 1;
         await prefs.setInt('repetition_stage_$formula', nextStage);
 
@@ -1518,6 +1647,12 @@ class NotificationService {
           }
         }
       }
+
+      if (_isInitialized) {
+        await Future.delayed(const Duration(milliseconds: 1100));
+      }
+      _programmaticallyDismissedNotifIds.add(notifId);
+      await cancelNotification(notifId);
     } else {
       try {
         HapticFeedback.heavyImpact();
@@ -1528,14 +1663,14 @@ class NotificationService {
       final dueAt = DateTime.now().add(const Duration(minutes: 30));
       await prefs.setString('recall_due_at_$formula', dueAt.toIso8601String());
 
-      if (!_isAppInForeground) {
-        await showPersistentRecallNotification(
-          id: notifId,
-          prompt: formula,
-          correctAnswer: correctAnswer,
-          wrongAttempt: selectedOption,
-        );
-      }
+      // Turn OS notification RED immediately (silent), then reset back to normal after ~1.2s
+      await showPersistentRecallNotification(
+        id: notifId,
+        prompt: formula,
+        correctAnswer: correctAnswer,
+        wrongAttempt: selectedOption,
+        isSilent: true,
+      );
 
       if (notifId >= 55000 && notifId <= 55025) {
         final activeTable = prefs.getInt('active_starred_table_number') ?? 0;
@@ -1548,6 +1683,20 @@ class NotificationService {
           correctAnswer: correctAnswer,
           delayMinutes: 30,
         );
+      }
+
+      if (_isInitialized) {
+        await Future.delayed(const Duration(milliseconds: 1200));
+        final solvedNow = await isCalculationSolved(formula);
+        if (!solvedNow) {
+          await showPersistentRecallNotification(
+            id: notifId,
+            prompt: formula,
+            correctAnswer: correctAnswer,
+            wrongAttempt: null,
+            isSilent: true,
+          );
+        }
       }
     }
   }
@@ -2178,17 +2327,9 @@ class NotificationService {
   }
 
   // Called whenever user arrives or returns to Home Screen
-  // REMOVED: no longer called on home tab tap or app open.
-  // Only called externally when app is going to background (via main.dart lifecycle) —
-  // but even then we now only RE-SCHEDULE, never immediately post while app is open.
-    Future<void> triggerPendingMistakeNotificationOnHome() async {
-    // 🔒 SPAM FIX: Only restores 1 active recall at a time.
-    // postAllPendingMistakesSerial() intentionally NOT called here to prevent spam on app open.
-    try {
-      await restoreActiveRecallsFromQueue();
-    } catch (e) {
-      debugPrint('Error triggering mistake on home: $e');
-    }
+  // Intentionally a no-op to guarantee zero notifications fire when app is open or opened.
+  Future<void> triggerPendingMistakeNotificationOnHome() async {
+    // Intentionally empty: Never show or restore notifications on app open or home screen navigation.
   }
 
   // 1-Hour Scheduled Recall Notification for Past Mistake
@@ -2995,6 +3136,10 @@ required int tableNumber,
 required int notifId,
 int? customMultiplier,
 }) async {
+if (_isAppInForeground) {
+  debugPrint('🛡️ App is in foreground: suppressing starred table question');
+  return;
+}
 try {
 final m = customMultiplier ?? tableMultipliers[Random().nextInt(tableMultipliers.length)];
 final formula = '$tableNumber × $m';
@@ -3569,6 +3714,7 @@ class _AnimatedHeadsUpBannerWidget extends StatefulWidget {
   final int stage;
   final VoidCallback onDismiss;
   final Function(String) onAnswer;
+  final Future<void> Function(String)? onWrongAttempt;
   final VoidCallback onSnooze;
   final VoidCallback onTapBody;
 
@@ -3580,6 +3726,7 @@ class _AnimatedHeadsUpBannerWidget extends StatefulWidget {
     required this.stage,
     required this.onDismiss,
     required this.onAnswer,
+    this.onWrongAttempt,
     required this.onSnooze,
     required this.onTapBody,
   });
@@ -3701,20 +3848,30 @@ class _AnimatedHeadsUpBannerWidgetState extends State<_AnimatedHeadsUpBannerWidg
         HapticFeedback.mediumImpact();
       } catch (_) {}
       await _winPopController.forward();
-      await Future.delayed(const Duration(milliseconds: 420));
+      await Future.delayed(const Duration(milliseconds: 480));
+      if (mounted) {
+        await _animController.reverse();
+      }
+      if (mounted) {
+        widget.onAnswer(choice);
+      }
     } else {
       try {
         HapticFeedback.heavyImpact();
       } catch (_) {}
-      await _shakeController.forward();
-      await Future.delayed(const Duration(milliseconds: 350));
-    }
-
-    if (mounted) {
-      await _animController.reverse();
-    }
-    if (mounted) {
-      widget.onAnswer(choice);
+      await _shakeController.forward(from: 0.0);
+      await widget.onWrongAttempt?.call(choice);
+      await Future.delayed(const Duration(milliseconds: 650));
+      if (mounted) {
+        setState(() {
+          _tappedIndex = null;
+          _isCorrect = null;
+        });
+        _countdownController.forward(from: 0.0);
+        _autoDismissTimer = Timer(const Duration(seconds: 12), () {
+          _dismiss();
+        });
+      }
     }
   }
 
@@ -3789,14 +3946,22 @@ class _AnimatedHeadsUpBannerWidgetState extends State<_AnimatedHeadsUpBannerWidg
                                   _pulseAnimation.value * 0.7,
                                 )!);
 
+                      final Color cardBgColor = _isCorrect == true
+                          ? const Color(0xFF133926)
+                          : (_isCorrect == false
+                              ? const Color(0xFF3F1518)
+                              : const Color(0xFF212326));
+
                       return Transform.translate(
                         offset: Offset(shakeX, 0),
                         child: Transform.scale(
                           scale: popScale,
-                          child: Container(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 240),
+                            curve: Curves.easeInOut,
                             clipBehavior: Clip.antiAlias,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF212326),
+                              color: cardBgColor,
                               borderRadius: BorderRadius.circular(22),
                               border: Border.all(
                                 color: activeBorderColor,
@@ -3959,7 +4124,7 @@ class _AnimatedHeadsUpBannerWidgetState extends State<_AnimatedHeadsUpBannerWidg
                                   _isCorrect == true
                                       ? '🎉 Sahi jawab! Memory boost locked!'
                                       : (_isCorrect == false
-                                          ? '❌ Galat! Correct answer saved to Recall'
+                                          ? '❌ Galat! Phir se try karein...'
                                           : '🧠 Solve fast — tap the right option below'),
                                   key: ValueKey(_isCorrect),
                                   style: TextStyle(
@@ -3995,10 +4160,10 @@ class _AnimatedHeadsUpBannerWidgetState extends State<_AnimatedHeadsUpBannerWidg
                                             Color textColor = Colors.white;
 
                                             if (_tappedIndex != null) {
-                                              if (isOptionCorrect) {
+                                              if (isSelected && _isCorrect == true && isOptionCorrect) {
                                                 pillBg = const Color(0xFF166534);
                                                 pillBorder = const Color(0xFF4ADE80);
-                                              } else if (isSelected) {
+                                              } else if (isSelected && _isCorrect == false) {
                                                 pillBg = const Color(0xFF7F1D1D);
                                                 pillBorder = const Color(0xFFEF4444);
                                               } else {
@@ -4117,6 +4282,7 @@ class _InAppChallengeDialog extends StatefulWidget {
   final String resolvedAnswer;
   final int notifId;
   final Function(String) onAnswer;
+  final Future<void> Function(String)? onWrongAttempt;
   final VoidCallback onSnooze;
 
   const _InAppChallengeDialog({
@@ -4125,6 +4291,7 @@ class _InAppChallengeDialog extends StatefulWidget {
     required this.resolvedAnswer,
     required this.notifId,
     required this.onAnswer,
+    this.onWrongAttempt,
     required this.onSnooze,
   });
 
@@ -4209,19 +4376,25 @@ class _InAppChallengeDialogState extends State<_InAppChallengeDialog>
         HapticFeedback.mediumImpact();
       } catch (_) {}
       await _celebrationController.forward();
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 520));
+      if (mounted && !_dismissed) {
+        _dismissed = true;
+        Navigator.of(context).pop();
+        await widget.onAnswer(choice);
+      }
     } else {
       try {
         HapticFeedback.heavyImpact();
       } catch (_) {}
       _shakeController.forward(from: 0.0);
-      await Future.delayed(const Duration(milliseconds: 450));
-    }
-
-    if (mounted && !_dismissed) {
-      _dismissed = true;
-      Navigator.of(context).pop();
-      await widget.onAnswer(choice);
+      await widget.onWrongAttempt?.call(choice);
+      await Future.delayed(const Duration(milliseconds: 680));
+      if (mounted && !_dismissed) {
+        setState(() {
+          _selectedIndex = null;
+          _isCorrect = null;
+        });
+      }
     }
   }
 
@@ -4296,7 +4469,9 @@ class _InAppChallengeDialogState extends State<_InAppChallengeDialog>
               builder: (context, child) {
                 final bgColor = _isCorrect == true
                     ? (_celebrationColor.value ?? const Color(0xFF1E293B))
-                    : const Color(0xFF1E293B);
+                    : (_isCorrect == false
+                        ? const Color(0xFF45121B)
+                        : const Color(0xFF1E293B));
 
                 // Horizontal shake offset
                 final shakeOffset = _isCorrect == false && _shakeController.isAnimating

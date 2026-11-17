@@ -58,15 +58,12 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
   @override
   void didPopNext() {
-    NotificationService().triggerPendingMistakeNotificationOnHome();
+    // Zero notifications on returning to Home screen
   }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      NotificationService().triggerPendingMistakeNotificationOnHome();
-    });
   }
 
   @override

@@ -42,19 +42,71 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
 
+  bool _detectIsEnglish(String text, MistakeModel? mistake) {
+    if (mistake != null) {
+      if (mistake.topicId.toLowerCase().startsWith('english')) return true;
+      if (num.tryParse(mistake.correctAnswer.trim()) != null) return false;
+      final tid = mistake.topicId.toLowerCase();
+      if (tid.contains('crossroad') ||
+          tid.contains('table') ||
+          tid.contains('multi') ||
+          tid.contains('square') ||
+          tid.contains('cube') ||
+          tid.contains('math') ||
+          tid.contains('calc') ||
+          tid.contains('drill') ||
+          tid.contains('numpad') ||
+          tid.contains('fraction')) {
+        return false;
+      }
+    }
+    final raw = text.trim();
+    if (raw.isEmpty) return false;
+    final lower = raw.toLowerCase();
+    if (lower.contains('pairs of') || lower.contains('table of') || lower.contains('factors of')) {
+      return false;
+    }
+    if (lower.contains('synonym') ||
+        lower.contains('antonym') ||
+        lower.contains('spelling') ||
+        lower.contains('idiom') ||
+        lower.contains('one word') ||
+        lower.contains('grammar') ||
+        lower.contains('meaning') ||
+        lower.contains('vocab')) {
+      return true;
+    }
+    // Check if prompt has English words and no arithmetic operators / math terms
+    final withoutOf = raw.replaceAll(RegExp(r'\s+of\s+', caseSensitive: false), ' ');
+    final hasWords = RegExp(r'[a-zA-Z]{3,}').hasMatch(withoutOf);
+    final hasMathSymbols = RegExp(r'[×\*÷/\+²³√∛]').hasMatch(raw);
+    final hasMathEquals = RegExp(r'^\s*\d+').hasMatch(raw);
+    final hasDigits = RegExp(r'\d').hasMatch(raw);
+    return hasWords && (!hasMathSymbols && !hasMathEquals && !hasDigits);
+  }
+
+  String _normAlphanumeric(String s) {
+    return s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  }
+
   @override
   void initState() {
     super.initState();
-    final isLegacyEnglish = widget.mistake?.topicId.toLowerCase().startsWith('english') == true;
-    final cleaned = NotificationService().cleanPrompt(widget.formula);
-    if (isLegacyEnglish) {
-      _isEnglishQuestion = true;
-      _cleanFormula = widget.formula.replaceAll(' = ?', '').trim();
-    } else if (cleaned.isNotEmpty) {
-      _cleanFormula = cleaned;
+    _isEnglishQuestion = _detectIsEnglish(widget.formula, widget.mistake);
+    if (_isEnglishQuestion) {
+      _cleanFormula = widget.formula
+          .replaceAll(' = ?', '')
+          .replaceAll('=?', '')
+          .replaceAll('=', '')
+          .trim();
     } else {
-      final raw = widget.formula.replaceAll(' = ?', '').replaceAll('=?', '').trim();
-      _cleanFormula = raw.isNotEmpty ? raw : (widget.mistake?.topicId.toUpperCase() ?? 'Math Recall');
+      final cleaned = NotificationService().cleanPrompt(widget.formula);
+      if (cleaned.isNotEmpty) {
+        _cleanFormula = cleaned;
+      } else {
+        final raw = widget.formula.replaceAll(' = ?', '').replaceAll('=?', '').trim();
+        _cleanFormula = raw.isNotEmpty ? raw : (widget.mistake?.topicId.toUpperCase() ?? 'Math Recall');
+      }
     }
     _deriveAnswerAndOptions();
 
@@ -89,13 +141,16 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
 
   void _deriveAnswerAndOptions() {
     final state = context.read<AppStateProvider>();
-    final String rawNorm = widget.formula.replaceAll(' = ?', '').replaceAll(':', '').trim().toLowerCase();
+    final String rawNorm = _normAlphanumeric(widget.formula);
+    final String cleanNorm = _normAlphanumeric(_cleanFormula);
 
     // 0. Check if this question matches an English mistake / English MCQ bank
     EnglishMistake? matchedEng;
     for (final em in state.englishMistakes) {
-      final qNorm = em.questionText.replaceAll(':', '').trim().toLowerCase();
-      if (qNorm == rawNorm || em.questionText.trim() == widget.formula.trim()) {
+      final qNorm = _normAlphanumeric(em.questionText);
+      if (qNorm == rawNorm ||
+          qNorm == cleanNorm ||
+          (rawNorm.isNotEmpty && (qNorm.contains(rawNorm) || rawNorm.contains(qNorm)))) {
         matchedEng = em;
         break;
       }
@@ -120,8 +175,10 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
       ...VocabDictionaryService().getQuestionsForTopic('all'),
     ];
     for (final eq in allEnglishQs) {
-      final qNorm = eq.questionText.replaceAll(':', '').trim().toLowerCase();
-      if (qNorm == rawNorm || eq.questionText.trim() == widget.formula.trim()) {
+      final qNorm = _normAlphanumeric(eq.questionText);
+      if (qNorm == rawNorm ||
+          qNorm == cleanNorm ||
+          (rawNorm.isNotEmpty && (qNorm.contains(rawNorm) || rawNorm.contains(qNorm)))) {
         _isEnglishQuestion = true;
         _cleanFormula = eq.questionText.trim();
         final idx = eq.correctIndex.clamp(0, eq.options.length - 1);
@@ -136,20 +193,28 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
     if (matched == null) {
       try {
         matched = state.mistakes.firstWhere(
-          (m) => NotificationService().cleanPrompt(m.prompt) == _cleanFormula,
+          (m) => NotificationService().cleanPrompt(m.prompt) == _cleanFormula ||
+              _normAlphanumeric(m.prompt) == rawNorm,
         );
       } catch (_) {
         matched = null;
       }
     }
 
-    if (matched != null && matched.topicId.toLowerCase().startsWith('english')) {
+    // If English is detected, guarantee real vocabulary word choices and never fallback to math numbers
+    if (_isEnglishQuestion ||
+        (matched != null && matched.topicId.toLowerCase().startsWith('english')) ||
+        _detectIsEnglish(_cleanFormula, matched)) {
       _isEnglishQuestion = true;
-      _cleanFormula = matched.prompt.replaceAll(' = ?', '').trim();
-      final ans = matched.correctAnswer.trim();
-      _correctAnswer = ans.isNotEmpty ? ans : 'None';
+      if (matched != null && matched.prompt.trim().isNotEmpty) {
+        _cleanFormula = matched.prompt.replaceAll(' = ?', '').replaceAll('=?', '').trim();
+      }
+      final ans = matched?.correctAnswer.trim() ?? '';
+      _correctAnswer = (ans.isNotEmpty && num.tryParse(ans) == null) ? ans : 'Careful';
       final Set<String> wordOpts = {_correctAnswer};
-      if (matched.userAnswer.trim().isNotEmpty &&
+      if (matched != null &&
+          matched.userAnswer.trim().isNotEmpty &&
+          num.tryParse(matched.userAnswer.trim()) == null &&
           matched.userAnswer.trim().toLowerCase() != _correctAnswer.toLowerCase()) {
         wordOpts.add(matched.userAnswer.trim());
       }
@@ -321,7 +386,7 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
   }
 
   Future<void> _submitAnswer(String answer) async {
-    if (_isSubmitted && _isCorrect) return;
+    if (_isSubmitted) return;
 
     final trimmed = answer.trim();
     if (trimmed.isEmpty) return;
@@ -358,7 +423,9 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
       _popController.forward(from: 0.0);
 
       setState(() {
-        _feedbackMessage = '🎉 Correct! You solved $_cleanFormula = $trimmed!\nReminder alert cancelled & closing...';
+        _feedbackMessage = _isEnglishQuestion
+            ? '🎉 Correct! "$trimmed" is the right answer!\nMastered & closing...'
+            : '🎉 Correct! You solved $_cleanFormula = $trimmed!\nReminder alert cancelled & closing...';
       });
 
       // Clear from mistakes list and cancel 1-hour periodic notification
@@ -385,10 +452,22 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
         prompt: _cleanFormula,
         wrongAnswer: trimmed,
         correctAnswer: _correctAnswer,
-        topicId: widget.mistake?.topicId ?? 'recall',
+        topicId: widget.mistake?.topicId ?? (_isEnglishQuestion ? 'English: Verbal' : 'recall'),
       );
       setState(() {
-        _feedbackMessage = '❌ Incorrect ($trimmed)! Think carefully and try again.\n(1-Hour Recall notification queued)';
+        _feedbackMessage = _isEnglishQuestion
+            ? '❌ Incorrect ($trimmed)! Think carefully and try again.'
+            : '❌ Incorrect ($trimmed)! Think carefully and try again.\n(1-Hour Recall notification queued)';
+      });
+
+      // Show red flash for 700ms, then reset so user can try again
+      Future.delayed(const Duration(milliseconds: 700), () {
+        if (mounted) {
+          setState(() {
+            _isSubmitted = false;
+            _selectedOption = null;
+          });
+        }
       });
     }
   }
@@ -448,9 +527,9 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
               ),
               child: Column(
                 children: [
-                  const Text(
-                    'WHAT IS THE RESULT?',
-                    style: TextStyle(fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.w700, color: AppTheme.textSecondary),
+                  Text(
+                    _isEnglishQuestion ? 'VOCABULARY & ENGLISH RECALL' : 'WHAT IS THE RESULT?',
+                    style: const TextStyle(fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.w700, color: AppTheme.textSecondary),
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -464,9 +543,11 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Solve correctly to clear this calculation from alerts',
-                    style: TextStyle(fontSize: 12, color: Colors.white54),
+                  Text(
+                    _isEnglishQuestion
+                        ? 'Select or type the correct answer to master this word'
+                        : 'Solve correctly to clear this calculation from alerts',
+                    style: const TextStyle(fontSize: 12, color: Colors.white54),
                   ),
                 ],
               ),
@@ -541,7 +622,9 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
                   }
                 }
 
-                Widget optionWidget = Container(
+                Widget optionWidget = AnimatedContainer(
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.easeInOut,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: cardColor,
@@ -625,10 +708,11 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
                       Expanded(
                         child: TextField(
                           controller: _inputCtrl,
-                          keyboardType: TextInputType.number,
+                          keyboardType: _isEnglishQuestion ? TextInputType.text : TextInputType.number,
+                          textCapitalization: _isEnglishQuestion ? TextCapitalization.words : TextCapitalization.none,
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                           decoration: InputDecoration(
-                            hintText: 'Enter answer...',
+                            hintText: _isEnglishQuestion ? 'Enter word answer...' : 'Enter answer...',
                             filled: true,
                             fillColor: AppTheme.surfaceElevated,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
