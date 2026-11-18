@@ -12,7 +12,20 @@
           "package_name": "com.mathspeed.app.math_speed_practice"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "564461086319-nsg35lp2p3gb9611hn6dldn6h7tkv4nb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mathspeed.app.math_speed_practice",
+            "certificate_hash": "6a876e106a7cd7017a526dced66f54a55d5fc014"
+          }
+        },
+        {
+          "client_id": "564461086319-2ub824rk8t54vvap779nu0lo6plcd5qc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCO90r0ePHzINltVvi9sJcBlS7x_1Enkcg"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "564461086319-2ub824rk8t54vvap779nu0lo6plcd5qc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
