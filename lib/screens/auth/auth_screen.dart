@@ -9,6 +9,28 @@ import '../../services/cloud_firestore_sync_service.dart';
 import '../../services/backend_service.dart';
 import '../main_navigation_holder.dart';
 
+class IndianPhoneNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    String digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.startsWith('91') && digits.length > 10) {
+      digits = digits.substring(2);
+    } else if (digits.startsWith('0') && digits.length > 10) {
+      digits = digits.substring(1);
+    }
+    if (digits.length > 10) {
+      digits = digits.substring(0, 10);
+    }
+    return TextEditingValue(
+      text: digits,
+      selection: TextSelection.collapsed(offset: digits.length),
+    );
+  }
+}
+
 class AuthScreen extends StatefulWidget {
   final bool initialIsLogin;
   final bool isMandatory;
@@ -40,6 +62,7 @@ class _AuthScreenState extends State<AuthScreen> {
   Timer? _resendTimer;
 
   final _formKey = GlobalKey<FormState>();
+  final _otpFocusNode = FocusNode();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -56,6 +79,7 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void dispose() {
     _resendTimer?.cancel();
+    _otpFocusNode.dispose();
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
@@ -77,6 +101,10 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   String _mapFirebaseAuthError(FirebaseAuthException e, {String fallback = 'Authentication failed. Please try again.'}) {
+    final msg = (e.message ?? '').toLowerCase();
+    if (msg.contains('package certificate hash') || msg.contains('cert_hash')) {
+      return 'Release keystore SHA-1/SHA-256 fingerprint missing in Firebase Console. Please add upload-keystore SHA to Firebase.';
+    }
     switch (e.code) {
       case 'user-not-found':
         return 'No account found with this email. Please register first.';
@@ -96,7 +124,7 @@ class _AuthScreenState extends State<AuthScreen> {
       case 'network-request-failed':
         return 'No internet connection. Please check your network and retry.';
       case 'operation-not-allowed':
-        return 'This sign-in method is not enabled right now. Please try Email Sign-In.';
+        return 'Sign-in method not enabled in Firebase Console. Enable Phone/Google in Firebase Authentication.';
       case 'invalid-phone-number':
         return 'Invalid 10-digit mobile number. Please check and retry.';
       case 'invalid-verification-code':
@@ -107,7 +135,7 @@ class _AuthScreenState extends State<AuthScreen> {
         return 'SMS quota temporarily exceeded. Please try Email or Google Sign-In.';
       case 'app-not-authorized':
       case 'missing-client-identifier':
-        return 'Phone verification is not authorized for this build. Please use Email or Google Sign-In.';
+        return 'Phone verification not authorized. Ensure upload-keystore SHA-256 is added to Firebase Console.';
       case 'account-exists-with-different-credential':
         return 'An account already exists with this email using a different sign-in method.';
       default:
@@ -289,7 +317,17 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _sendOtp({bool isResend = false}) async {
     if (_isLoading) return;
-    final phone = _phoneController.text.trim();
+    String phone = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+    if (phone.startsWith('91') && phone.length > 10) {
+      phone = phone.substring(2);
+    } else if (phone.startsWith('0') && phone.length > 10) {
+      phone = phone.substring(1);
+    }
+    if (phone.length > 10) {
+      phone = phone.substring(0, 10);
+    }
+    _phoneController.text = phone;
+
     if (!_phoneRegex.hasMatch(phone)) {
       _showSnack('Please enter a valid 10-digit mobile number.');
       return;
@@ -323,6 +361,11 @@ class _AuthScreenState extends State<AuthScreen> {
             _isLoading = false;
           });
           _startResendCountdown();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _otpFocusNode.requestFocus();
+            }
+          });
           _showSnack(
             'OTP sent to +91 $phone. Please check your SMS messages.',
             backgroundColor: const Color(0xFF10B981),
@@ -594,7 +637,12 @@ class _AuthScreenState extends State<AuthScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      _showSnack('Google Sign-In failed. Please try Email Sign-In.');
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('package certificate hash') || errorStr.contains('cert_hash')) {
+        _showSnack('App certificate hash not found in Firebase. Please add upload-keystore SHA-1/SHA-256 to Firebase Console.');
+      } else {
+        _showSnack('Google Sign-In failed. Please try Email or Mobile OTP.');
+      }
       debugPrint('Google Sign-In error: $e');
     }
   }
@@ -882,8 +930,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       enabled: !_isLoading && !_otpSent,
                       keyboardType: TextInputType.phone,
                       inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(10),
+                        IndianPhoneNumberFormatter(),
                       ],
                       decoration: InputDecoration(
                         labelText: '10-Digit Mobile Number',
@@ -917,8 +964,16 @@ class _AuthScreenState extends State<AuthScreen> {
                     if (_otpSent) ...[
                       TextFormField(
                         controller: _otpController,
+                        focusNode: _otpFocusNode,
                         enabled: !_isLoading,
                         keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _handleSubmit(),
+                        onChanged: (val) {
+                          if (val.trim().length == 6) {
+                            _handleSubmit();
+                          }
+                        },
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(6),
