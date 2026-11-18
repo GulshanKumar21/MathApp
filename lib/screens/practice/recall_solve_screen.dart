@@ -13,11 +13,13 @@ import '../auth/auth_screen.dart';
 class RecallSolveScreen extends StatefulWidget {
   final String formula;
   final MistakeModel? mistake;
+  final String? correctAnswer;
 
   const RecallSolveScreen({
     super.key,
     required this.formula,
     this.mistake,
+    this.correctAnswer,
   });
 
   @override
@@ -36,6 +38,62 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
   bool _isSubmitted = false;
   bool _isCorrect = false;
   String? _feedbackMessage;
+  String? _explanation;
+
+  bool _checkIsAnswerCorrect(String typed, String correct) {
+    if (typed.toLowerCase().trim() == correct.toLowerCase().trim()) return true;
+    final tNum = num.tryParse(typed.replaceAll(',', '').replaceAll(' ', '').trim());
+    final cNum = num.tryParse(correct.replaceAll(',', '').replaceAll(' ', '').trim());
+    if (tNum != null && cNum != null) {
+      return (tNum - cNum).abs() < 0.001;
+    }
+    return false;
+  }
+
+  String _generateMathExplanation(String formula, String answer) {
+    try {
+      final clean = formula.replaceAll(' = ?', '').replaceAll('=?', '').replaceAll('?', '').trim();
+      final multMatch = RegExp(r'(\d+)\s*[×\*xX]\s*(\d+)').firstMatch(clean);
+      if (multMatch != null) {
+        final a = int.parse(multMatch.group(1)!);
+        final b = int.parse(multMatch.group(2)!);
+        if (a > 10 && a < 100) {
+          final tens = (a ~/ 10) * 10;
+          final units = a % 10;
+          return '$a × $b = ($tens × $b) + ($units × $b)\n= ${tens * b} + ${units * b} = $answer';
+        } else if (b > 10 && b < 100) {
+          final tens = (b ~/ 10) * 10;
+          final units = b % 10;
+          return '$a × $b = ($a × $tens) + ($a × $units)\n= ${a * tens} + ${a * units} = $answer';
+        }
+        return '$a × $b = $answer';
+      }
+      final addMatch = RegExp(r'(\d+)\s*\+\s*(\d+)').firstMatch(clean);
+      if (addMatch != null) {
+        final a = int.parse(addMatch.group(1)!);
+        final b = int.parse(addMatch.group(2)!);
+        if (a > 10 && b > 10) {
+          final tensA = (a ~/ 10) * 10;
+          final unitsA = a % 10;
+          final tensB = (b ~/ 10) * 10;
+          final unitsB = b % 10;
+          return '$a + $b = ($tensA + $tensB) + ($unitsA + $unitsB)\n= ${tensA + tensB} + ${unitsA + unitsB} = $answer';
+        }
+        return '$a + $b = $answer';
+      }
+      final sqMatch = RegExp(r'(\d+)\s*[²\^2]').firstMatch(clean);
+      if (sqMatch != null) {
+        final a = int.parse(sqMatch.group(1)!);
+        return '$a² = $a × $a = $answer';
+      }
+      final cubeMatch = RegExp(r'(\d+)\s*[³\^3]').firstMatch(clean);
+      if (cubeMatch != null) {
+        final a = int.parse(cubeMatch.group(1)!);
+        return '$a³ = $a × $a × $a = $answer';
+      }
+    } catch (_) {}
+    return 'Calculation: $formula = $answer';
+  }
 
   late AnimationController _popController;
   late Animation<double> _popAnimation;
@@ -227,7 +285,9 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
       return;
     }
 
-    if (matched != null &&
+    if (widget.correctAnswer != null && widget.correctAnswer!.trim().isNotEmpty) {
+      _correctAnswer = widget.correctAnswer!.trim();
+    } else if (matched != null &&
         matched.correctAnswer.trim().isNotEmpty &&
         (num.tryParse(matched.correctAnswer.trim()) != null ||
             matched.correctAnswer.trim().endsWith('%')) &&
@@ -386,17 +446,22 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
   }
 
   Future<void> _submitAnswer(String answer) async {
-    if (_isSubmitted) return;
+    if (_isSubmitted && _isCorrect) return;
 
     final trimmed = answer.trim();
     if (trimmed.isEmpty) return;
 
-    final bool isRight = trimmed.toLowerCase() == _correctAnswer.toLowerCase();
+    final bool isRight = _checkIsAnswerCorrect(trimmed, _correctAnswer);
 
     setState(() {
       _selectedOption = trimmed;
       _isSubmitted = true;
       _isCorrect = isRight;
+      if (!isRight && !_isEnglishQuestion) {
+        _explanation = _generateMathExplanation(_cleanFormula, _correctAnswer);
+      } else {
+        _explanation = null;
+      }
     });
 
     final state = context.read<AppStateProvider>();
@@ -425,17 +490,17 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
       setState(() {
         _feedbackMessage = _isEnglishQuestion
             ? '🎉 Correct! "$trimmed" is the right answer!\nMastered & closing...'
-            : '🎉 Correct! You solved $_cleanFormula = $trimmed!\nReminder alert cancelled & closing...';
+            : '🎉 Correct! You solved $_cleanFormula = $trimmed!\nSpaced revision progress saved.';
       });
 
-      // Clear from mistakes list and cancel 1-hour periodic notification
+      // Clear from mistakes list and cancel reminder notification
       await state.checkAndResolveIfMistake(prompt: _cleanFormula, answer: trimmed);
       if (_matchedEnglishId != null) {
         await state.removeEnglishMistake(_matchedEnglishId!);
       }
 
-      // Auto exit back after 750ms with smooth transition
-      Future.delayed(const Duration(milliseconds: 750), () {
+      // Auto exit back after 1200ms with smooth transition
+      Future.delayed(const Duration(milliseconds: 1200), () {
         if (mounted) {
           Navigator.pop(context, true);
         }
@@ -447,7 +512,7 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
       } catch (_) {}
       _shakeController.forward(from: 0.0);
 
-      // Record wrong attempt, update notification, and schedule 1-hour recall notification
+      // Record wrong attempt, update notification, and keep in spaced revision loop
       await state.recordWrongRecallAttempt(
         prompt: _cleanFormula,
         wrongAnswer: trimmed,
@@ -457,285 +522,373 @@ class _RecallSolveScreenState extends State<RecallSolveScreen> with TickerProvid
       setState(() {
         _feedbackMessage = _isEnglishQuestion
             ? '❌ Incorrect ($trimmed)! Think carefully and try again.'
-            : '❌ Incorrect ($trimmed)! Think carefully and try again.\n(1-Hour Recall notification queued)';
-      });
-
-      // Show red flash for 700ms, then reset so user can try again
-      Future.delayed(const Duration(milliseconds: 700), () {
-        if (mounted) {
-          setState(() {
-            _isSubmitted = false;
-            _selectedOption = null;
-          });
-        }
+            : '❌ Incorrect ($trimmed)! Correct answer is: $_correctAnswer';
       });
     }
   }
 
+  void _resetForRetry() {
+    setState(() {
+      _isSubmitted = false;
+      _isCorrect = false;
+      _selectedOption = null;
+      _feedbackMessage = null;
+      _explanation = null;
+      _inputCtrl.clear();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isTablet = MediaQuery.sizeOf(context).width >= 600;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Recall Check'),
+        title: const Text('Spaced Revision Recall'),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            // Top Badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppTheme.warning.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.warning.withValues(alpha: 0.4)),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.alarm_on_rounded, color: AppTheme.warning, size: 16),
-                  SizedBox(width: 6),
-                  Text(
-                    '1-Hour Recurring Reminder Active',
-                    style: TextStyle(color: AppTheme.warning, fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: isTablet ? 32 : 20,
+              vertical: 24,
             ),
-            const SizedBox(height: 20),
-
-            // Prompt Card (DOES NOT show the answer!)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppTheme.primaryLight.withValues(alpha: 0.4), width: 1.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primary.withValues(alpha: 0.25),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    _isEnglishQuestion ? 'VOCABULARY & ENGLISH RECALL' : 'WHAT IS THE RESULT?',
-                    style: const TextStyle(fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.w700, color: AppTheme.textSecondary),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    (_isEnglishQuestion || _cleanFormula.endsWith('?')) ? _cleanFormula : '$_cleanFormula = ?',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: _cleanFormula.length > 22 ? 22 : 36,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      letterSpacing: -0.5,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Top Badge
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: AppTheme.warning.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppTheme.warning.withValues(alpha: 0.4)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.alarm_on_rounded, color: AppTheme.warning, size: 16),
+                        SizedBox(width: 8),
+                        Text(
+                          '8-Stage Spaced Revision Active',
+                          style: TextStyle(color: AppTheme.warning, fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _isEnglishQuestion
-                        ? 'Select or type the correct answer to master this word'
-                        : 'Solve correctly to clear this calculation from alerts',
-                    style: const TextStyle(fontSize: 12, color: Colors.white54),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Feedback Banner if attempted
-            if (_feedbackMessage != null) ...[
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: _isCorrect ? AppTheme.accent.withValues(alpha: 0.15) : AppTheme.error.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _isCorrect ? AppTheme.accent : AppTheme.error),
                 ),
-                child: Text(
-                  _feedbackMessage!,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: _isCorrect ? AppTheme.accent : AppTheme.error,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
+                const SizedBox(height: 20),
 
-            // 4 Multiple-Choice Options
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Select Your Answer:',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
-              ),
-            ),
-            const SizedBox(height: 10),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 2.2,
-              ),
-              itemCount: _options.length,
-              itemBuilder: (context, idx) {
-                final opt = _options[idx];
-                final isChosen = _selectedOption == opt;
-
-                Color cardColor = AppTheme.surface;
-                Color borderColor = AppTheme.surfaceLight;
-                Color textColor = Colors.white;
-
-                if (isChosen) {
-                  if (_isSubmitted) {
-                    if (_isCorrect) {
-                      cardColor = const Color(0xFF10B981).withValues(alpha: 0.25);
-                      borderColor = const Color(0xFF10B981);
-                      textColor = const Color(0xFF10B981);
-                    } else {
-                      cardColor = AppTheme.error.withValues(alpha: 0.25);
-                      borderColor = AppTheme.error;
-                      textColor = AppTheme.error;
-                    }
-                  } else {
-                    borderColor = AppTheme.primaryLight;
-                  }
-                }
-
-                Widget optionWidget = AnimatedContainer(
-                  duration: const Duration(milliseconds: 280),
-                  curve: Curves.easeInOut,
-                  alignment: Alignment.center,
+                // Prompt Card (DOES NOT reveal the answer!)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
                   decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: borderColor, width: isChosen ? 2.2 : 1),
-                    boxShadow: (isChosen && _isSubmitted)
-                        ? [
-                            BoxShadow(
-                              color: _isCorrect
-                                  ? const Color(0xFF10B981).withValues(alpha: 0.55)
-                                  : AppTheme.error.withValues(alpha: 0.45),
-                              blurRadius: 18,
-                              spreadRadius: 2,
-                            ),
-                          ]
-                        : null,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: AppTheme.primaryLight.withValues(alpha: 0.4), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primary.withValues(alpha: 0.25),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Column(
                     children: [
-                      if (isChosen && _isSubmitted) ...[
-                        Icon(
-                          _isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                          color: _isCorrect ? const Color(0xFF10B981) : AppTheme.error,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                      ],
                       Text(
-                        opt,
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: textColor),
+                        _isEnglishQuestion ? 'VOCABULARY & ENGLISH RECALL' : 'TYPE YOUR ANSWER',
+                        style: const TextStyle(fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.w700, color: AppTheme.textSecondary),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        (_isEnglishQuestion || _cleanFormula.endsWith('?')) ? _cleanFormula : '$_cleanFormula = ?',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: _cleanFormula.length > 22 ? 22 : (isTablet ? 40 : 34),
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _isEnglishQuestion
+                            ? 'Select or type the correct answer to master this word'
+                            : 'No multiple choice — write the answer to solidify retention',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 12, color: Colors.white54),
                       ),
                     ],
                   ),
-                );
+                ),
+                const SizedBox(height: 24),
 
-                if (isChosen && _isSubmitted) {
-                  if (_isCorrect) {
-                    optionWidget = ScaleTransition(
-                      scale: _popAnimation,
-                      child: optionWidget,
-                    );
-                  } else {
-                    optionWidget = AnimatedBuilder(
-                      animation: _shakeAnimation,
-                      builder: (context, child) => Transform.translate(
-                        offset: Offset(_shakeAnimation.value, 0),
-                        child: child,
-                      ),
-                      child: optionWidget,
-                    );
-                  }
-                }
-
-                return GestureDetector(
-                  onTap: () {
-                    _inputCtrl.text = opt;
-                    _submitAnswer(opt);
-                  },
-                  child: optionWidget,
-                );
-              },
-            ),
-            const SizedBox(height: 24),
-
-            // Or Direct Input Section
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.surfaceLight),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Or type your answer directly:', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _inputCtrl,
-                          keyboardType: _isEnglishQuestion ? TextInputType.text : TextInputType.number,
-                          textCapitalization: _isEnglishQuestion ? TextCapitalization.words : TextCapitalization.none,
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                          decoration: InputDecoration(
-                            hintText: _isEnglishQuestion ? 'Enter word answer...' : 'Enter answer...',
-                            filled: true,
-                            fillColor: AppTheme.surfaceElevated,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                // Feedback Banner if attempted
+                if (_feedbackMessage != null) ...[
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _isCorrect ? AppTheme.accent.withValues(alpha: 0.15) : AppTheme.error.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: _isCorrect ? AppTheme.accent : AppTheme.error, width: 1.5),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          _feedbackMessage!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: _isCorrect ? AppTheme.accent : AppTheme.error,
+                            height: 1.4,
                           ),
-                          onSubmitted: (val) => _submitAnswer(val),
                         ),
+                        if (_explanation != null) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white12),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.lightbulb_outline_rounded, color: AppTheme.gold, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _explanation!,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
+                // MATH REVISION MODE: Type answer directly (Section 3 of PDF Specification)
+                if (!_isEnglishQuestion) ...[
+                  if (!_isSubmitted || _isCorrect) ...[
+                    // Input TextField
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceElevated,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppTheme.primaryLight.withValues(alpha: 0.5), width: 1.5),
                       ),
-                      const SizedBox(width: 10),
-                      ElevatedButton(
+                      child: TextField(
+                        controller: _inputCtrl,
+                        autofocus: true,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 1.0,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Write your answer',
+                          hintStyle: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withValues(alpha: 0.35),
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          suffixIcon: _inputCtrl.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear_rounded, color: Colors.white54),
+                                  onPressed: () {
+                                    setState(() => _inputCtrl.clear());
+                                  },
+                                )
+                              : null,
+                        ),
+                        onChanged: (_) => setState(() {}),
+                        onSubmitted: (val) => _submitAnswer(val),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Submit Button
+                    SizedBox(
+                      height: 52,
+                      child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryLight,
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                          backgroundColor: AppTheme.accent,
+                          foregroundColor: Colors.black,
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
-                        onPressed: () => _submitAnswer(_inputCtrl.text),
-                        child: const Text('Verify'),
+                        onPressed: _inputCtrl.text.trim().isNotEmpty ? () => _submitAnswer(_inputCtrl.text) : null,
+                        child: const Text(
+                          'Submit Answer',
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                        ),
                       ),
-                    ],
+                    ),
+                  ] else ...[
+                    // Try Again Button if incorrect
+                    SizedBox(
+                      height: 52,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        icon: const Icon(Icons.replay_rounded),
+                        label: const Text(
+                          'Try Again',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: _resetForRetry,
+                      ),
+                    ),
+                  ],
+                ] else ...[
+                  // ENGLISH MODE: Multiple Choice Options
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Select Your Answer:',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: isTablet ? 2 : 2,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: isTablet ? 2.6 : 2.2,
+                    ),
+                    itemCount: _options.length,
+                    itemBuilder: (context, idx) {
+                      final opt = _options[idx];
+                      final isChosen = _selectedOption == opt;
+
+                      Color cardColor = AppTheme.surface;
+                      Color borderColor = AppTheme.surfaceLight;
+                      Color textColor = Colors.white;
+
+                      if (isChosen) {
+                        if (_isSubmitted) {
+                          if (_isCorrect) {
+                            cardColor = const Color(0xFF10B981).withValues(alpha: 0.25);
+                            borderColor = const Color(0xFF10B981);
+                            textColor = const Color(0xFF10B981);
+                          } else {
+                            cardColor = AppTheme.error.withValues(alpha: 0.25);
+                            borderColor = AppTheme.error;
+                            textColor = AppTheme.error;
+                          }
+                        } else {
+                          borderColor = AppTheme.primaryLight;
+                        }
+                      }
+
+                      Widget optionWidget = AnimatedContainer(
+                        duration: const Duration(milliseconds: 280),
+                        curve: Curves.easeInOut,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: cardColor,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: borderColor, width: isChosen ? 2.2 : 1),
+                          boxShadow: (isChosen && _isSubmitted)
+                              ? [
+                                  BoxShadow(
+                                    color: _isCorrect
+                                        ? const Color(0xFF10B981).withValues(alpha: 0.55)
+                                        : AppTheme.error.withValues(alpha: 0.45),
+                                    blurRadius: 18,
+                                    spreadRadius: 2,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (isChosen && _isSubmitted) ...[
+                              Icon(
+                                _isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                                color: _isCorrect ? const Color(0xFF10B981) : AppTheme.error,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            Flexible(
+                              child: Text(
+                                opt,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: opt.length > 10 ? 16 : 20, fontWeight: FontWeight.w800, color: textColor),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (isChosen && _isSubmitted) {
+                        if (_isCorrect) {
+                          optionWidget = ScaleTransition(
+                            scale: _popAnimation,
+                            child: optionWidget,
+                          );
+                        } else {
+                          optionWidget = AnimatedBuilder(
+                            animation: _shakeAnimation,
+                            builder: (context, child) => Transform.translate(
+                              offset: Offset(_shakeAnimation.value, 0),
+                              child: child,
+                            ),
+                            child: optionWidget,
+                          );
+                        }
+                      }
+
+                      return GestureDetector(
+                        onTap: () {
+                          _inputCtrl.text = opt;
+                          _submitAnswer(opt);
+                        },
+                        child: optionWidget,
+                      );
+                    },
                   ),
                 ],
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

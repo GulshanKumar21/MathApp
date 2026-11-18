@@ -116,6 +116,8 @@ class NotificationService {
         onDidReceiveNotificationResponse: (NotificationResponse response) async {
           if (response.actionId != null && response.actionId!.startsWith('type_answer|')) {
             await handleTypedAnswerAction(response.actionId!, response.id, response.input);
+          } else if (response.actionId != null && response.actionId!.startsWith('open_solve|')) {
+            handleNotificationPayload(response.actionId!);
           } else if (response.actionId != null && response.actionId!.startsWith('ans|')) {
             await handleNotificationAnswerAction(response.actionId!, response.id);
           } else if (response.actionId != null && response.actionId!.startsWith('snooze|')) {
@@ -209,6 +211,8 @@ class NotificationService {
           debugPrint('Notification clicked: payload=${response.payload}, action=${response.actionId}, type=${response.notificationResponseType}');
           if (response.actionId != null && response.actionId!.startsWith('type_answer|')) {
             await handleTypedAnswerAction(response.actionId!, response.id, response.input);
+          } else if (response.actionId != null && response.actionId!.startsWith('open_solve|')) {
+            handleNotificationPayload(response.actionId!);
           } else if (response.actionId != null && response.actionId!.startsWith('ans|')) {
             await handleNotificationAnswerAction(response.actionId!, response.id);
           } else if (response.actionId != null && response.actionId!.startsWith('snooze|')) {
@@ -395,7 +399,17 @@ class NotificationService {
       return;
     }
 
-    if (payload.startsWith('persistent|')) {
+    if (payload.startsWith('open_solve|')) {
+      final parts = payload.split('|');
+      final formula = parts.length > 1 ? parts[1] : '';
+      final correctAnswer = parts.length > 2 ? parts[2] : '';
+      if (formula.isNotEmpty) {
+        nav.push(MaterialPageRoute(
+          builder: (_) => RecallSolveScreen(formula: formula, correctAnswer: correctAnswer),
+        ));
+      }
+      return;
+    } else if (payload.startsWith('persistent|')) {
       final parts = payload.split('|');
       final formula = parts.length > 2 ? parts[2] : '';
       final correctAnswer = parts.length > 3 ? parts[3] : '';
@@ -735,7 +749,8 @@ class NotificationService {
   }) async {
     // Note: Mistake recall alerts are critical spaced learning reviews and must NEVER be suppressed by daily frequency limits!
     // 🛡️ User directive: Never post notification alerts while app is in foreground (unless reacting to notification action)
-    if (_isAppInForeground && wrongAttempt == null) {
+    // Exception: isSilent=true is a swipe-dismiss re-post — MUST bypass foreground guard so sticky notification returns
+    if (_isAppInForeground && wrongAttempt == null && !isSilent) {
       debugPrint('🛡️ App is in foreground: suppressing persistent notification for "$prompt"');
       return;
     }
@@ -796,6 +811,133 @@ class NotificationService {
     // We only need to cancel any existing watchdog for this id (clean up from previous calls).
     _activeReminderTimers[id]?.cancel();
     _activeReminderTimers.remove(id);
+  }
+
+  // ── 8-STAGE SPACED REVISION & QUIET HOURS HELPERS (PDF SPECIFICATION) ─────
+
+  String getStageTitle(int stage) {
+    switch (stage) {
+      case 1:
+        return 'Reminder 1 (1-Hour Recall)';
+      case 2:
+        return 'Reminder 2 (4-Hour Reinforce)';
+      case 3:
+        return 'Reminder 3 (4-Hour Reinforce)';
+      case 4:
+        return 'Reminder 4 (Day 2 Retrieval)';
+      case 5:
+        return 'Reminder 5 (Day 7 Review)';
+      case 6:
+        return 'Reminder 6 (Day 15 Review)';
+      case 7:
+        return 'Reminder 7 (Day 30 Review)';
+      case 8:
+        return 'Reminder 8 (2-Month Retention)';
+      default:
+        return 'Spaced Revision (Stage $stage/8)';
+    }
+  }
+
+  /// Quiet Hours Guard (10:00 PM to 8:00 AM)
+  /// Moves late night reminders to next morning at 8:30 AM
+  DateTime applyQuietHoursGuard(DateTime scheduledTime) {
+    final hour = scheduledTime.hour;
+    if (hour >= 22 || hour < 8) {
+      DateTime nextMorning;
+      if (hour >= 22) {
+        final tomorrow = scheduledTime.add(const Duration(days: 1));
+        nextMorning = DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 8, 30);
+      } else {
+        nextMorning = DateTime(scheduledTime.year, scheduledTime.month, scheduledTime.day, 8, 30);
+      }
+      return nextMorning;
+    }
+    return scheduledTime;
+  }
+
+  /// Calculates next due time for each of the 8 PDF Spaced Repetition stages:
+  /// Reminder 1: 1 hour after mistake
+  /// Reminder 2: 4 hours after Reminder 1
+  /// Reminder 3: 4 hours after Reminder 2
+  /// Reminder 4: Next day (Day 2 / 24 hours from original)
+  /// Reminder 5: Day 7 (7 days from original)
+  /// Reminder 6: Day 15 (15 days from original)
+  /// Reminder 7: Day 30 (30 days from original)
+  /// Reminder 8: 2 months (~60 days from original)
+  DateTime computeNextDueTime({
+    required DateTime originalMistakeTime,
+    required int nextStage,
+    DateTime? fromTime,
+  }) {
+    DateTime target;
+    final base = fromTime ?? DateTime.now();
+    switch (nextStage) {
+      case 1:
+        target = originalMistakeTime.add(const Duration(hours: 1));
+        break;
+      case 2:
+        target = base.add(const Duration(hours: 4));
+        break;
+      case 3:
+        target = base.add(const Duration(hours: 4));
+        break;
+      case 4:
+        target = originalMistakeTime.add(const Duration(days: 1));
+        break;
+      case 5:
+        target = originalMistakeTime.add(const Duration(days: 7));
+        break;
+      case 6:
+        target = originalMistakeTime.add(const Duration(days: 15));
+        break;
+      case 7:
+        target = originalMistakeTime.add(const Duration(days: 30));
+        break;
+      case 8:
+        target = originalMistakeTime.add(const Duration(days: 60));
+        break;
+      default:
+        target = base.add(const Duration(hours: 1));
+    }
+
+    if (fromTime == null && target.isBefore(DateTime.now())) {
+      target = DateTime.now().add(const Duration(minutes: 5));
+    }
+
+    return applyQuietHoursGuard(target);
+  }
+
+  List<AndroidNotificationAction> _buildRevisionActions({
+    required String formula,
+    required String correctAnswer,
+    List<String>? preShuffledChoices,
+  }) {
+    return <AndroidNotificationAction>[
+      AndroidNotificationAction(
+        'type_answer|$formula|$correctAnswer',
+        '✏️ Write Answer',
+        cancelNotification: false,
+        showsUserInterface: false,
+        inputs: const [
+          AndroidNotificationActionInput(
+            label: 'Write your answer...',
+            allowFreeFormInput: true,
+          ),
+        ],
+      ),
+      AndroidNotificationAction(
+        'open_solve|$formula|$correctAnswer',
+        '📱 Solve Now',
+        cancelNotification: false,
+        showsUserInterface: true,
+      ),
+      AndroidNotificationAction(
+        'snooze|$formula|$correctAnswer',
+        '💤 Snooze',
+        cancelNotification: true,
+        showsUserInterface: false,
+      ),
+    ];
   }
 
   // ── NOTIFICATION OPTION HELPERS (MULTIPLE CHOICE WITH SNOOZE) ────────────────
@@ -907,21 +1049,15 @@ class NotificationService {
     final int currentStage = prefs.getInt('repetition_stage_$formula') ?? 1;
     final bool isWrongState = wrongAttempt != null && wrongAttempt.isNotEmpty;
 
-    final String stageName = currentStage == 1
-        ? '🔴 30-Min Recall'
-        : (currentStage == 2 ? '🟠 3-Hour Reinforcement' : '🟢 Next-Day Retention');
+    final String stageName = getStageTitle(currentStage);
 
     final String displayTitle = isWrongState
         ? '❌ Galat ($wrongAttempt)! $formula = ?'
         : '$stageName: $formula = ?';
 
-    // Generate shuffled choices ONCE so body text and action buttons show SAME order!
-    final List<String> shuffledChoices = _buildThreeAnswerChoices(options, correctAnswer);
-    final String optionsLine = _buildNotificationOptionsLine(shuffledChoices);
-
     final String displayBody = isWrongState
-        ? '❌ Try again — pick the right option:\n$optionsLine'
-        : optionsLine;
+        ? '❌ Galat jawab! Sahi answer type karein ya Solve Now tap karein.'
+        : 'Write your answer below or tap Solve Now:';
 
     final String titleHexColor = isWrongState ? '#EF4444' : '#22C55E';
     final Color accentColor = isWrongState ? const Color(0xFFEF4444) : const Color(0xFF22C55E);
@@ -932,14 +1068,13 @@ class NotificationService {
       contentTitle: '<font color="$titleHexColor"><b>$displayTitle</b></font>',
       htmlFormatContentTitle: true,
       summaryText: isWrongState
-          ? 'Incorrect attempt — question stays active!'
-          : (summaryText ?? 'Scientific Spaced Repetition (Stage $currentStage/3)'),
+          ? 'Incorrect attempt — question stays active until solved!'
+          : (summaryText ?? '8-Stage Spaced Revision (Stage $currentStage/8)'),
       htmlFormatSummaryText: true,
     );
 
-    final actions = _buildFourActions(
+    final actions = _buildRevisionActions(
       formula: formula,
-      preShuffledChoices: shuffledChoices,
       correctAnswer: correctAnswer,
     );
 
@@ -1433,28 +1568,22 @@ class NotificationService {
       final hasRepetitionStage = prefs.containsKey('repetition_stage_$formula');
       final int currentStage = prefs.getInt('repetition_stage_$formula') ?? 1;
 
-      if (hasRepetitionStage && currentStage < 3) {
-        // Scientific Hermann Ebbinghaus Spaced Repetition Progression:
-        // Stage 1 (30-Min Recall) Correct -> Advance to Stage 2 (3-Hour Reinforcement)
-        // Stage 2 (3-Hour Reinforcement) Correct -> Advance to Stage 3 (Next-Day 9:00 AM Retention)
+      if (hasRepetitionStage && currentStage < 8) {
+        // 8-Stage Spaced Revision Progression (PDF Specification Section 2)
         final int nextStage = currentStage + 1;
         await prefs.setInt('repetition_stage_$formula', nextStage);
 
-        final int nextDelayMinutes;
-        final DateTime dueAt;
-        if (nextStage == 2) {
-          nextDelayMinutes = 180; // Exact 3 Hours (180 min)
-          dueAt = DateTime.now().add(const Duration(hours: 3));
-        } else {
-          // Stage 3: Next day morning at 9:00 AM
-          final now = DateTime.now();
-          final nextDay9AM = DateTime(now.year, now.month, now.day + 1, 9, 0, 0);
-          dueAt = nextDay9AM;
-          nextDelayMinutes = nextDay9AM.difference(now).inMinutes.clamp(1, 1440);
-        }
-        await prefs.setString('recall_due_at_$formula', dueAt.toIso8601String());
+        final origStr = prefs.getString('mistake_created_at_$formula');
+        final originalTime = origStr != null ? (DateTime.tryParse(origStr) ?? DateTime.now()) : DateTime.now();
 
-        debugPrint('🎯 Spaced Repetition: $formula advanced from Stage $currentStage to Stage $nextStage. Next recall in ${nextDelayMinutes}m.');
+        final dueAt = computeNextDueTime(
+          originalMistakeTime: originalTime,
+          nextStage: nextStage,
+        );
+        await prefs.setString('recall_due_at_$formula', dueAt.toIso8601String());
+        final nextDelayMinutes = dueAt.difference(DateTime.now()).inMinutes.clamp(1, 60 * 24 * 65);
+
+        debugPrint('🎯 Spaced Repetition: $formula advanced from Stage $currentStage to Stage $nextStage. Next recall at $dueAt in ${nextDelayMinutes}m.');
 
         // Yield current position in active queue and promote next queued question
         await _advanceQueueAfterSolved(formula, selectedOption);
@@ -1473,8 +1602,8 @@ class NotificationService {
           );
         }
       } else {
-        // Stage 3 successfully solved: MASTERED (Stage 4)!
-        await prefs.setInt('repetition_stage_$formula', 4);
+        // Stage 8 successfully solved: MASTERED (Stage 9)!
+        await prefs.setInt('repetition_stage_$formula', 9);
         await prefs.remove('recall_due_at_$formula');
         await _markRecallSolvedInPrefs(formula);
 
@@ -1488,7 +1617,7 @@ class NotificationService {
             final multKey = 'starred_table_${activeTable}_next_mult_idx';
             int nextMultIdx = prefs.getInt(multKey) ?? 0;
             await prefs.setInt(multKey, nextMultIdx + 1);
-            await _scheduleStarredTableSpaced(activeTable, delayMinutes: 30, stage: 1);
+            await _scheduleStarredTableSpaced(activeTable, delayMinutes: 60, stage: 1);
           }
         }
       }
@@ -1740,9 +1869,14 @@ class NotificationService {
       return;
     }
 
-    // Initialize Stage 1 (Exact 30-Minute Spaced Recall)
+    // Initialize Stage 1 (1-Hour Spaced Recall - PDF Specification Section 2)
     await prefs.setInt('repetition_stage_$formula', 1);
-    final dueAt = DateTime.now().add(const Duration(minutes: 30));
+    final now = DateTime.now();
+    await prefs.setString('mistake_created_at_$formula', now.toIso8601String());
+    final dueAt = computeNextDueTime(
+      originalMistakeTime: now,
+      nextStage: 1,
+    );
     await prefs.setString('recall_due_at_$formula', dueAt.toIso8601String());
 
     // Cancel generic hourly challenge (id 1111) so user mistakes take priority
@@ -2205,29 +2339,18 @@ class NotificationService {
       }
       final int recallNotifId = getNotificationIdForPrompt(clean);
 
-      // Stage 2 = 4-Hour Reinforcement 🟠, Stage 3 = Next-Day 9AM Retention 🟢
-      final stageTag   = stage == 2 ? '3-Hour Reinforcement' : 'Next-Day Retention';
-      final stageEmoji = stage == 2 ? '🟠' : '🟢';
+      final stageTag   = getStageTitle(stage);
+      final stageEmoji = '🔁';
       final vibPattern = Int64List.fromList([0, 180, 80, 320, 80, 180]);
-      final options    = generateRecallOptions(resolvedAnswer, clean);
-      final List<String> shuffledChoices = _buildThreeAnswerChoices(options, resolvedAnswer);
-      final optionsLine = _buildNotificationOptionsLine(shuffledChoices);
-      final notifBody  = optionsLine;
-      final actions    = _buildFourActions(
+      final notifBody  = 'Write your answer below or tap Solve Now:';
+      final actions    = _buildRevisionActions(
         formula: clean,
-        preShuffledChoices: shuffledChoices,
         correctAnswer: resolvedAnswer,
       );
 
-      // Stage 3: schedule at exact next-day 9AM (absolute time, not relative offset)
-      final tz.TZDateTime scheduledTz;
-      if (stage == 3) {
-        final now = DateTime.now();
-        final nextDay9AM = DateTime(now.year, now.month, now.day + 1, 9, 0, 0);
-        scheduledTz = tz.TZDateTime.from(nextDay9AM, tz.local);
-      } else {
-        scheduledTz = tz.TZDateTime.now(tz.local).add(Duration(minutes: delayMinutes));
-      }
+      final scheduledRaw = DateTime.now().add(Duration(minutes: delayMinutes));
+      final protectedTime = applyQuietHoursGuard(scheduledRaw);
+      final scheduledTz = tz.TZDateTime.from(protectedTime, tz.local);
 
       final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
         'prepvanta_animated_recall_v4',
@@ -2511,7 +2634,71 @@ payload: 'admin_broadcast',
 );
 }
 
-// Standard competitive exam multipliers for Table Practice (2 to 12)
+  // ── DAILY STARRED QUESTIONS PRACTICE (PDF SPECIFICATION SECTION 5) ─────────
+  /// Selects up to 5 questions from the user's starred list with fair rotation
+  /// and prompts the learner to practice daily. If 0 starred questions, sends nothing.
+  Future<void> scheduleDailyStarredPractice({
+    List<String>? starredList,
+    int preferredHour = 10,
+    int preferredMinute = 0,
+  }) async {
+    try {
+      _ensureTimezonesInitialized();
+      final prefs = await SharedPreferences.getInstance();
+      final list = starredList ??
+          prefs.getStringList('starred_questions') ??
+          prefs.getStringList('starred_tables') ??
+          [];
+      if (list.isEmpty) {
+        await cancelNotification(55000);
+        return;
+      }
+
+      final int offset = prefs.getInt('starred_daily_rotation_offset') ?? 0;
+      final int count = list.length < 5 ? list.length : 5;
+      final List<String> selected = [];
+      for (int i = 0; i < count; i++) {
+        selected.add(list[(offset + i) % list.length]);
+      }
+      await prefs.setInt('starred_daily_rotation_offset', (offset + count) % list.length);
+
+      final now = DateTime.now();
+      var scheduledDate = DateTime(now.year, now.month, now.day, preferredHour, preferredMinute);
+      if (scheduledDate.isBefore(now)) {
+        scheduledDate = scheduledDate.add(const Duration(days: 1));
+      }
+      final scheduledTz = tz.TZDateTime.from(applyQuietHoursGuard(scheduledDate), tz.local);
+
+      final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        'math_starred_tables_v2',
+        'Starred Questions Daily Practice',
+        channelDescription: 'Daily revision drills for your bookmarked & starred questions',
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: true,
+        sound: const RawResourceAndroidNotificationSound('custom_notification_sound'),
+        enableVibration: true,
+        channelShowBadge: true,
+        showWhen: true,
+        category: AndroidNotificationCategory.reminder,
+        visibility: NotificationVisibility.public,
+      );
+
+      await _notificationsPlugin.zonedSchedule(
+        id: 55000,
+        title: '⭐ Daily Starred Questions Practice',
+        body: 'You have ${selected.length} bookmarked question(s) ready for daily practice!',
+        scheduledDate: scheduledTz,
+        notificationDetails: NotificationDetails(android: androidDetails),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        payload: 'starred_practice',
+      );
+    } catch (e) {
+      debugPrint('Error scheduling daily starred practice: $e');
+    }
+  }
+
+  // Standard competitive exam multipliers for Table Practice (2 to 12)
 static const List<int> tableMultipliers = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 // 🌟 3.5 STARRED TABLE REVISION NOTIFICATIONS (Spaced Repetition: 1 Hr âž” +3 Hrs âž” +3 Hrs)

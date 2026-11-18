@@ -129,10 +129,12 @@ class MistakeModel {
   final String correctAnswer;
   final String topicId;
   final DateTime timestamp;
-  final int repetitionStage; // 0=Immediate/Fresh, 1=1-Hr Recall, 2=Day 1, 3=Day 3, 4=Mastered
+  final int repetitionStage; // 0=Fresh, 1=1-Hr, 2=4-Hr, 3=4-Hr, 4=Day 2, 5=Day 7, 6=Day 15, 7=Day 30, 8=2-Month, 9=Mastered
   final DateTime? snoozedUntil;
   final bool isResolved;
   final DateTime? resolvedAt;
+  final int attemptCount;
+  final DateTime? nextDueAt;
 
   MistakeModel({
     required this.id,
@@ -145,6 +147,8 @@ class MistakeModel {
     this.snoozedUntil,
     this.isResolved = false,
     this.resolvedAt,
+    this.attemptCount = 1,
+    this.nextDueAt,
   });
 
   Map<String, dynamic> toMap() {
@@ -159,6 +163,8 @@ class MistakeModel {
       if (snoozedUntil != null) 'snoozedUntil': snoozedUntil!.toIso8601String(),
       'isResolved': isResolved,
       if (resolvedAt != null) 'resolvedAt': resolvedAt!.toIso8601String(),
+      'attemptCount': attemptCount,
+      if (nextDueAt != null) 'nextDueAt': nextDueAt!.toIso8601String(),
     };
   }
 
@@ -174,6 +180,8 @@ class MistakeModel {
       snoozedUntil: map['snoozedUntil'] != null ? DateTime.tryParse(map['snoozedUntil'].toString()) : null,
       isResolved: map['isResolved'] == true,
       resolvedAt: map['resolvedAt'] != null ? DateTime.tryParse(map['resolvedAt'].toString()) : null,
+      attemptCount: (map['attemptCount'] is num) ? (map['attemptCount'] as num).toInt() : 1,
+      nextDueAt: map['nextDueAt'] != null ? DateTime.tryParse(map['nextDueAt'].toString()) : null,
     );
   }
 
@@ -188,6 +196,8 @@ class MistakeModel {
     DateTime? snoozedUntil,
     bool? isResolved,
     DateTime? resolvedAt,
+    int? attemptCount,
+    DateTime? nextDueAt,
   }) {
     return MistakeModel(
       id: id ?? this.id,
@@ -200,6 +210,8 @@ class MistakeModel {
       snoozedUntil: snoozedUntil ?? this.snoozedUntil,
       isResolved: isResolved ?? this.isResolved,
       resolvedAt: resolvedAt ?? this.resolvedAt,
+      attemptCount: attemptCount ?? this.attemptCount,
+      nextDueAt: nextDueAt ?? this.nextDueAt,
     );
   }
 }
