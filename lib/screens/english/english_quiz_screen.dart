@@ -545,7 +545,7 @@ class _EnglishQuizScreenState extends State<EnglishQuizScreen> with SingleTicker
                     ),
                   ),
                 ),
-                ?trailingIcon,
+                if (trailingIcon != null) trailingIcon,
               ],
             ),
           ),

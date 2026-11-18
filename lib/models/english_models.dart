@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class EnglishWordTopic {
   final int id;
   final String word;
@@ -410,3 +412,48 @@ class VocabBoosterWordItem {
     );
   }
 }
+
+// =========================================================================
+// UNIFIED ENGLISH TOPIC MODULE (PARITY WITH MATH MODULES)
+// =========================================================================
+
+class EnglishRuleItem {
+  final String ruleTitle;
+  final String explanation;
+  final List<String> examples;
+  final String? tip;
+
+  const EnglishRuleItem({
+    required this.ruleTitle,
+    required this.explanation,
+    this.examples = const [],
+    this.tip,
+  });
+}
+
+class EnglishTopicModule {
+  final String id;
+  final String title;
+  final String subtitle;
+  final String category; // 'Grammar', 'Vocab', 'Prepositions', 'Idioms', 'Word Vaults'
+  final IconData icon;
+  final Color color;
+  final String examTag; // e.g. 'SSC CGL / CHSL • 50 MCQs'
+  final List<EnglishRuleItem> rules;
+  final List<EnglishExerciseQuestion> questions;
+  final EnglishWordTopic? wordTopic;
+
+  const EnglishTopicModule({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.category,
+    required this.icon,
+    required this.color,
+    required this.examTag,
+    required this.rules,
+    required this.questions,
+    this.wordTopic,
+  });
+}
+

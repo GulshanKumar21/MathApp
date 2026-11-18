@@ -88,20 +88,16 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
-    // Topic MCQs & Word Vaults & A-Z Dictionary cleanly separated
-    expect(find.textContaining('Topic MCQs'), findsOneWidget);
+    // Topic-wise modules & Word Vaults & A-Z Bank cleanly separated
     expect(find.textContaining('Word Vaults'), findsOneWidget);
-    expect(find.textContaining('A–Z Dictionary'), findsOneWidget);
+    expect(find.textContaining('A–Z Bank'), findsOneWidget);
     expect(find.text('Open A–Z'), findsNothing);
 
-    // Switch to Word Vaults and scroll to NOVICE (#4) — verifying zero RenderFlex overflow
-    await tester.tap(find.textContaining('Word Vaults'));
+    // Switch to Grammar category chip and verify Spotting Errors card renders cleanly
+    await tester.tap(find.text('Grammar'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('NOVICE'),
-      300,
-      scrollable: find.byType(Scrollable).last,
-    );
-    expect(find.text('NOVICE'), findsOneWidget);
+    expect(find.textContaining('Spotting Errors'), findsOneWidget);
+    expect(find.textContaining('Learn & Rules'), findsWidgets);
+    expect(find.textContaining('Start Quiz'), findsWidgets);
   });
 }
