@@ -1954,7 +1954,7 @@ class DynamicQuestionEngine {
   /// digits = 3: Triple digit (3-Digit)
   /// digits = 4: Four digit (4-Digit)
   /// [maxNumberLimit]: Optional strict boundary/ceiling. If provided, all operands
-  /// (and dividend in division) will never exceed this number, regardless of question count.
+  /// (and dividend in division / multipliers in multiplication) will never exceed this number.
   static List<QuestionModel> generateDigitSpecificQuestions({
     required TopicType type,
     required int digits,
@@ -1971,25 +1971,26 @@ class DynamicQuestionEngine {
       if (type == TopicType.addition) {
         int a = 0, b = 0;
         String prompt = '';
-        for (int attempt = 0; attempt < 25; attempt++) {
-          if (maxNumberLimit != null && maxNumberLimit >= 4) {
+        for (int attempt = 0; attempt < 50; attempt++) {
+          if (maxNumberLimit != null && maxNumberLimit >= 2) {
             final int digitMax = digits == 1 ? 9 : (digits == 2 ? 99 : (digits == 3 ? 999 : 9999));
             final int digitMin = digits == 1 ? 2 : (digits == 2 ? 10 : (digits == 3 ? 100 : 1000));
-            final int cap = min(digitMax, maxNumberLimit);
-            if (maxNumberLimit >= digitMin * 2) {
-              final int maxA = min(cap, maxNumberLimit - digitMin);
-              final int spanA = max(1, maxA - digitMin + 1);
+
+            if (maxNumberLimit < digitMin) {
+              // Ceiling is below this digit tier (e.g. 3-Digit with limit <= 20)
+              // Primary operand is within digit tier, secondary operand capped at maxNumberLimit
+              final int spanA = digitMax - digitMin + 1;
               a = rnd.nextInt(spanA) + digitMin;
-              final int maxB = min(cap, maxNumberLimit - a);
-              final int spanB = max(1, maxB - digitMin + 1);
-              b = rnd.nextInt(spanB) + digitMin;
+              b = rnd.nextInt(maxNumberLimit - 1) + 2;
             } else {
-              // Ceiling is tighter than two operands of this digit tier: keep both operands AND sum <= maxNumberLimit
-              final int minA = max(2, min(cap ~/ 2, maxNumberLimit - 2));
-              final int maxA = max(minA, min(cap, maxNumberLimit - 2));
-              a = rnd.nextInt(maxA - minA + 1) + minA;
-              final int maxB = max(2, min(cap, maxNumberLimit - a));
-              b = rnd.nextInt(max(1, maxB - 1)) + 1;
+              final int capA = min(digitMax, maxNumberLimit);
+              final int spanA = max(1, capA - digitMin + 1);
+              a = rnd.nextInt(spanA) + digitMin;
+
+              final int bMin = digits == 1 ? 2 : (digits == 2 ? (capA > 15 ? 10 : 2) : digitMin);
+              final int capB = min(digitMax, maxNumberLimit);
+              final int spanB = max(1, capB - bMin + 1);
+              b = rnd.nextInt(spanB) + bMin;
             }
           } else {
             if (digits == 1) {
@@ -2008,6 +2009,14 @@ class DynamicQuestionEngine {
           }
           prompt = '$a + $b = ?';
           if (!seenPrompts.contains(prompt)) break;
+        }
+
+        // Safety fallback: if prompt collision occurred after 50 attempts, perturb operand
+        int perturb = 1;
+        while (seenPrompts.contains(prompt) && perturb < 100) {
+          b = max(1, b + 1);
+          prompt = '$a + $b = ?';
+          perturb++;
         }
         seenPrompts.add(prompt);
 
@@ -2033,23 +2042,26 @@ class DynamicQuestionEngine {
       } else if (type == TopicType.subtraction) {
         int a = 0, b = 0;
         String prompt = '';
-        for (int attempt = 0; attempt < 25; attempt++) {
+        for (int attempt = 0; attempt < 50; attempt++) {
           if (maxNumberLimit != null && maxNumberLimit >= 3) {
-            final int digitMaxA = digits == 1 ? min(18, maxNumberLimit) : (digits == 2 ? 99 : (digits == 3 ? 999 : 9999));
-            final int maxVal = min(digitMaxA, maxNumberLimit);
-            final int defaultMin = digits == 1
-                ? (maxVal >= 10 ? 6 : 3)
-                : (digits == 2 ? 15 : (digits == 3 ? 120 : 1100));
-            final int minVal = defaultMin >= maxVal ? max(3, maxVal ~/ 2) : defaultMin;
-            final int span = max(1, maxVal - minVal + 1);
-            a = rnd.nextInt(span) + minVal;
+            final int digitMax = digits == 1 ? 9 : (digits == 2 ? 99 : (digits == 3 ? 999 : 9999));
+            final int digitMin = digits == 1 ? 2 : (digits == 2 ? 10 : (digits == 3 ? 100 : 1000));
 
-            final int bMax = max(1, a - 1);
-            final int preferredBMin = digits == 1
-                ? 2
-                : (digits == 2 ? min(10, bMax) : (digits == 3 ? min(100, bMax) : min(1000, bMax)));
-            final int bMin = preferredBMin >= bMax ? 1 : preferredBMin;
-            b = rnd.nextInt(bMax - bMin + 1) + bMin;
+            if (maxNumberLimit < digitMin) {
+              // Limit is below this tier (e.g. 3-Digit with limit <= 20)
+              final int spanA = digitMax - digitMin + 1;
+              a = rnd.nextInt(spanA) + digitMin;
+              b = rnd.nextInt(maxNumberLimit - 2) + 2;
+            } else {
+              final int capA = min(digitMax, maxNumberLimit);
+              final int spanA = max(1, capA - digitMin + 1);
+              a = rnd.nextInt(spanA) + digitMin;
+
+              final int bMax = max(1, a - 1);
+              final int bMin = digits == 1 ? 1 : (digits == 2 ? (a > 15 ? 10 : 2) : digitMin);
+              final int safeBMin = bMin >= bMax ? 1 : bMin;
+              b = rnd.nextInt(bMax - safeBMin + 1) + safeBMin;
+            }
           } else {
             if (digits == 1) {
               a = rnd.nextInt(10) + 10; // 10 to 19
@@ -2067,6 +2079,14 @@ class DynamicQuestionEngine {
           }
           prompt = '$a − $b = ?';
           if (!seenPrompts.contains(prompt)) break;
+        }
+
+        // Safety fallback: if prompt collision occurred after 50 attempts, perturb operand
+        int perturb = 1;
+        while (seenPrompts.contains(prompt) && perturb < 100) {
+          b = max(1, b - 1);
+          prompt = '$a − $b = ?';
+          perturb++;
         }
         seenPrompts.add(prompt);
 
@@ -2089,19 +2109,25 @@ class DynamicQuestionEngine {
         // Multiplication
         int a = 0, b = 0;
         String prompt = '';
-        for (int attempt = 0; attempt < 25; attempt++) {
+        for (int attempt = 0; attempt < 50; attempt++) {
           if (maxNumberLimit != null && maxNumberLimit >= 2) {
-            int maxValA = min(digits == 1 ? 9 : (digits == 2 ? 99 : (digits == 3 ? 999 : 9999)), maxNumberLimit);
-            if (maxValA < 2) maxValA = 2;
-            int defaultMinA = (digits == 1) ? 2 : (digits == 2 ? 10 : (digits == 3 ? 100 : 1000));
-            int minValA = defaultMinA >= maxValA ? max(2, maxValA ~/ 2) : defaultMinA;
-            int spanA = max(1, maxValA - minValA + 1);
-            a = rnd.nextInt(spanA) + minValA;
+            final int digitMax = digits == 1 ? 9 : (digits == 2 ? 99 : (digits == 3 ? 999 : 9999));
+            final int digitMin = digits == 1 ? 2 : (digits == 2 ? 10 : (digits == 3 ? 100 : 1000));
 
-            int maxValB = min(digits == 1 ? 9 : maxNumberLimit, maxNumberLimit);
-            int minValB = 2;
-            int spanB = max(1, maxValB - minValB + 1);
-            b = rnd.nextInt(spanB) + minValB;
+            if (maxNumberLimit < digitMin) {
+              final int spanA = digitMax - digitMin + 1;
+              a = rnd.nextInt(spanA) + digitMin;
+              b = rnd.nextInt(maxNumberLimit - 1) + 2;
+            } else {
+              final int capA = min(digitMax, maxNumberLimit);
+              final int spanA = max(1, capA - digitMin + 1);
+              a = rnd.nextInt(spanA) + digitMin;
+
+              final int capB = min(digits == 1 ? 9 : (digits == 2 ? 25 : 15), maxNumberLimit);
+              final int bMin = 2;
+              final int spanB = max(1, capB - bMin + 1);
+              b = rnd.nextInt(spanB) + bMin;
+            }
           } else {
             if (digits == 1) {
               a = rnd.nextInt(8) + 2; // 2 to 9
@@ -2119,6 +2145,14 @@ class DynamicQuestionEngine {
           }
           prompt = '$a × $b = ?';
           if (!seenPrompts.contains(prompt)) break;
+        }
+
+        // Safety fallback: if prompt collision occurred after 50 attempts, perturb operand
+        int perturb = 1;
+        while (seenPrompts.contains(prompt) && perturb < 100) {
+          b = max(2, b + 1);
+          prompt = '$a × $b = ?';
+          perturb++;
         }
         seenPrompts.add(prompt);
 
@@ -2143,21 +2177,43 @@ class DynamicQuestionEngine {
         // Division
         int divisor = 2, quotient = 2, dividend = 4;
         String prompt = '';
-        for (int attempt = 0; attempt < 25; attempt++) {
+        for (int attempt = 0; attempt < 50; attempt++) {
           if (maxNumberLimit != null && maxNumberLimit >= 4) {
-            final int maxDividend = maxNumberLimit;
-            final int tierMaxDivisor = digits == 1 ? 9 : (digits == 2 ? 15 : 25);
-            final int maxD = max(2, min(tierMaxDivisor, maxDividend ~/ 2));
-            divisor = rnd.nextInt(maxD - 1) + 2;
+            final int digitMaxQ = digits == 1 ? 9 : (digits == 2 ? 99 : (digits == 3 ? 999 : 9999));
+            final int digitMinQ = digits == 1 ? 2 : (digits == 2 ? 10 : (digits == 3 ? 100 : 1000));
 
-            final int tierMaxQ = digits == 1 ? 9 : 9999;
-            final int maxQ = max(2, min(tierMaxQ, maxDividend ~/ divisor));
-            final int tierMinQ = digits == 1
-                ? 2
-                : (digits == 2 ? 10 : (digits == 3 ? 100 : 1000));
-            final int minQ = tierMinQ >= maxQ ? 2 : tierMinQ;
-            quotient = rnd.nextInt(maxQ - minQ + 1) + minQ;
-            dividend = divisor * quotient;
+            if (digits == 1) {
+              final int maxDiv = min(81, maxNumberLimit);
+              divisor = rnd.nextInt(8) + 2; // 2..9
+              final int maxQ = min(9, maxDiv ~/ divisor);
+              if (maxQ < 2) {
+                quotient = 2;
+                divisor = min(divisor, max(2, maxDiv ~/ 2));
+              } else {
+                quotient = rnd.nextInt(maxQ - 1) + 2;
+              }
+              dividend = divisor * quotient;
+            } else {
+              // Digits >= 2
+              if (maxNumberLimit < digitMinQ * 2) {
+                // Limit ceiling applies to divisor (dividing by tables up to maxNumberLimit)
+                final int maxD = min(25, maxNumberLimit);
+                divisor = rnd.nextInt(max(1, maxD - 1)) + 2;
+                final int spanQ = min(40, digitMaxQ - digitMinQ + 1);
+                quotient = rnd.nextInt(spanQ) + digitMinQ;
+                dividend = divisor * quotient;
+              } else {
+                // Limit ceiling applies to dividend
+                final int maxDividend = maxNumberLimit;
+                final int tierMaxDivisor = digits == 2 ? 15 : 25;
+                final int maxD = max(2, min(tierMaxDivisor, maxDividend ~/ digitMinQ));
+                divisor = rnd.nextInt(maxD - 1) + 2;
+                final int maxQ = max(digitMinQ, min(digitMaxQ, maxDividend ~/ divisor));
+                final int spanQ = max(1, maxQ - digitMinQ + 1);
+                quotient = rnd.nextInt(spanQ) + digitMinQ;
+                dividend = divisor * quotient;
+              }
+            }
           } else {
             if (digits == 1) {
               divisor = rnd.nextInt(8) + 2; // 2 to 9
@@ -2176,6 +2232,15 @@ class DynamicQuestionEngine {
           }
           prompt = '$dividend ÷ $divisor = ?';
           if (!seenPrompts.contains(prompt)) break;
+        }
+
+        // Safety fallback: if prompt collision occurred after 50 attempts, perturb quotient
+        int perturb = 1;
+        while (seenPrompts.contains(prompt) && perturb < 100) {
+          quotient = max(2, quotient + 1);
+          dividend = divisor * quotient;
+          prompt = '$dividend ÷ $divisor = ?';
+          perturb++;
         }
         seenPrompts.add(prompt);
 

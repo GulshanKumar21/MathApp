@@ -95,29 +95,148 @@ class _ArithmeticDigitSelectionScreenState extends State<ArithmeticDigitSelectio
       final lim = _selectedMaxLimit!;
       switch (widget.type) {
         case TopicType.addition:
-          final a1 = min(lim, max(2, (lim * 0.7).round()));
-          final b1 = min(lim, max(2, (lim * 0.4).round()));
-          final a2 = min(lim, max(2, (lim * 0.9).round()));
-          final b2 = min(lim, max(2, (lim * 0.5).round()));
-          return '$a1 + $b1 = ${a1 + b1}   •   $a2 + $b2 = ${a2 + b2}  (All ≤ $lim)';
+          if (digits == 1) {
+            final a1 = min(9, max(2, (lim * 0.45).round()));
+            final b1 = min(9, max(2, (lim * 0.35).round()));
+            final a2 = min(9, max(3, a1 + 1));
+            final b2 = min(9, max(2, b1 - 1));
+            return '$a1 + $b1 = ${a1 + b1}   •   $a2 + $b2 = ${a2 + b2}  (Numbers ≤ $lim)';
+          } else if (digits == 2) {
+            if (lim <= 25) {
+              final a1 = min(lim, 18);
+              final b1 = min(lim, 14);
+              final a2 = min(lim, 17);
+              final b2 = min(lim, 12);
+              return '$a1 + $b1 = ${a1 + b1}   •   $a2 + $b2 = ${a2 + b2}  (Operands ≤ $lim)';
+            } else {
+              final a1 = min(lim, max(12, (lim * 0.7).round()));
+              final b1 = min(lim, max(10, (lim * 0.4).round()));
+              final a2 = min(lim, max(12, (lim * 0.85).round()));
+              final b2 = min(lim, max(10, (lim * 0.55).round()));
+              return '$a1 + $b1 = ${a1 + b1}   •   $a2 + $b2 = ${a2 + b2}  (Operands ≤ $lim)';
+            }
+          } else if (digits == 3) {
+            if (lim >= 100) {
+              final a1 = min(lim, max(105, (lim * 0.7).round()));
+              final b1 = min(lim, max(102, (lim * 0.4).round()));
+              return '$a1 + $b1 = ${a1 + b1}  (Operands ≤ $lim)';
+            }
+            final b1 = min(lim, 18);
+            final b2 = min(lim, 15);
+            return '245 + $b1 = ${245 + b1}   •   512 + $b2 = ${512 + b2}  (+ Operands ≤ $lim)';
+          } else {
+            if (lim >= 1000) {
+              final a1 = min(lim, max(1050, (lim * 0.7).round()));
+              final b1 = min(lim, max(1020, (lim * 0.4).round()));
+              return '$a1 + $b1 = ${a1 + b1}  (Operands ≤ $lim)';
+            }
+            final b1 = min(lim, 18);
+            final b2 = min(lim, 16);
+            return '2450 + $b1 = ${2450 + b1}   •   5820 + $b2 = ${5820 + b2}  (+ Operands ≤ $lim)';
+          }
+
         case TopicType.subtraction:
-          final a1 = lim;
-          final b1 = max(1, (lim * 0.4).round());
-          final a2 = max(2, (lim * 0.85).round());
-          final b2 = max(1, (lim * 0.35).round());
-          return '$a1 − $b1 = ${a1 - b1}   •   $a2 − $b2 = ${a2 - b2}  (All ≤ $lim)';
+          if (digits == 1) {
+            final a1 = min(9, lim);
+            final b1 = max(1, (a1 * 0.4).round());
+            final a2 = max(3, a1 - 1);
+            final b2 = max(1, (a2 * 0.4).round());
+            return '$a1 − $b1 = ${a1 - b1}   •   $a2 − $b2 = ${a2 - b2}  (Numbers ≤ $lim)';
+          } else if (digits == 2) {
+            if (lim <= 25) {
+              final a1 = min(lim, 20);
+              final b1 = max(10, min(a1 - 2, 12));
+              final a2 = min(lim, 19);
+              final b2 = max(10, min(a2 - 2, 11));
+              return '$a1 − $b1 = ${a1 - b1}   •   $a2 − $b2 = ${a2 - b2}  (Operands ≤ $lim)';
+            } else {
+              final a1 = lim;
+              final b1 = max(10, (lim * 0.4).round());
+              final a2 = max(15, (lim * 0.85).round());
+              final b2 = max(10, (lim * 0.35).round());
+              return '$a1 − $b1 = ${a1 - b1}   •   $a2 − $b2 = ${a2 - b2}  (Operands ≤ $lim)';
+            }
+          } else if (digits == 3) {
+            if (lim >= 100) {
+              final a1 = min(lim, 485);
+              final b1 = max(10, (lim * 0.3).round());
+              return '$a1 − $b1 = ${a1 - b1}  (Operands ≤ $lim)';
+            }
+            final b1 = min(lim, 18);
+            final b2 = min(lim, 16);
+            return '345 − $b1 = ${345 - b1}   •   582 − $b2 = ${582 - b2}  (− Operands ≤ $lim)';
+          } else {
+            if (lim >= 1000) {
+              final a1 = min(lim, 4850);
+              final b1 = max(100, (lim * 0.3).round());
+              return '$a1 − $b1 = ${a1 - b1}  (Operands ≤ $lim)';
+            }
+            final b1 = min(lim, 18);
+            final b2 = min(lim, 16);
+            return '2450 − $b1 = ${2450 - b1}   •   5820 − $b2 = ${5820 - b2}  (− Operands ≤ $lim)';
+          }
+
         case TopicType.hardMultiplier:
         case TopicType.tables:
-          final a1 = min(lim, 12);
-          final b1 = min(lim, 8);
-          final a2 = lim;
-          final b2 = min(lim, 9);
-          return '$a1 × $b1 = ${a1 * b1}   •   $a2 × $b2 = ${a2 * b2}  (All ≤ $lim)';
+          if (digits == 1) {
+            final a1 = min(9, lim);
+            final b1 = min(9, max(2, (lim * 0.4).round()));
+            final a2 = min(9, max(2, a1 - 2));
+            final b2 = min(9, max(2, b1 + 1));
+            return '$a1 × $b1 = ${a1 * b1}   •   $a2 × $b2 = ${a2 * b2}  (Multipliers ≤ $lim)';
+          } else if (digits == 2) {
+            final a1 = min(lim, 17);
+            final b1 = min(lim, 12);
+            final a2 = min(lim, max(12, (lim * 0.8).round()));
+            final b2 = min(lim, max(3, (lim * 0.35).round()));
+            return '$a1 × $b1 = ${a1 * b1}   •   $a2 × $b2 = ${a2 * b2}  (Multipliers ≤ $lim)';
+          } else if (digits == 3) {
+            final b1 = min(lim, 16);
+            final b2 = min(lim, 12);
+            return '125 × $b1 = ${125 * b1}   •   240 × $b2 = ${240 * b2}  (Multipliers ≤ $lim)';
+          } else {
+            final b1 = min(lim, 15);
+            final b2 = min(lim, 12);
+            return '1200 × $b1 = ${1200 * b1}   •   2500 × $b2 = ${2500 * b2}  (Multipliers ≤ $lim)';
+          }
+
         case TopicType.division:
-          final d1 = min(max(2, lim ~/ 3), 6);
-          final q1 = min(max(2, lim ~/ d1), 8);
-          final div1 = d1 * q1;
-          return '$div1 ÷ $d1 = $q1  (All ≤ $lim)';
+          if (digits == 1) {
+            final div1 = min(lim, 18);
+            final d1 = div1 > 12 ? 6 : (div1 > 8 ? 3 : 2);
+            final q1 = div1 ~/ d1;
+            final div2 = min(lim, 20);
+            final d2 = div2 > 15 ? 5 : (div2 > 10 ? 4 : 2);
+            final q2 = div2 ~/ d2;
+            return '${d1 * q1} ÷ $d1 = $q1   •   ${d2 * q2} ÷ $d2 = $q2  (Dividend ≤ $lim)';
+          } else if (digits == 2) {
+            if (lim <= 30) {
+              final d1 = min(lim, 12);
+              final q1 = 14;
+              final div1 = d1 * q1;
+              final d2 = min(lim, 16);
+              final q2 = 13;
+              final div2 = d2 * q2;
+              return '$div1 ÷ $d1 = $q1   •   $div2 ÷ $d2 = $q2  (Divisors ≤ $lim)';
+            } else {
+              final d1 = min(15, lim ~/ 6);
+              final q1 = 14;
+              final div1 = min(lim, d1 * q1);
+              final d2 = min(12, lim ~/ 7);
+              final q2 = 16;
+              final div2 = min(lim, d2 * q2);
+              return '$div1 ÷ $d1 = ${div1 ~/ d1}   •   $div2 ÷ $d2 = ${div2 ~/ d2}  (Dividend ≤ $lim)';
+            }
+          } else if (digits == 3) {
+            final d1 = min(lim, 15);
+            final q1 = 120;
+            return '${d1 * q1} ÷ $d1 = $q1  (Divisors ≤ $lim)';
+          } else {
+            final d1 = min(lim, 12);
+            final q1 = 1200;
+            return '${d1 * q1} ÷ $d1 = $q1  (Divisors ≤ $lim)';
+          }
+
         default:
           return 'Numbers strictly capped at ≤ $lim';
       }
