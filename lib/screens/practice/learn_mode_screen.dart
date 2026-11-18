@@ -269,6 +269,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
             iconName: 'grid_view_rounded',
           ),
           customQuestions: questions,
+          onRegenerateQuestions: () => DynamicQuestionEngine.generateTableQuestions(tableNum, count: 10, maxMultiplier: 12),
           isTimed: true,
           questionCount: questions.length,
         ),
@@ -380,6 +381,7 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
         builder: (_) => PracticeQuizScreen(
           topic: widget.topic,
           customQuestions: questions,
+          onRegenerateQuestions: () => ContentRepository.generateQuestions(widget.topic.type, count: 15),
           isTimed: true,
           questionCount: questions.length,
         ),

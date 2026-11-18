@@ -563,7 +563,8 @@ class _TableRevisionHubScreenState extends State<TableRevisionHubScreen> {
             child: _is3DFlashcardMode ? _build3DFlipGrid() : _buildTableRowsList(),
           ),
 
-
+          // 🔊 Floating Audio Player Deck (visible when reciting)
+          _buildFloatingAudioPlayerDeck(state),
 
           // 6. Sticky Test Myself Action Bar
           _buildBottomTestBar(),
@@ -994,6 +995,8 @@ class _TableRevisionHubScreenState extends State<TableRevisionHubScreen> {
               _buildCountChip(10),
               const SizedBox(width: 5),
               _buildCountChip(20),
+              const SizedBox(width: 5),
+              _buildCountChip(30),
             ],
           ),
         ),
@@ -1114,11 +1117,24 @@ class _TableRevisionHubScreenState extends State<TableRevisionHubScreen> {
 
             // View Mode Toggle (List vs 3D Cards)
             _toolbarChip(
-              label: _is3DFlashcardMode ? '🎴 3D Cards' : '📋 List View',
-              isActive: true,
+              label: '📋 List',
+              isActive: !_is3DFlashcardMode,
               onTap: () {
-                _stopRecital();
-                setState(() => _is3DFlashcardMode = !_is3DFlashcardMode);
+                if (_is3DFlashcardMode) {
+                  _stopRecital();
+                  setState(() => _is3DFlashcardMode = false);
+                }
+              },
+            ),
+            const SizedBox(width: 6),
+            _toolbarChip(
+              label: '🎴 3D Cards',
+              isActive: _is3DFlashcardMode,
+              onTap: () {
+                if (!_is3DFlashcardMode) {
+                  _stopRecital();
+                  setState(() => _is3DFlashcardMode = true);
+                }
               },
             ),
             const SizedBox(width: 8),
