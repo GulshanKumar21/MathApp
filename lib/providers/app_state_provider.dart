@@ -1561,21 +1561,49 @@ class AppStateProvider extends ChangeNotifier {
     }
 
     // Automatic one-time purge of legacy hardcoded data from device SharedPreferences
-    final bool purgedLegacy = _prefs!.getBool('purged_legacy_mock_data_v5') ?? false;
-    if (!purgedLegacy) {
+    final bool purgedV6 = _prefs!.getBool('purged_legacy_mock_data_v6') ?? false;
+    if (!purgedV6) {
       await _prefs!.remove('starred_tables');
       await _prefs!.remove('active_starred_table_number');
       await _prefs!.remove('active_starred_table_formula');
       // Remove any hardcoded test formulas from pending queue
       final queue = _prefs!.getStringList('pending_recall_queue') ?? [];
-      queue.removeWhere((e) => e.startsWith('14 × 7|') || e.startsWith('16 × 3|'));
+      queue.removeWhere((e) =>
+          e.startsWith('2 × 2|') ||
+          e == '2 × 2' ||
+          e.startsWith('14 × 7|') ||
+          e.startsWith('16 × 3|'));
       await _prefs!.setStringList('pending_recall_queue', queue);
-      if (_prefs!.getString('currently_displayed_recall_formula') == '14 × 7' ||
+      if (_prefs!.getString('currently_displayed_recall_formula') == '2 × 2' ||
+          _prefs!.getString('currently_displayed_recall_formula') == '14 × 7' ||
           _prefs!.getString('currently_displayed_recall_formula') == '16 × 3') {
         await _prefs!.remove('currently_displayed_recall_formula');
       }
-      await NotificationService().cancelNotification(7005);
-      await _prefs!.setBool('purged_legacy_mock_data_v5', true);
+      final notif = NotificationService();
+      await notif.cancelNotification(notif.getNotificationIdForPrompt('2 × 2'));
+      await notif.cancelNotification(notif.getNotificationIdForPrompt('2 × 2 = ?'));
+      await notif.cancelNotification(7005);
+      await notif.cancelNotification(7001);
+      await _prefs!.setBool('purged_legacy_mock_data_v6', true);
+    }
+
+    // Ensure pending queue strictly contains REAL student mistakes from the notebook
+    final currentQueue = _prefs!.getStringList('pending_recall_queue') ?? [];
+    if (currentQueue.isNotEmpty && _allMistakes.isNotEmpty) {
+      final validFormulas = _allMistakes
+          .map((m) => NotificationService().cleanPrompt(m.prompt))
+          .toSet();
+      final filteredQueue = currentQueue.where((entry) {
+        final f = entry.split('|')[0];
+        return validFormulas.contains(f);
+      }).toList();
+      if (filteredQueue.length != currentQueue.length) {
+        await _prefs!.setStringList('pending_recall_queue', filteredQueue);
+      }
+    } else if (_allMistakes.isEmpty && currentQueue.isNotEmpty) {
+      await _prefs!.setStringList('pending_recall_queue', []);
+      await _prefs!.remove('currently_displayed_recall_formula');
+      await NotificationService().cancelNotification(NotificationService().getNotificationIdForPrompt('2 × 2'));
     }
 
     // Load starred tables (User-saved bookmarks: strictly empty by default)

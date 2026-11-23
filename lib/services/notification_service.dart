@@ -557,9 +557,12 @@ class NotificationService {
       'correctAnswer': correctAnswer,
     });
 
+    final recallOptions = generateRecallOptions(correctAnswer, formula);
+
     final androidDetails = AndroidNotificationDetails(
       _kRecallChannel,
       'Spaced Recall',
+      channelDescription: 'PrepVanta spaced revision reminders',
       importance: Importance.max,
       priority: Priority.max,
       ongoing: true,
@@ -571,11 +574,15 @@ class NotificationService {
       actions: <AndroidNotificationAction>[
         AndroidNotificationAction(
           'SUBMIT_ANSWER',
-          'Submit Answer',
+          '✏️ Type Answer',
+          showsUserInterface: false,
+          cancelNotification: false,
           allowGeneratedReplies: false,
           inputs: <AndroidNotificationActionInput>[
-            const AndroidNotificationActionInput(
-              label: 'Type your answer…',
+            AndroidNotificationActionInput(
+              label: 'Enter answer (e.g. $correctAnswer)',
+              allowFreeFormInput: true,
+              choices: recallOptions,
             ),
           ],
         ),
@@ -584,8 +591,8 @@ class NotificationService {
 
     await _plugin.show(
       id: id,
-      title: '$prefix📚 Revision Time!',
-      body: '$formula = ?  •  Write your answer below',
+      title: '$prefix📚 Revision: $formula = ?',
+      body: 'Tap "✏️ Type Answer" below to solve here',
       notificationDetails: NotificationDetails(android: androidDetails),
       payload: payload,
     );
@@ -697,6 +704,25 @@ class NotificationService {
         await _plugin.cancel(id: id);
         await _plugin.cancel(id: id + 500000);
       }
+      await _removePendingQueueEntry(formula);
+
+      // Brief celebratory feedback in notification shade (auto-cancels after 3.5s)
+      final alertId = (id ?? _hashPrompt(formula)) + 700000;
+      await _plugin.show(
+        id: alertId,
+        title: '🎉 Correct! $formula = $correctAnswer',
+        body: 'Mistake resolved! Revision schedule updated.',
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _kGeneralChannel,
+            'General',
+            importance: Importance.high,
+            priority: Priority.high,
+            autoCancel: true,
+            timeoutAfter: 3500,
+          ),
+        ),
+      );
 
       onMistakeResolved?.call(formula, correctAnswer);
 
@@ -889,11 +915,13 @@ class NotificationService {
       'correctAnswer': correctAnswer,
     });
 
+    final recallOptions = generateRecallOptions(correctAnswer, formula);
+
     try {
       await _plugin.zonedSchedule(
         id: id,
-        title: '📚 Revision Time!',
-        body: '$formula = ?  •  Write your answer below',
+        title: '📚 Revision: $formula = ?',
+        body: 'Tap "✏️ Type Answer" below to solve here',
         scheduledDate: _tzFrom(dueAt),
         notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
@@ -907,10 +935,15 @@ class NotificationService {
             actions: <AndroidNotificationAction>[
               AndroidNotificationAction(
                 'SUBMIT_ANSWER',
-                'Submit Answer',
+                '✏️ Type Answer',
+                showsUserInterface: false,
+                cancelNotification: false,
                 inputs: <AndroidNotificationActionInput>[
-                  const AndroidNotificationActionInput(
-                      label: 'Type your answer…'),
+                  AndroidNotificationActionInput(
+                    label: 'Enter answer (e.g. $correctAnswer)',
+                    allowFreeFormInput: true,
+                    choices: recallOptions,
+                  ),
                 ],
               ),
             ],
