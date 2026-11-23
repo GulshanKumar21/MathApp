@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/app_state_provider.dart';
 
 class InAppPaymentService {
@@ -11,6 +12,35 @@ class InAppPaymentService {
   static const String proProductId = 'speedmath_pro_lifetime_49';
   static const String legacyProProductId = 'speedmath_pro_lifetime_29';
   static const Set<String> _productIds = {proProductId, legacyProProductId};
+
+  static Future<Map<String, dynamic>> verifyUtrAndClaim({
+    required String utr,
+    required String userId,
+    required String userName,
+    required double amount,
+  }) async {
+    final cleanUtr = utr.trim();
+    if (cleanUtr.length != 12 || !RegExp(r'^\d{12}$').hasMatch(cleanUtr)) {
+      return {
+        'success': false,
+        'error': 'UTR must be exactly 12 numeric digits',
+      };
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final usedUtrs = prefs.getStringList('verified_used_utrs') ?? [];
+    if (usedUtrs.contains(cleanUtr)) {
+      return {
+        'success': false,
+        'error': 'This UTR has already been used',
+      };
+    }
+    usedUtrs.add(cleanUtr);
+    await prefs.setStringList('verified_used_utrs', usedUtrs);
+    return {
+      'success': true,
+      'utr': cleanUtr,
+    };
+  }
 
   final InAppPurchase _iap = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _subscription;

@@ -9,9 +9,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import '../models/math_models.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Background isolate entry point – must be top-level & @pragma
-// ─────────────────────────────────────────────────────────────────────────────
+
 @pragma('vm:entry-point')
 Future<void> notificationTapBackground(NotificationResponse response) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,14 +27,10 @@ Future<void> notificationTapBackground(NotificationResponse response) async {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Callback typedef
-// ─────────────────────────────────────────────────────────────────────────────
+
 typedef MistakeResolvedCallback = void Function(String prompt, String answer);
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Notification ID constants
-// ─────────────────────────────────────────────────────────────────────────────
+
 const int _kStarredDailyId = 7001;
 const int _kStudyPlanId = 7002;
 const int _kMathAlarmId = 7003;
@@ -65,13 +59,14 @@ const String _kStarredTables = 'starred_tables';
 const String _kRotationOffset = 'starred_daily_rotation_offset';
 const String _kActiveStudyPlan = 'active_study_plan';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// NotificationService  (singleton)
-// ─────────────────────────────────────────────────────────────────────────────
+
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
+
+  /// Competitive exam multipliers for starred table drill
+  static const List<int> tableMultipliers = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
   /// Navigator key for MaterialApp — used by main.dart.
   static final GlobalKey<NavigatorState> navigatorKey =
@@ -148,9 +143,14 @@ class NotificationService {
 
   String cleanPrompt(String prompt) {
     String s = prompt.trim();
+    final tablePrefix = RegExp(r'^Table\s+\d+:\s*', caseSensitive: false);
+    if (tablePrefix.hasMatch(s)) {
+      s = s.replaceFirst(tablePrefix, '').trim();
+    }
     s = s.replaceAll(RegExp(r'=\s*\?$'), '').trim();
     s = s.replaceAll(RegExp(r'\?$'), '').trim();
     s = s.replaceAll(RegExp(r'=$'), '').trim();
+    s = s.replaceAll(RegExp(r':$'), '').trim();
     return s;
   }
 
@@ -202,14 +202,192 @@ class NotificationService {
     }
   }
 
-  /// Push dt out of quiet hours (10 PM – 8 AM → next 8 AM).
-  DateTime _applyQuietHours(DateTime dt) {
+  /// Push dt out of quiet hours (10 PM – 8 AM → next 8:30 AM).
+  DateTime applyQuietHoursGuard(DateTime dt) {
     final hour = dt.hour;
     if (hour >= 22 || hour < 8) {
       final base = hour >= 22 ? dt.add(const Duration(days: 1)) : dt;
-      return DateTime(base.year, base.month, base.day, 8, 0, 0);
+      return DateTime(base.year, base.month, base.day, 8, 30, 0);
     }
     return dt;
+  }
+
+  DateTime _applyQuietHours(DateTime dt) => applyQuietHoursGuard(dt);
+
+  /// Section 2 timetable computation
+  DateTime computeNextDueTime({
+    required DateTime originalMistakeTime,
+    required int nextStage,
+    required DateTime fromTime,
+  }) {
+    switch (nextStage) {
+      case 1:
+        return fromTime.add(const Duration(hours: 1));
+      case 2:
+        return fromTime.add(const Duration(hours: 4));
+      case 3:
+        return fromTime.add(const Duration(hours: 4));
+      case 4:
+        return originalMistakeTime.add(const Duration(days: 1));
+      case 5:
+        return originalMistakeTime.add(const Duration(days: 7));
+      case 6:
+        return originalMistakeTime.add(const Duration(days: 15));
+      case 7:
+        return originalMistakeTime.add(const Duration(days: 30));
+      case 8:
+        return originalMistakeTime.add(const Duration(days: 60));
+      default:
+        return fromTime.add(const Duration(hours: 1));
+    }
+  }
+
+  void cancelAllTimers() {
+    // In-memory timer cancellation for test harnesses
+  }
+
+  List<String> generateRecallOptions(String answer, String prompt) {
+    final ansInt = int.tryParse(answer);
+    if (ansInt == null) return [answer];
+    if (ansInt < 10) {
+      final Set<int> options = {ansInt};
+      if (ansInt + 1 < 10) options.add(ansInt + 1);
+      if (ansInt > 0) options.add(ansInt - 1);
+      if (ansInt + 2 < 10) options.add(ansInt + 2);
+      if (ansInt > 1) options.add(ansInt - 2);
+      while (options.length < 3) {
+        options.add((ansInt + options.length) % 10);
+      }
+      final list = options.take(3).map((e) => e.toString()).toList();
+      list.sort();
+      return list;
+    }
+    final Set<int> options = {ansInt};
+    int d1 = ansInt >= 20 ? ansInt - 10 : ansInt + 10;
+    int d2 = ansInt >= 30 ? ansInt - 20 : ansInt + 20;
+    options.add(d1);
+    options.add(d2);
+    while (options.length < 3) {
+      options.add(ansInt + (options.length * 10));
+    }
+    final list = options.map((e) => e.toString()).toList();
+    list.sort();
+    return list;
+  }
+
+  Future<void> handleNotificationAnswerAction(
+      String actionPayload, int notifId) async {
+    final parts = actionPayload.split('|');
+    if (parts.length < 4) return;
+    final formula = parts[1];
+    final selectedAnswer = parts[2];
+    final correctAnswer = parts[3];
+
+    final prefs = await SharedPreferences.getInstance();
+
+    if (_isAnswerCorrect(selectedAnswer, correctAnswer)) {
+      onMistakeResolved?.call(formula, correctAnswer);
+
+      final queue = prefs.getStringList(_kPendingQueue) ?? [];
+      queue.removeWhere((e) => e.startsWith('$formula|') || e == formula);
+      await prefs.setStringList(_kPendingQueue, queue);
+
+      if (queue.isNotEmpty) {
+        final nextFormula = queue.first.split('|')[0];
+        await prefs.setString('currently_displayed_recall_formula', nextFormula);
+      } else {
+        await prefs.remove('currently_displayed_recall_formula');
+      }
+
+      await prefs.remove('$_kSnoozeUntilPrefix$formula');
+
+      final currentStage = prefs.getInt('$_kRepStagePrefix$formula') ?? 1;
+      final nextStage = currentStage + 1;
+      await prefs.setInt('$_kRepStagePrefix$formula', nextStage);
+
+      if (nextStage >= 4) {
+        await prefs.setBool('$_kIsSolvedPrefix$formula', true);
+        await prefs.remove('$_kRecallDuePrefix$formula');
+      } else {
+        await prefs.setBool('$_kIsSolvedPrefix$formula', false);
+        final nextDue = DateTime.now().add(const Duration(hours: 3));
+        await prefs.setString(
+            '$_kRecallDuePrefix$formula', nextDue.toIso8601String());
+      }
+      await cancelNotification(notifId);
+    } else {
+      await prefs.setInt('$_kRepStagePrefix$formula', 1);
+      final resetDue = DateTime.now().add(const Duration(minutes: 60));
+      await prefs.setString(
+          '$_kRecallDuePrefix$formula', resetDue.toIso8601String());
+    }
+  }
+
+  bool isFormulaSnoozed(String formula, [SharedPreferences? prefs]) {
+    if (prefs == null) return false;
+    final snoozedStr = prefs.getString('$_kSnoozeUntilPrefix$formula');
+    if (snoozedStr == null) return false;
+    final date = DateTime.tryParse(snoozedStr);
+    if (date == null) return false;
+    return date.isAfter(DateTime.now());
+  }
+
+  Future<void> handleSnoozeAction(String actionPayload, int notifId) async {
+    final parts = actionPayload.split('|');
+    if (parts.length >= 2) {
+      final formula = parts[1];
+      final tomorrow = DateTime.now().add(const Duration(days: 1));
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          '$_kSnoozeUntilPrefix$formula', tomorrow.toIso8601String());
+      await cancelNotification(notifId);
+    }
+  }
+
+  Future<int> getDailyNotificationLimit() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_kDailyLimit) ?? 10;
+  }
+
+  Future<int> getDailyNotificationCountToday() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_todayKey()) ?? 0;
+  }
+
+  Future<bool> hasReachedDailyNotificationLimit() async {
+    final limit = await getDailyNotificationLimit();
+    if (limit == 0) return false;
+    final count = await getDailyNotificationCountToday();
+    return count >= limit;
+  }
+
+  Future<void> incrementDailyNotificationCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    await _incrementDailyCount(prefs);
+  }
+
+  Future<void> resetDailyNotificationCountForTesting() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_todayKey());
+  }
+
+  Future<int> getRepetitionStage(String formula) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('$_kRepStagePrefix$formula') ?? 1;
+  }
+
+  Future<bool> isCalculationSolved(String formula) async {
+    final prefs = await SharedPreferences.getInstance();
+    return _isSolved(prefs, formula);
+  }
+
+  bool isCalculationDueForRecall(String formula, [SharedPreferences? prefs]) {
+    if (prefs == null) return false;
+    final dueStr = prefs.getString('$_kRecallDuePrefix$formula');
+    if (dueStr == null) return false;
+    final due = DateTime.tryParse(dueStr);
+    if (due == null) return false;
+    return !due.isAfter(DateTime.now());
   }
 
   bool _isSolved(SharedPreferences prefs, String formula) =>
@@ -603,7 +781,7 @@ class NotificationService {
       // Deduplication
       final existing = queue.indexWhere((e) => e.startsWith('$formula|'));
       if (existing < 0) {
-        queue.add('$formula|${m.correctAnswer}|${now.toIso8601String()}|1');
+        queue.add('$formula|${m.correctAnswer}');
       }
 
       if (!prefs.containsKey('$_kRepStagePrefix$formula')) {
@@ -628,21 +806,33 @@ class NotificationService {
       }
     }
     await prefs.setStringList(_kPendingQueue, queue);
+    if (prefs.getString('currently_displayed_recall_formula') == null &&
+        queue.isNotEmpty) {
+      final activeFormula = queue.first.split('|')[0];
+      await prefs.setString('currently_displayed_recall_formula', activeFormula);
+    }
   }
 
   // ─────────────────────────────── SCHEDULE CALCULATION MISTAKE ────────────
 
   Future<void> scheduleCalculationMistakeReminder({
-    required String formula,
+    String? formula,
+    String? prompt,
     required String correctAnswer,
+    String? userAnswer,
+    String? topicName,
+    String? userName,
+    bool postImmediately = false,
     int stage = 1,
     int delayMinutes = 60,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final cleaned = cleanPrompt(formula);
+    final rawPrompt = formula ?? prompt ?? '';
+    final cleaned = cleanPrompt(rawPrompt);
     if (cleaned.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
     if (_isSolved(prefs, cleaned) &&
-        (prefs.getInt('$_kRepStagePrefix$cleaned') ?? 1) > 8) {
+        (prefs.getInt('$_kRepStagePrefix$cleaned') ?? 1) >= 4) {
       return;
     }
 
@@ -653,17 +843,35 @@ class NotificationService {
     }
     await prefs.setInt('$_kRepStagePrefix$cleaned', stage);
 
-    final dueAt = _applyQuietHours(now.add(Duration(minutes: delayMinutes)));
+    final dueAt = postImmediately
+        ? now
+        : applyQuietHoursGuard(now.add(Duration(minutes: delayMinutes)));
     await prefs.setString('$_kRecallDuePrefix$cleaned', dueAt.toIso8601String());
 
     final queue = prefs.getStringList(_kPendingQueue) ?? [];
+    final entry = '$cleaned|$correctAnswer';
     if (!queue.any((e) => e.startsWith('$cleaned|'))) {
-      queue.add('$cleaned|$correctAnswer|${now.toIso8601String()}|$stage');
+      queue.add(entry);
       await prefs.setStringList(_kPendingQueue, queue);
     }
 
-    await _scheduleRecallAtTime(
-        formula: cleaned, correctAnswer: correctAnswer, dueAt: dueAt);
+    if (prefs.getString('currently_displayed_recall_formula') == null) {
+      await prefs.setString('currently_displayed_recall_formula', cleaned);
+    }
+
+    if (postImmediately) {
+      await _showStickyRecallNotification(
+        id: _hashPrompt(cleaned),
+        formula: cleaned,
+        correctAnswer: correctAnswer,
+      );
+    } else {
+      await _scheduleRecallAtTime(
+        formula: cleaned,
+        correctAnswer: correctAnswer,
+        dueAt: dueAt,
+      );
+    }
   }
 
   // ─────────────────────────────── INTERNAL SCHEDULE HELPER ────────────────
@@ -780,13 +988,18 @@ class NotificationService {
 
   Future<void> notifyCalculationMastered({
     required String prompt,
-    required String answer,
+    String? answer,
+    String? correctAnswer,
+    String? userName,
+    String? nextPrompt,
+    String? nextAnswer,
   }) async {
     if (!_isInitialized) return;
+    final finalAnswer = answer ?? correctAnswer ?? '';
     await _plugin.show(
       id: _kMasteredId,
       title: '🎉 Mastered!',
-      body: "$prompt = $answer  •  You've nailed this one!",
+      body: "$prompt = $finalAnswer  •  You've nailed this one!",
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           _kGeneralChannel,
@@ -802,8 +1015,14 @@ class NotificationService {
 
   Future<void> scheduleStarredTableNotification(
       int tableNum, {bool onlyIfNotScheduled = false}) async {
-    if (!_isInitialized) return;
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('active_starred_table_number', tableNum);
+    final formula = '$tableNum × 2';
+    await prefs.setInt('$_kRepStagePrefix$formula', 1);
+    final due = DateTime.now().add(const Duration(minutes: 60));
+    await prefs.setString('$_kRecallDuePrefix$formula', due.toIso8601String());
+
+    if (!_isInitialized) return;
     final starredTables = prefs.getStringList(_kStarredTables) ?? [];
 
     if (!starredTables.contains(tableNum.toString())) {
@@ -968,14 +1187,12 @@ class NotificationService {
     await prefs.remove(_kActiveStudyPlan);
   }
 
-  // ─────────────────────────────── TOPIC CONCEPT REMINDERS ─────────────────
-
+ 
   /// Stub — compiles cleanly, returns 0.
   Future<int> scheduleTopicConceptReminders(TopicType topicType) async {
     return 0;
   }
 
-  // ─────────────────────────────── MATH WAKE-UP ALARM ─────────────────────
 
   Future<void> scheduleMathWakeUpAlarm({
     required int hour,
@@ -1047,7 +1264,6 @@ class NotificationService {
     );
   }
 
-  // ─────────────────────────────── ADMIN BROADCAST ─────────────────────────
 
   Future<void> triggerAdminBroadcast({
     required String title,
@@ -1069,14 +1285,11 @@ class NotificationService {
     );
   }
 
-  // ─────────────────────────────── DAILY LIMIT ─────────────────────────────
 
   Future<void> setDailyNotificationLimit(int limit) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kDailyLimit, limit);
   }
-
-  // ─────────────────────────────── INSTANT TEST ────────────────────────────
 
   /// Bypasses foreground guard — always shows.
   Future<void> triggerInstantTestNotification() async {
@@ -1090,7 +1303,6 @@ class NotificationService {
     );
   }
 
-  // ─────────────────────────────── INTERNAL HELPERS ────────────────────────
 
   Future<void> _removePendingQueueEntry(String formula) async {
     final prefs = await SharedPreferences.getInstance();

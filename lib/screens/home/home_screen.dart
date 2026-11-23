@@ -31,7 +31,6 @@ import '../auth/auth_screen.dart';
 import '../../widgets/swiggy_flipkart_section_bar.dart';
 import '../../widgets/speed_math_3d_logo.dart';
 import '../../main.dart';
-import '../../services/notification_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
