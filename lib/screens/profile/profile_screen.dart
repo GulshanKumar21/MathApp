@@ -543,14 +543,16 @@ class ProfileScreen extends StatelessWidget {
             ),
             trailing: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white38, size: 14),
             onTap: () async {
-              await NotificationService().triggerInstantTestNotification();
+              final sent = await NotificationService().triggerInstantTestNotification();
               if (context.mounted) {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('⚡ Test Notification sent! Check your phone status bar.'),
-                    backgroundColor: Color(0xFF10B981),
-                    duration: Duration(seconds: 3),
+                  SnackBar(
+                    content: Text(sent
+                        ? '⚡ Test Notification sent for your notebook mistake!'
+                        : 'ℹ️ No mistakes in your notebook yet. Solve a quiz first to test real mistake reminders.'),
+                    backgroundColor: sent ? const Color(0xFF10B981) : Colors.amber.shade800,
+                    duration: const Duration(seconds: 4),
                   ),
                 );
               }

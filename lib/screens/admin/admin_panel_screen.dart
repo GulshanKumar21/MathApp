@@ -2553,16 +2553,15 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                       final prefs = await SharedPreferences.getInstance();
                       var queue = prefs.getStringList('pending_recall_queue') ?? [];
                       if (queue.isEmpty) {
-                        await NotificationService().scheduleCalculationMistakeReminder(
-                          prompt: '14 × 7',
-                          correctAnswer: '98',
-                          userAnswer: '95',
-                        );
-                        await NotificationService().scheduleCalculationMistakeReminder(
-                          prompt: '16 × 3',
-                          correctAnswer: '48',
-                          userAnswer: '50',
-                        );
+                        if (mounted) {
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('No pending mistakes in queue! Solve a quiz to create real mistake revisions.'),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                        }
+                        return;
                       }
                       final count = await NotificationService().forcePostAllPendingMistakesNow();
                       if (mounted) {
@@ -2574,13 +2573,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    '🎉 Sent $count Mistake Notifications to your phone! Each has 4 options: (A), (B), (C), (D) Snooze.',
+                                    '🎉 Sent $count Mistake Notifications to your phone status bar.',
                                     style: const TextStyle(fontWeight: FontWeight.bold),
                                   ),
                                 ),
                               ],
                             ),
-                            backgroundColor: const Color(0xFF065F46),
+                            backgroundColor: const Color(0xFF10B981),
                             duration: const Duration(seconds: 4),
                           ),
                         );

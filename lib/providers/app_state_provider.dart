@@ -1561,12 +1561,21 @@ class AppStateProvider extends ChangeNotifier {
     }
 
     // Automatic one-time purge of legacy hardcoded data from device SharedPreferences
-    final bool purgedLegacy = _prefs!.getBool('purged_legacy_mock_data_v4') ?? false;
+    final bool purgedLegacy = _prefs!.getBool('purged_legacy_mock_data_v5') ?? false;
     if (!purgedLegacy) {
       await _prefs!.remove('starred_tables');
       await _prefs!.remove('active_starred_table_number');
       await _prefs!.remove('active_starred_table_formula');
-      await _prefs!.setBool('purged_legacy_mock_data_v4', true);
+      // Remove any hardcoded test formulas from pending queue
+      final queue = _prefs!.getStringList('pending_recall_queue') ?? [];
+      queue.removeWhere((e) => e.startsWith('14 × 7|') || e.startsWith('16 × 3|'));
+      await _prefs!.setStringList('pending_recall_queue', queue);
+      if (_prefs!.getString('currently_displayed_recall_formula') == '14 × 7' ||
+          _prefs!.getString('currently_displayed_recall_formula') == '16 × 3') {
+        await _prefs!.remove('currently_displayed_recall_formula');
+      }
+      await NotificationService().cancelNotification(7005);
+      await _prefs!.setBool('purged_legacy_mock_data_v5', true);
     }
 
     // Load starred tables (User-saved bookmarks: strictly empty by default)

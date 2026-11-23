@@ -1291,16 +1291,40 @@ class NotificationService {
     await prefs.setInt(_kDailyLimit, limit);
   }
 
-  /// Bypasses foreground guard — always shows.
-  Future<void> triggerInstantTestNotification() async {
-    if (!_isInitialized) return;
-    const formula = '14 × 7';
-    const correctAnswer = '98';
-    await _showStickyRecallNotification(
-      id: _kInstantTestId,
-      formula: formula,
-      correctAnswer: correctAnswer,
-    );
+  /// Trigger an instant test notification using the user's real mistake from notebook/queue.
+  /// Strictly NO hardcoded formula. Returns true if a real mistake was posted.
+  Future<bool> triggerInstantTestNotification() async {
+    if (!_isInitialized) return false;
+    final prefs = await SharedPreferences.getInstance();
+    final queue = prefs.getStringList(_kPendingQueue) ?? [];
+
+    String formula = '';
+    String correctAnswer = '';
+
+    if (queue.isNotEmpty) {
+      final parts = queue.first.split('|');
+      formula = parts[0];
+      if (parts.length > 1) correctAnswer = parts[1];
+    } else {
+      final mistJson = prefs.getStringList('mistakes_list') ?? [];
+      if (mistJson.isNotEmpty) {
+        try {
+          final first = jsonDecode(mistJson.first);
+          formula = cleanPrompt(first['prompt'] ?? '');
+          correctAnswer = first['correctAnswer'] ?? '';
+        } catch (_) {}
+      }
+    }
+
+    if (formula.isNotEmpty && correctAnswer.isNotEmpty) {
+      await _showStickyRecallNotification(
+        id: _kInstantTestId,
+        formula: formula,
+        correctAnswer: correctAnswer,
+      );
+      return true;
+    }
+    return false;
   }
 
 
