@@ -21,6 +21,9 @@ Future<void> notificationTapBackground(NotificationResponse response) async {
       await svc.handleTypedAnswerAction(
           response.input!, response.id, response.payload);
     }
+  } else if (response.notificationResponseType ==
+      NotificationResponseType.notificationDismissed) {
+    await svc.handleNotificationDismissed(response.id, response.payload);
   } else if (response.payload != null && response.payload!.isNotEmpty) {
     // tap on body → handle payload
     await svc.handleNotificationPayload(response.payload!);
@@ -491,6 +494,9 @@ class NotificationService {
         await handleTypedAnswerAction(
             response.input!, response.id, response.payload);
       }
+    } else if (response.notificationResponseType ==
+        NotificationResponseType.notificationDismissed) {
+      await handleNotificationDismissed(response.id, response.payload);
     } else {
       // selectedNotification — tap on body
       if (response.payload != null && response.payload!.isNotEmpty) {
@@ -568,6 +574,7 @@ class NotificationService {
       ongoing: true,
       autoCancel: false,
       additionalFlags: Int32List.fromList([34]), // FLAG_ONGOING_EVENT(2)|FLAG_NO_CLEAR(32)
+      dismissIsolate: NotificationDismissedIsolate.background,
       playSound: !silent,
       enableVibration: !silent,
       ticker: 'PrepVanta revision',
@@ -628,7 +635,8 @@ class NotificationService {
     }
 
     _repostingIds.add(id);
-    await Future.delayed(const Duration(seconds: 5));
+    // Instant re-post (100ms yield to allow Android system to finish clearing the dismissed slot)
+    await Future.delayed(const Duration(milliseconds: 100));
     _repostingIds.remove(id);
 
     if (_isSolved(prefs, formula)) return;
@@ -660,6 +668,7 @@ class NotificationService {
             ongoing: true,
             autoCancel: false,
             additionalFlags: Int32List.fromList([34]),
+            dismissIsolate: NotificationDismissedIsolate.background,
             actions: <AndroidNotificationAction>[
               AndroidNotificationAction(
                 'SUBMIT_ANSWER',
@@ -932,6 +941,7 @@ class NotificationService {
             ongoing: true,
             autoCancel: false,
             additionalFlags: Int32List.fromList([34]),
+            dismissIsolate: NotificationDismissedIsolate.background,
             actions: <AndroidNotificationAction>[
               AndroidNotificationAction(
                 'SUBMIT_ANSWER',
