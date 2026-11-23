@@ -563,8 +563,6 @@ class NotificationService {
       'correctAnswer': correctAnswer,
     });
 
-    final recallOptions = generateRecallOptions(correctAnswer, formula);
-
     final androidDetails = AndroidNotificationDetails(
       _kRecallChannel,
       'Spaced Recall',
@@ -586,10 +584,9 @@ class NotificationService {
           cancelNotification: false,
           allowGeneratedReplies: false,
           inputs: <AndroidNotificationActionInput>[
-            AndroidNotificationActionInput(
-              label: 'Enter answer (e.g. $correctAnswer)',
+            const AndroidNotificationActionInput(
+              label: 'Type your answer…',
               allowFreeFormInput: true,
-              choices: recallOptions,
             ),
           ],
         ),
@@ -672,10 +669,15 @@ class NotificationService {
             actions: <AndroidNotificationAction>[
               AndroidNotificationAction(
                 'SUBMIT_ANSWER',
-                'Submit Answer',
+                '✏️ Type Answer',
+                showsUserInterface: false,
+                cancelNotification: false,
+                allowGeneratedReplies: false,
                 inputs: <AndroidNotificationActionInput>[
                   const AndroidNotificationActionInput(
-                      label: 'Type your answer…'),
+                    label: 'Type your answer…',
+                    allowFreeFormInput: true,
+                  ),
                 ],
               ),
             ],
@@ -924,8 +926,6 @@ class NotificationService {
       'correctAnswer': correctAnswer,
     });
 
-    final recallOptions = generateRecallOptions(correctAnswer, formula);
-
     try {
       await _plugin.zonedSchedule(
         id: id,
@@ -948,11 +948,11 @@ class NotificationService {
                 '✏️ Type Answer',
                 showsUserInterface: false,
                 cancelNotification: false,
+                allowGeneratedReplies: false,
                 inputs: <AndroidNotificationActionInput>[
-                  AndroidNotificationActionInput(
-                    label: 'Enter answer (e.g. $correctAnswer)',
+                  const AndroidNotificationActionInput(
+                    label: 'Type your answer…',
                     allowFreeFormInput: true,
-                    choices: recallOptions,
                   ),
                 ],
               ),
