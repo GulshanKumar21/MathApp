@@ -569,6 +569,7 @@ class NotificationService {
     try {
       _activeReminderTimers[id]?.cancel();
       _activeReminderTimers.remove(id);
+      if (!_isInitialized) return;
       await _notificationsPlugin.cancel(id: id);
     } catch (e) {
       debugPrint('Could not cancel notification $id: $e');
@@ -582,20 +583,22 @@ class NotificationService {
         t.cancel();
       }
       _activeReminderTimers.clear();
+      if (!_isInitialized) return;
       await _notificationsPlugin.cancelAll();
     } catch (e) {
       debugPrint('Could not cancel all notifications: $e');
     }
   }
 
-  // Display an immediate notification (only when app is in background)
+  // Display an immediate notification (only when app is in background, unless bypassed)
   Future<void> showNotification({
     required int id,
     required String title,
     required String body,
     String? payload,
+    bool bypassForegroundGuard = false,
   }) async {
-    if (_isAppInForeground) {
+    if (_isAppInForeground && !bypassForegroundGuard) {
       debugPrint('🛡️ App in foreground: suppressing immediate notification "$title"');
       return;
     }
@@ -746,11 +749,12 @@ class NotificationService {
     String? wrongAttempt,
     String? summaryText,
     bool isSilent = false,
+    bool bypassForegroundGuard = false,
   }) async {
     // Note: Mistake recall alerts are critical spaced learning reviews and must NEVER be suppressed by daily frequency limits!
-    // 🛡️ User directive: Never post notification alerts while app is in foreground (unless reacting to notification action)
+    // 🛡️ User directive: Never post notification alerts while app is in foreground (unless reacting to notification action or explicit test)
     // Exception: isSilent=true is a swipe-dismiss re-post — MUST bypass foreground guard so sticky notification returns
-    if (_isAppInForeground && wrongAttempt == null && !isSilent) {
+    if (_isAppInForeground && wrongAttempt == null && !isSilent && !bypassForegroundGuard) {
       debugPrint('🛡️ App is in foreground: suppressing persistent notification for "$prompt"');
       return;
     }
@@ -2587,18 +2591,37 @@ return {
 return {'formula': '', 'answer': ''};
 }
 
-// Instant Hourly Challenge (manual trigger or test)
-Future<void> triggerInstantHourlyChallenge({String userName = 'Aspirant', String? customFormula}) async {
-if (customFormula != null) {
-await showPersistentRecallNotification(
-id: 1111,
-prompt: customFormula,
-correctAnswer: _computeFallbackAnswer(customFormula),
-);
-} else {
-await _triggerSmartHourlyChallenge(userName: userName);
-}
-}
+  /// Dispatches an immediate test notification with 4 interactive options (A, B, C, D Snooze).
+  /// Always bypasses foreground suppression so developers and users can instantly verify notifications work.
+  Future<void> triggerInstantTestNotification() async {
+    try {
+      await _notificationsPlugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
+    } catch (_) {}
+
+    await showPersistentRecallNotification(
+      id: 9999,
+      prompt: '14 × 7',
+      correctAnswer: '98',
+      bypassForegroundGuard: true,
+      summaryText: '🔔 Test Notification — Swipe-proof & Interactive',
+    );
+  }
+
+  // Instant Hourly Challenge (manual trigger or test)
+  Future<void> triggerInstantHourlyChallenge({String userName = 'Aspirant', String? customFormula}) async {
+    if (customFormula != null) {
+      await showPersistentRecallNotification(
+        id: 1111,
+        prompt: customFormula,
+        correctAnswer: _computeFallbackAnswer(customFormula),
+        bypassForegroundGuard: true,
+      );
+    } else {
+      await _triggerSmartHourlyChallenge(userName: userName);
+    }
+  }
 
 
 // Instant Mistake Alert (general)

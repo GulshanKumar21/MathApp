@@ -7,6 +7,7 @@ import '../../providers/app_state_provider.dart';
 import '../alarm/math_alarm_hub_screen.dart';
 import '../admin/admin_panel_screen.dart';
 import '../auth/auth_screen.dart';
+import '../../services/notification_service.dart';
 import '../../widgets/voice_studio_modal.dart';
 import '../../widgets/payment_checkout_sheet.dart';
 
@@ -521,6 +522,39 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
             onTap: () => _showNotificationLimitPicker(context, state),
+          ),
+          const Divider(height: 1, color: AppTheme.surfaceLight),
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.accent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.flash_on_rounded, color: AppTheme.accent, size: 20),
+            ),
+            title: const Text(
+              'Test Notification (Instant)',
+              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+            subtitle: const Text(
+              'Tap to send an instant sticky calculation question to test on this device',
+              style: TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+            trailing: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white38, size: 14),
+            onTap: () async {
+              await NotificationService().triggerInstantTestNotification();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('⚡ Test Notification sent! Check your phone status bar.'),
+                    backgroundColor: Color(0xFF10B981),
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              }
+            },
           ),
         ],
       ),
