@@ -73,6 +73,10 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
         return const Color(0xFF3B82F6); // Electric Blue
       case ConceptPillar.fractionPercentage:
         return const Color(0xFFEC4899); // Vibrant Pink
+      case ConceptPillar.algebra:
+        return const Color(0xFF6366F1); // Indigo
+      case ConceptPillar.trigonometry:
+        return const Color(0xFF14B8A6); // Teal
     }
   }
 
@@ -92,6 +96,10 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
         return Icons.stacked_line_chart_rounded;
       case ConceptPillar.fractionPercentage:
         return Icons.percent_rounded;
+      case ConceptPillar.algebra:
+        return Icons.functions_rounded;
+      case ConceptPillar.trigonometry:
+        return Icons.square_foot_rounded;
     }
   }
 

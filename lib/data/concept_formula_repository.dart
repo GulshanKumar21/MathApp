@@ -5,6 +5,8 @@ import 'ap_concept_formulas.dart';
 import 'fraction_percentage_concept_formulas.dart';
 import 'quadrilateral_theorems_data.dart';
 import 'pythagoras_triplets_concept_data.dart';
+import 'algebra_concept_formulas.dart';
+import 'trigonometry_concept_formulas.dart';
 
 class ConceptFormulaRepository {
   static final List<ConceptFormulaModel> formulas = [
@@ -1434,6 +1436,16 @@ class ConceptFormulaRepository {
     // 7th MAIN TOPIC: FRACTION & PERCENTAGE CONVERSIONS (SSC & Railway: 4 Concepts, 25 PYQs)
     // =========================================================================
     ...FractionPercentageConceptFormulas.formulas,
+
+    // =========================================================================
+    // 8th MAIN TOPIC: ALGEBRA IDENTITIES & FORMULA-WISE PYQs (17 Concepts, 72 PYQs)
+    // =========================================================================
+    ...AlgebraConceptFormulas.formulas,
+
+    // =========================================================================
+    // 9th MAIN TOPIC: TRIGONOMETRY IDENTITIES & PYQs (7 Concepts, 85 PYQs)
+    // =========================================================================
+    ...TrigonometryConceptFormulas.formulas,
   ];
 
   static List<ConceptFormulaModel> getByPillar(ConceptPillar pillar) {

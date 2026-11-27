@@ -8,6 +8,8 @@ enum ConceptPillar {
   triangles,
   arithmeticProgression,
   fractionPercentage,
+  algebra,
+  trigonometry,
 }
 
 extension ConceptPillarExtension on ConceptPillar {
@@ -27,6 +29,10 @@ extension ConceptPillarExtension on ConceptPillar {
         return 6;
       case ConceptPillar.fractionPercentage:
         return 7;
+      case ConceptPillar.algebra:
+        return 8;
+      case ConceptPillar.trigonometry:
+        return 9;
     }
   }
 
@@ -46,6 +52,10 @@ extension ConceptPillarExtension on ConceptPillar {
         return '6th Topic';
       case ConceptPillar.fractionPercentage:
         return '7th Topic';
+      case ConceptPillar.algebra:
+        return '8th Topic';
+      case ConceptPillar.trigonometry:
+        return '9th Topic';
     }
   }
 
@@ -65,6 +75,10 @@ extension ConceptPillarExtension on ConceptPillar {
         return 'Arithmetic Progression (A.P.)';
       case ConceptPillar.fractionPercentage:
         return 'Fraction & Percentage Chart';
+      case ConceptPillar.algebra:
+        return 'Algebra (बीजगणित)';
+      case ConceptPillar.trigonometry:
+        return 'Trigonometry (त्रिकोणमिति)';
     }
   }
 
@@ -84,6 +98,10 @@ extension ConceptPillarExtension on ConceptPillar {
         return 'A.P. (समांतर श्रेणी)';
       case ConceptPillar.fractionPercentage:
         return 'Fractions (भिन्न-प्रतिशत)';
+      case ConceptPillar.algebra:
+        return 'Algebra (बीजगणित)';
+      case ConceptPillar.trigonometry:
+        return 'Trigonometry (त्रिकोणमिति)';
     }
   }
 
@@ -103,6 +121,10 @@ extension ConceptPillarExtension on ConceptPillar {
         return 'stacked_line_chart_rounded';
       case ConceptPillar.fractionPercentage:
         return 'percent_rounded';
+      case ConceptPillar.algebra:
+        return 'functions_rounded';
+      case ConceptPillar.trigonometry:
+        return 'square_foot_rounded';
     }
   }
 }
