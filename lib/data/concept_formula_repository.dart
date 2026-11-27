@@ -7,6 +7,10 @@ import 'quadrilateral_theorems_data.dart';
 import 'pythagoras_triplets_concept_data.dart';
 import 'algebra_concept_formulas.dart';
 import 'trigonometry_concept_formulas.dart';
+import 'mensuration_2d_concept_formulas.dart';
+import 'mensuration_3d_concept_formulas.dart';
+import 'squares_cubes_concept_formulas.dart';
+import 'height_distance_concept_formulas.dart';
 
 class ConceptFormulaRepository {
   static final List<ConceptFormulaModel> formulas = [
@@ -1241,185 +1245,10 @@ class ConceptFormulaRepository {
     ),
 
     // =========================================================================
-    // 4th MAIN TOPIC: MENSURATION
+    // 4th MAIN TOPIC: MENSURATION 2D & 3D (25 Shapes, 250 PYQs)
     // =========================================================================
-    ConceptFormulaModel(
-      id: 'mens_2d_areas_perimeters',
-      pillar: ConceptPillar.mensuration,
-      title: '2D Mensuration: Areas, Perimeters & Rings',
-      subtitle: 'Hero Formula, Circular Rings, Sector Arcs & Inscribed Shapes',
-      formula: 'Hero: √[s(s-a)(s-b)(s-c)]  |  Ring: π(R² - r²)  |  Sector: (θ/360°) × πr²',
-      diagramType: 'concentric_ring',
-      keyConditions: [
-        'Semi-perimeter of triangle s = (a + b + c) / 2.',
-        'Area of circular ring / path between concentric circles = π(R² - r²) = π(R - r)(R + r).',
-        'Arc length of sector l = (θ / 360°) × 2πr.',
-        'Area of sector = (θ / 360°) × πr² = ½ × l × r.',
-      ],
-      explanation:
-          '2D Mensuration deals with boundary perimeters and enclosed areas of plane figures. For scalene triangles, Hero’s Formula calculates area without needing height. For circular sectors, area is directly proportional to central angle θ: Area = (θ/360°)πr² = ½lr. The area of a uniform circular running track of width w is π(2r + w)w.',
-      solvedExamples: [
-        SolvedExampleModel(
-          problem: 'Find the area of a circular path of width 7 m running around a circular lawn of radius 14 m (use π = 22/7).',
-          steps: [
-            'Step 1: Inner radius r = 14 m. Outer radius R = 14 + 7 = 21 m.',
-            'Step 2: Area of path = π(R² - r²) = π(R - r)(R + r).',
-            'Step 3: R - r = 7 m; R + r = 21 + 14 = 35 m.',
-            'Step 4: Area = (22 / 7) × 7 × 35 = 22 × 35 = 770 m².',
-          ],
-          answer: '770 m²',
-          shortcutTip:
-              'Always use difference of squares π(R-r)(R+r) instead of calculating R² and r² separately. It saves 30 seconds!',
-        ),
-      ],
-      practiceQuestions: [
-        QuestionModel(
-          id: 'mens_2d_q1',
-          prompt: 'Sides of a scalene triangle are 13 cm, 14 cm, and 15 cm. Find its area using Heron’s formula.',
-          options: ['84 cm²', '96 cm²', '78 cm²', '90 cm²'],
-          correctAnswer: '84 cm²',
-          explanation: 's = (13+14+15)/2 = 21. Area = √[21 × (21-13) × (21-14) × (21-15)] = √[21 × 8 × 7 × 6] = √7056 = 84 cm².',
-          difficulty: 1,
-          examBadge: 'Easy · SSC CGL 2023',
-          topicId: 'mens_2d_areas_perimeters',
-        ),
-        QuestionModel(
-          id: 'mens_2d_q2',
-          prompt: 'A sector of a circle with radius 14 cm subtends an angle of 45° at centre. Find the area of the sector (π = 22/7).',
-          options: ['77 cm²', '88 cm²', '72 cm²', '66 cm²'],
-          correctAnswer: '77 cm²',
-          explanation: 'Shortcut: Area = (θ/360) × πr² = (45/360) × (22/7) × 14 × 14 = (1/8) × 616 = 77 cm².',
-          difficulty: 1,
-          examBadge: 'Easy · SSC CHSL 2023',
-          topicId: 'mens_2d_areas_perimeters',
-        ),
-        QuestionModel(
-          id: 'mens_2d_q3',
-          prompt: 'A circular path of width 7 m runs around the outside of a circular park of radius 21 m. Find the area of the path (π = 22/7).',
-          options: ['1078 m²', '1144 m²', '980 m²', '1232 m²'],
-          correctAnswer: '1078 m²',
-          explanation: 'Outer radius R = 21 + 7 = 28 m, inner radius r = 21 m. Area = π(R² - r²) = (22/7) × (28 - 21)(28 + 21) = 22 × 49 = 1078 m².',
-          difficulty: 2,
-          examBadge: 'Medium · SSC CGL 2022 Tier-2',
-          topicId: 'mens_2d_areas_perimeters',
-        ),
-        QuestionModel(
-          id: 'mens_2d_q4',
-          prompt: 'If the radius of a circle is increased by 30%, what is the percentage increase in its area?',
-          options: ['69%', '60%', '72%', '65%'],
-          correctAnswer: '69%',
-          explanation: 'Shortcut: Successive formula = a + b + (ab)/100 = 30 + 30 + (30 × 30)/100 = 60 + 9 = 69%.',
-          difficulty: 1,
-          examBadge: 'Easy · SSC CPO 2023',
-          topicId: 'mens_2d_areas_perimeters',
-        ),
-        QuestionModel(
-          id: 'mens_2d_q5',
-          prompt: 'An equilateral triangle of side 12√3 cm is circumscribed around a circle. Find the difference between triangle area and incircle area.',
-          options: ['108√3 - 36π cm²', '72√3 - 18π cm²', '144√3 - 36π cm²', '108√3 - 18π cm²'],
-          correctAnswer: '108√3 - 36π cm²',
-          explanation: 'Inradius r = a/(2√3) = 12√3 / (2√3) = 6 cm. Triangle Area = (√3/4) × (12√3)² = 108√3 cm². Circle Area = π(6)² = 36π cm². Difference = 108√3 - 36π cm².',
-          difficulty: 3,
-          examBadge: 'Hard · CDS 2023',
-          topicId: 'mens_2d_areas_perimeters',
-        ),
-        QuestionModel(
-          id: 'mens_2d_q6',
-          prompt: 'The perimeter of a semicircular park is 108 m. Find its radius (take π = 22/7).',
-          options: ['21 m', '14 m', '28 m', '18 m'],
-          correctAnswer: '21 m',
-          explanation: 'Perimeter = πr + 2r = r(22/7 + 2) = r(36/7) = 108 ➔ r = (108 × 7) / 36 = 21 m.',
-          difficulty: 2,
-          examBadge: 'Medium · SSC CGL 2023 Tier-1',
-          topicId: 'mens_2d_areas_perimeters',
-        ),
-        QuestionModel(
-          id: 'mens_2d_q7',
-          prompt: 'The sides of a right-angled triangle are 6 cm, 8 cm, and 10 cm. What is the radius of its inscribed circle (inradius)?',
-          options: ['2 cm', '3 cm', '2.5 cm', '1.5 cm'],
-          correctAnswer: '2 cm',
-          explanation: 'Shortcut for right triangle: inradius r = (a + b - c) / 2 = (6 + 8 - 10) / 2 = 4 / 2 = 2 cm.',
-          difficulty: 1,
-          examBadge: 'Easy · SSC Selection Post 2023',
-          topicId: 'mens_2d_areas_perimeters',
-        ),
-        QuestionModel(
-          id: 'mens_2d_q8',
-          prompt: 'The perimeter of a rhombus is 100 cm and one of its diagonals is 40 cm. Find the area of the rhombus.',
-          options: ['600 cm²', '500 cm²', '480 cm²', '640 cm²'],
-          correctAnswer: '600 cm²',
-          explanation: 'Side a = 100/4 = 25 cm. Half-diagonal d1/2 = 20 cm. Other half d2/2 = √(25² - 20²) = 15 cm ➔ d2 = 30 cm. Area = ½ × 40 × 30 = 600 cm².',
-          difficulty: 2,
-          examBadge: 'Medium · CDS 2022',
-          topicId: 'mens_2d_areas_perimeters',
-        ),
-      ],
-    ),
-
-    ConceptFormulaModel(
-      id: 'mens_3d_solids_frustum',
-      pillar: ConceptPillar.mensuration,
-      title: '3D Solids (Cylinder, Cone, Sphere & Frustum)',
-      subtitle: 'Volumes, Curved Surface Areas & Frustum Formulas',
-      formula: 'Cylinder: πr²h  |  Cone: ⅓πr²h  |  Sphere: ⁴⁄₃πr³  |  Frustum: ⅓πh(R² + r² + Rr)',
-      diagramType: 'frustum',
-      keyConditions: [
-        'Cylinder: Volume = πr²h, CSA = 2πrh, TSA = 2πr(h + r).',
-        'Cone: Volume = ⅓πr²h, Slant height l = √(r² + h²), CSA = πrl, TSA = πr(l + r).',
-        'Sphere: Volume = ⁴⁄₃πr³, Surface Area = 4πr²; Hemisphere Volume = ⅔πr³, TSA = 3πr².',
-        'Frustum of Cone: Volume = ⅓πh(R² + r² + Rr), Slant height L = √[h² + (R - r)²].',
-      ],
-      explanation:
-          '3D Mensuration calculates capacities (volumes) and boundaries (surface areas). When a cone is sliced parallel to its base, the bottom part forms a Frustum of radii R, r and height h. When metallic solids are melted and recast, total volume is strictly conserved: Volume_original = Volume_new.',
-      solvedExamples: [
-        SolvedExampleModel(
-          problem: 'A cone of height 24 cm and base radius 7 cm is melted and recast into a sphere. Find the radius of the sphere.',
-          steps: [
-            'Step 1: Volume of cone = ⅓ × π × r² × h = ⅓ × π × 7² × 24 = ⅓ × π × 49 × 24 = 392π.',
-            'Step 2: Volume of sphere = ⁴⁄₃ × π × R³.',
-            'Step 3: Equate volumes: ⁴⁄₃πR³ = 392π ➔ ⁴⁄₃R³ = 392.',
-            'Step 4: R³ = (392 × 3) / 4 = 98 × 3 = 294... wait, check numbers: (392 × 3)/4 = 294. Let cone radius be 6 cm: ⅓π × 36 × 24 = 288π ➔ ⁴⁄₃R³ = 288 ➔ R³ = 216 ➔ R = 6 cm.',
-          ],
-          answer: 'R = 6 cm (for r = 6 cm, h = 24 cm)',
-          shortcutTip:
-              'Always cancel π on both sides immediately in melting/recasting problems before doing any multiplication!',
-        ),
-      ],
-      practiceQuestions: [
-        QuestionModel(
-          id: 'mens_3d_q1',
-          prompt: 'What is the volume of a cone with radius 6 cm and height 7 cm? (Take π = 22/7)',
-          options: ['264 cm³', '288 cm³', '240 cm³', '312 cm³'],
-          correctAnswer: '264 cm³',
-          explanation: 'Volume = ⅓ × π × r² × h = ⅓ × (22/7) × 36 × 7 = ⅓ × 22 × 36 = 22 × 12 = 264 cm³.',
-          topicId: 'mens_3d_solids_frustum',
-        ),
-        QuestionModel(
-          id: 'mens_3d_q2',
-          prompt: 'The total surface area of a solid hemisphere of radius 7 cm is (use π = 22/7):',
-          options: ['462 cm²', '308 cm²', '616 cm²', '154 cm²'],
-          correctAnswer: '462 cm²',
-          explanation: 'TSA of solid hemisphere = 3πr² = 3 × (22/7) × 49 = 3 × 22 × 7 = 462 cm².',
-          topicId: 'mens_3d_solids_frustum',
-        ),
-        QuestionModel(
-          id: 'mens_3d_q3',
-          prompt: 'A frustum of a cone has top radius 2 cm, bottom radius 5 cm, and height 6 cm. Its volume is:',
-          options: ['78π cm³', '84π cm³', '72π cm³', '90π cm³'],
-          correctAnswer: '78π cm³',
-          explanation: 'V = ⅓πh(R² + r² + Rr) = ⅓π(6)(25 + 4 + 10) = 2π(39) = 78π cm³.',
-          topicId: 'mens_3d_solids_frustum',
-        ),
-        QuestionModel(
-          id: 'mens_3d_q4',
-          prompt: 'If the radius of a sphere is doubled, its volume increases by what factor?',
-          options: ['8 times', '4 times', '2 times', '16 times'],
-          correctAnswer: '8 times',
-          explanation: 'Volume is proportional to r³. If r becomes 2r, volume becomes 2³ = 8 times.',
-          topicId: 'mens_3d_solids_frustum',
-        ),
-      ],
-    ),
+    ...Mensuration2DConceptFormulas.formulas,
+    ...Mensuration3DConceptFormulas.formulas,
 
     // =========================================================================
     // 5th MAIN TOPIC: TRIANGLES (SSC & Railway: 19 Concepts, 90+ MCQs)
@@ -1446,6 +1275,16 @@ class ConceptFormulaRepository {
     // 9th MAIN TOPIC: TRIGONOMETRY IDENTITIES & PYQs (7 Concepts, 85 PYQs)
     // =========================================================================
     ...TrigonometryConceptFormulas.formulas,
+
+    // =========================================================================
+    // 10th MAIN TOPIC: SQUARES, CUBES & ROOTS (3 Concepts, 25 PYQs)
+    // =========================================================================
+    ...SquaresCubesConceptFormulas.formulas,
+
+    // =========================================================================
+    // 11th MAIN TOPIC: HEIGHT & DISTANCE (4 Parts, 70 PYQs)
+    // =========================================================================
+    ...HeightDistanceConceptFormulas.formulas,
   ];
 
   static List<ConceptFormulaModel> getByPillar(ConceptPillar pillar) {

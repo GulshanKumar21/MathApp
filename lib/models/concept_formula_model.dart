@@ -10,6 +10,8 @@ enum ConceptPillar {
   fractionPercentage,
   algebra,
   trigonometry,
+  squaresAndCubes,
+  heightAndDistance,
 }
 
 extension ConceptPillarExtension on ConceptPillar {
@@ -33,6 +35,10 @@ extension ConceptPillarExtension on ConceptPillar {
         return 8;
       case ConceptPillar.trigonometry:
         return 9;
+      case ConceptPillar.squaresAndCubes:
+        return 10;
+      case ConceptPillar.heightAndDistance:
+        return 11;
     }
   }
 
@@ -56,6 +62,10 @@ extension ConceptPillarExtension on ConceptPillar {
         return '8th Topic';
       case ConceptPillar.trigonometry:
         return '9th Topic';
+      case ConceptPillar.squaresAndCubes:
+        return '10th Topic';
+      case ConceptPillar.heightAndDistance:
+        return '11th Topic';
     }
   }
 
@@ -68,7 +78,7 @@ extension ConceptPillarExtension on ConceptPillar {
       case ConceptPillar.circle:
         return 'Circle';
       case ConceptPillar.mensuration:
-        return 'Mensuration';
+        return 'Mensuration (क्षेत्रमिति 2D & 3D)';
       case ConceptPillar.triangles:
         return 'Triangles';
       case ConceptPillar.arithmeticProgression:
@@ -79,6 +89,10 @@ extension ConceptPillarExtension on ConceptPillar {
         return 'Algebra (बीजगणित)';
       case ConceptPillar.trigonometry:
         return 'Trigonometry (त्रिकोणमिति)';
+      case ConceptPillar.squaresAndCubes:
+        return 'Squares, Cubes & Roots (वर्ग, घन एवं मूल)';
+      case ConceptPillar.heightAndDistance:
+        return 'Height & Distance (ऊंचाई एवं दूरी)';
     }
   }
 
@@ -91,7 +105,7 @@ extension ConceptPillarExtension on ConceptPillar {
       case ConceptPillar.circle:
         return 'Circle';
       case ConceptPillar.mensuration:
-        return 'Mensuration';
+        return 'Mensuration (क्षेत्रमिति)';
       case ConceptPillar.triangles:
         return 'Triangles';
       case ConceptPillar.arithmeticProgression:
@@ -102,6 +116,10 @@ extension ConceptPillarExtension on ConceptPillar {
         return 'Algebra (बीजगणित)';
       case ConceptPillar.trigonometry:
         return 'Trigonometry (त्रिकोणमिति)';
+      case ConceptPillar.squaresAndCubes:
+        return 'Squares & Roots (वर्ग-घन)';
+      case ConceptPillar.heightAndDistance:
+        return 'Height & Dist (ऊंचाई-दूरी)';
     }
   }
 
@@ -125,6 +143,10 @@ extension ConceptPillarExtension on ConceptPillar {
         return 'functions_rounded';
       case ConceptPillar.trigonometry:
         return 'square_foot_rounded';
+      case ConceptPillar.squaresAndCubes:
+        return 'calculate_rounded';
+      case ConceptPillar.heightAndDistance:
+        return 'landscape_rounded';
     }
   }
 }

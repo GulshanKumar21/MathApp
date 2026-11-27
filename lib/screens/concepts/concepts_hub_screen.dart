@@ -77,6 +77,10 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
         return const Color(0xFF6366F1); // Indigo
       case ConceptPillar.trigonometry:
         return const Color(0xFF14B8A6); // Teal
+      case ConceptPillar.squaresAndCubes:
+        return const Color(0xFF0EA5E9); // Sky Blue
+      case ConceptPillar.heightAndDistance:
+        return const Color(0xFFF97316); // Vibrant Orange
     }
   }
 
@@ -100,6 +104,10 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
         return Icons.functions_rounded;
       case ConceptPillar.trigonometry:
         return Icons.square_foot_rounded;
+      case ConceptPillar.squaresAndCubes:
+        return Icons.calculate_rounded;
+      case ConceptPillar.heightAndDistance:
+        return Icons.landscape_rounded;
     }
   }
 

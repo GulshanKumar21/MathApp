@@ -46,6 +46,10 @@ class _ConceptDetailScreenState extends State<ConceptDetailScreen> {
         return const Color(0xFF6366F1); // Indigo
       case ConceptPillar.trigonometry:
         return const Color(0xFF14B8A6); // Teal
+      case ConceptPillar.squaresAndCubes:
+        return const Color(0xFF0EA5E9); // Sky Blue
+      case ConceptPillar.heightAndDistance:
+        return const Color(0xFFF97316); // Vibrant Orange
     }
   }
 

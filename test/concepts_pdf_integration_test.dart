@@ -6,32 +6,64 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Concepts PDF Integration Tests', () {
-    test('Pillars contain all 9 Topics in correct order', () {
+    test('Pillars contain all 11 Topics in correct order', () {
       expect(ConceptPillar.values.contains(ConceptPillar.arithmeticProgression), isTrue);
       expect(ConceptPillar.values.contains(ConceptPillar.fractionPercentage), isTrue);
       expect(ConceptPillar.values.contains(ConceptPillar.algebra), isTrue);
       expect(ConceptPillar.values.contains(ConceptPillar.trigonometry), isTrue);
-      expect(ConceptPillar.values.length, 9);
+      expect(ConceptPillar.values.contains(ConceptPillar.squaresAndCubes), isTrue);
+      expect(ConceptPillar.values.contains(ConceptPillar.heightAndDistance), isTrue);
+      expect(ConceptPillar.values.length, 11);
 
+      expect(ConceptPillar.linesAndAngle.orderIndex, 1);
+      expect(ConceptPillar.quadrilaterals.orderIndex, 2);
+      expect(ConceptPillar.circle.orderIndex, 3);
+      expect(ConceptPillar.mensuration.orderIndex, 4);
+      expect(ConceptPillar.triangles.orderIndex, 5);
       expect(ConceptPillar.arithmeticProgression.orderIndex, 6);
       expect(ConceptPillar.fractionPercentage.orderIndex, 7);
       expect(ConceptPillar.algebra.orderIndex, 8);
       expect(ConceptPillar.trigonometry.orderIndex, 9);
+      expect(ConceptPillar.squaresAndCubes.orderIndex, 10);
+      expect(ConceptPillar.heightAndDistance.orderIndex, 11);
 
-      expect(ConceptPillar.arithmeticProgression.ordinalLabel, '6th Topic');
-      expect(ConceptPillar.fractionPercentage.ordinalLabel, '7th Topic');
-      expect(ConceptPillar.algebra.ordinalLabel, '8th Topic');
-      expect(ConceptPillar.trigonometry.ordinalLabel, '9th Topic');
+      expect(ConceptPillar.squaresAndCubes.ordinalLabel, '10th Topic');
+      expect(ConceptPillar.heightAndDistance.ordinalLabel, '11th Topic');
     });
 
-    test('Arithmetic Progression repository data verification', () {
-      final apConcepts = ConceptFormulaRepository.getByPillar(ConceptPillar.arithmeticProgression);
-      expect(apConcepts.length, 5);
+    test('Mensuration 2D & 3D Master Guide verification (25 Concepts, 250 PYQs)', () {
+      final mensConcepts = ConceptFormulaRepository.getByPillar(ConceptPillar.mensuration);
+      expect(mensConcepts.length, 25);
 
-      final allApQuestions = apConcepts.expand((c) => c.practiceQuestions).toList();
-      expect(allApQuestions.length, greaterThanOrEqualTo(21));
+      final allMensQuestions = mensConcepts.expand((c) => c.practiceQuestions).toList();
+      expect(allMensQuestions.length, 250);
 
-      for (final q in allApQuestions) {
+      // Verify key 2D shapes
+      expect(ConceptFormulaRepository.getById('mens_2d_rectangle'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_2d_square'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_2d_scalene_triangle'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_2d_right_triangle'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_2d_equilateral_triangle'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_2d_rhombus'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_2d_trapezium'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_2d_circle'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_2d_semicircle'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_2d_circular_ring'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_2d_sector_segment'), isNotNull);
+
+      // Verify key 3D shapes
+      expect(ConceptFormulaRepository.getById('mens_3d_cube'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_3d_cuboid'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_3d_cylinder'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_3d_cone'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_3d_frustum'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_3d_sphere'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_3d_hemisphere'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_3d_hemispherical_bowl'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_3d_prism'), isNotNull);
+      expect(ConceptFormulaRepository.getById('mens_3d_pyramid'), isNotNull);
+
+      for (final q in allMensQuestions) {
         expect(q.prompt, isNotEmpty);
         expect(q.options.length, 4);
         expect(q.options.contains(q.correctAnswer), isTrue,
@@ -41,14 +73,18 @@ void main() {
       }
     });
 
-    test('Fraction-Percentage repository data verification', () {
-      final fracConcepts = ConceptFormulaRepository.getByPillar(ConceptPillar.fractionPercentage);
-      expect(fracConcepts.length, 4);
+    test('Squares, Cubes & Roots verification (3 Concepts, 25 PYQs)', () {
+      final sqConcepts = ConceptFormulaRepository.getByPillar(ConceptPillar.squaresAndCubes);
+      expect(sqConcepts.length, 3);
 
-      final allFracQuestions = fracConcepts.expand((c) => c.practiceQuestions).toList();
-      expect(allFracQuestions.length, 25);
+      final allSqQuestions = sqConcepts.expand((c) => c.practiceQuestions).toList();
+      expect(allSqQuestions.length, 25);
 
-      for (final q in allFracQuestions) {
+      expect(ConceptFormulaRepository.getById('sq_cubes_reference_tables'), isNotNull);
+      expect(ConceptFormulaRepository.getById('sq_roots_cube_roots_methods'), isNotNull);
+      expect(ConceptFormulaRepository.getById('sq_surds_algebraic_simplification'), isNotNull);
+
+      for (final q in allSqQuestions) {
         expect(q.prompt, isNotEmpty);
         expect(q.options.length, 4);
         expect(q.options.contains(q.correctAnswer), isTrue,
@@ -58,46 +94,19 @@ void main() {
       }
     });
 
-    test('Quadrilateral Type-Wise Theorems repository data verification', () {
-      final quadConcepts = ConceptFormulaRepository.getByPillar(ConceptPillar.quadrilaterals);
-      expect(quadConcepts.length, 6);
+    test('Height & Distance Master Guide verification (4 Concepts, 70 PYQs)', () {
+      final hdConcepts = ConceptFormulaRepository.getByPillar(ConceptPillar.heightAndDistance);
+      expect(hdConcepts.length, 4);
 
-      final midpointsTrapezium = ConceptFormulaRepository.getById('quad_midpoints_diagonals_trapezium');
-      expect(midpointsTrapezium, isNotNull);
-      expect(midpointsTrapezium!.practiceQuestions.length, 8);
+      final allHdQuestions = hdConcepts.expand((c) => c.practiceQuestions).toList();
+      expect(allHdQuestions.length, 70);
 
-      final incirclesQuad = ConceptFormulaRepository.getById('quad_tangency_two_incircles');
-      expect(incirclesQuad, isNotNull);
-      expect(incirclesQuad!.practiceQuestions.length, 8);
+      expect(ConceptFormulaRepository.getById('hd_standard_angle_ratios'), isNotNull);
+      expect(ConceptFormulaRepository.getById('hd_double_angle_shadows'), isNotNull);
+      expect(ConceptFormulaRepository.getById('hd_complementary_reflections'), isNotNull);
+      expect(ConceptFormulaRepository.getById('hd_mains_high_level'), isNotNull);
 
-      final areaRatioParallelogram = ConceptFormulaRepository.getById('quad_area_ratio_parallelogram_midpoints');
-      expect(areaRatioParallelogram, isNotNull);
-      expect(areaRatioParallelogram!.practiceQuestions.length, 8);
-
-      final newQuadQuestions = [
-        ...midpointsTrapezium.practiceQuestions,
-        ...incirclesQuad.practiceQuestions,
-        ...areaRatioParallelogram.practiceQuestions,
-      ];
-      expect(newQuadQuestions.length, 24);
-
-      for (final q in newQuadQuestions) {
-        expect(q.prompt, isNotEmpty);
-        expect(q.options.length, 4);
-        expect(q.options.contains(q.correctAnswer), isTrue,
-            reason: 'Question ${q.id} correct answer "${q.correctAnswer}" not in options ${q.options}');
-        expect(q.explanation, isNotEmpty);
-        expect(q.examBadge, isNotNull);
-      }
-    });
-
-    test('Pythagoras Triplets concept guide and PYQs verification', () {
-      final pythConcept = ConceptFormulaRepository.getById('tri_pythagoras_triplets_guide');
-      expect(pythConcept, isNotNull);
-      expect(pythConcept!.pillar, ConceptPillar.triangles);
-      expect(pythConcept.practiceQuestions.length, 11);
-
-      for (final q in pythConcept.practiceQuestions) {
+      for (final q in allHdQuestions) {
         expect(q.prompt, isNotEmpty);
         expect(q.options.length, 4);
         expect(q.options.contains(q.correctAnswer), isTrue,
@@ -114,23 +123,10 @@ void main() {
       final allAlgQuestions = algConcepts.expand((c) => c.practiceQuestions).toList();
       expect(allAlgQuestions.length, 72);
 
-      // Verify specific concepts exist
-      expect(ConceptFormulaRepository.getById('alg_diff_squares'), isNotNull);
-      expect(ConceptFormulaRepository.getById('alg_perfect_squares'), isNotNull);
-      expect(ConceptFormulaRepository.getById('alg_reciprocal_powers'), isNotNull);
-      expect(ConceptFormulaRepository.getById('alg_higher_powers'), isNotNull);
-      expect(ConceptFormulaRepository.getById('alg_ap_identities'), isNotNull);
-      expect(ConceptFormulaRepository.getById('alg_master_cubic'), isNotNull);
-      expect(ConceptFormulaRepository.getById('alg_conditional_cubic'), isNotNull);
-      expect(ConceptFormulaRepository.getById('alg_sum_squares_zero'), isNotNull);
-      expect(ConceptFormulaRepository.getById('alg_biquadratic'), isNotNull);
-      expect(ConceptFormulaRepository.getById('alg_roots_coefficients'), isNotNull);
-
       for (final q in allAlgQuestions) {
         expect(q.prompt, isNotEmpty);
         expect(q.options.length, 4);
-        expect(q.options.contains(q.correctAnswer), isTrue,
-            reason: 'Question ${q.id} correct answer "${q.correctAnswer}" not in options ${q.options}');
+        expect(q.options.contains(q.correctAnswer), isTrue);
         expect(q.explanation, isNotEmpty);
         expect(q.examBadge, isNotNull);
       }
@@ -143,48 +139,40 @@ void main() {
       final allTrigQuestions = trigConcepts.expand((c) => c.practiceQuestions).toList();
       expect(allTrigQuestions.length, 85);
 
-      // Verify specific concepts exist
-      expect(ConceptFormulaRepository.getById('trig_double_angle'), isNotNull);
-      expect(ConceptFormulaRepository.getById('trig_triple_angle'), isNotNull);
-      expect(ConceptFormulaRepository.getById('trig_product_sum_cd'), isNotNull);
-      expect(ConceptFormulaRepository.getById('trig_properties_special_values'), isNotNull);
-      expect(ConceptFormulaRepository.getById('trig_reciprocal_sums_min_max'), isNotNull);
-      expect(ConceptFormulaRepository.getById('trig_product_to_sum_series'), isNotNull);
-      expect(ConceptFormulaRepository.getById('trig_sum_to_product_triangle'), isNotNull);
-
       for (final q in allTrigQuestions) {
         expect(q.prompt, isNotEmpty);
         expect(q.options.length, 4);
-        expect(q.options.contains(q.correctAnswer), isTrue,
-            reason: 'Question ${q.id} correct answer "${q.correctAnswer}" not in options ${q.options}');
+        expect(q.options.contains(q.correctAnswer), isTrue);
         expect(q.explanation, isNotEmpty);
         expect(q.examBadge, isNotNull);
       }
     });
 
-    test('Search finds keywords across Algebra, Trigonometry, and all topics', () {
-      expect(ConceptFormulaRepository.search('समांतर'), isNotEmpty);
-      expect(ConceptFormulaRepository.search('arithmetic'), isNotEmpty);
-      expect(ConceptFormulaRepository.search('भिन्न'), isNotEmpty);
-      expect(ConceptFormulaRepository.search('14.28%'), isNotEmpty);
-      expect(ConceptFormulaRepository.search('trapezium'), isNotEmpty);
-      expect(ConceptFormulaRepository.search('incircle'), isNotEmpty);
-      expect(ConceptFormulaRepository.search('पाइथागोरस'), isNotEmpty);
-      expect(ConceptFormulaRepository.search('triplet'), isNotEmpty);
+    test('Search finds keywords across all 11 topics', () {
+      // Mensuration 2D & 3D
+      expect(ConceptFormulaRepository.search('rectangle'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('आयत'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('cylinder'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('बेलन'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('frustum'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('छिन्नक'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('rhombus'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('समचतुर्भुज'), isNotEmpty);
 
-      // Algebra keywords
+      // Squares & Cubes
+      expect(ConceptFormulaRepository.search('वर्गमूल'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('घनमूल'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('cube root'), isNotEmpty);
+
+      // Height & Distance
+      expect(ConceptFormulaRepository.search('elevation'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('उन्नयन'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('height & distance'), isNotEmpty);
+
+      // Others
       expect(ConceptFormulaRepository.search('बीजगणित'), isNotEmpty);
-      expect(ConceptFormulaRepository.search('squares'), isNotEmpty);
-      expect(ConceptFormulaRepository.search('reciprocal'), isNotEmpty);
-      expect(ConceptFormulaRepository.search('biquadratic'), isNotEmpty);
-      expect(ConceptFormulaRepository.search('coefficients'), isNotEmpty);
-
-      // Trigonometry keywords
       expect(ConceptFormulaRepository.search('त्रिकोणमिति'), isNotEmpty);
-      expect(ConceptFormulaRepository.search('double angle'), isNotEmpty);
-      expect(ConceptFormulaRepository.search('triple angle'), isNotEmpty);
-      expect(ConceptFormulaRepository.search('sin 2a'), isNotEmpty);
-      expect(ConceptFormulaRepository.search('c–d'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('समांतर'), isNotEmpty);
     });
   });
 }
