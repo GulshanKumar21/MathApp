@@ -3,6 +3,8 @@ import '../models/math_models.dart';
 import 'triangle_concept_formulas.dart';
 import 'ap_concept_formulas.dart';
 import 'fraction_percentage_concept_formulas.dart';
+import 'quadrilateral_theorems_data.dart';
+import 'pythagoras_triplets_concept_data.dart';
 
 class ConceptFormulaRepository {
   static final List<ConceptFormulaModel> formulas = [
@@ -892,6 +894,9 @@ class ConceptFormulaRepository {
       ],
     ),
 
+    // Type-Wise Theorems from PDF (Midpoints of Diagonals, Incircles, Area Ratio 3/8)
+    ...QuadrilateralTheoremsData.formulas,
+
     // =========================================================================
     // 3rd MAIN TOPIC: CIRCLE
     // =========================================================================
@@ -1415,9 +1420,10 @@ class ConceptFormulaRepository {
     ),
 
     // =========================================================================
-    // 5th MAIN TOPIC: TRIANGLES (SSC & Railway: 18 Concepts, 80+ MCQs)
+    // 5th MAIN TOPIC: TRIANGLES (SSC & Railway: 19 Concepts, 90+ MCQs)
     // =========================================================================
     ...triangleConceptFormulas,
+    ...PythagorasTripletsConceptData.formulas,
 
     // =========================================================================
     // 6th MAIN TOPIC: ARITHMETIC PROGRESSION (A.P.) (SSC & Railway: 5 Concepts, 22 PYQs)

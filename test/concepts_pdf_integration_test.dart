@@ -51,18 +51,65 @@ void main() {
       }
     });
 
-    test('Search finds both English and Hindi keywords in new topics', () {
-      final apSearchHindi = ConceptFormulaRepository.search('समांतर');
-      expect(apSearchHindi, isNotEmpty);
+    test('Quadrilateral Type-Wise Theorems repository data verification', () {
+      final quadConcepts = ConceptFormulaRepository.getByPillar(ConceptPillar.quadrilaterals);
+      // Previously 3 + 3 new theorems = 6
+      expect(quadConcepts.length, 6);
 
-      final apSearchEnglish = ConceptFormulaRepository.search('arithmetic');
-      expect(apSearchEnglish, isNotEmpty);
+      final midpointsTrapezium = ConceptFormulaRepository.getById('quad_midpoints_diagonals_trapezium');
+      expect(midpointsTrapezium, isNotNull);
+      expect(midpointsTrapezium!.practiceQuestions.length, 8);
 
-      final fracSearchHindi = ConceptFormulaRepository.search('भिन्न');
-      expect(fracSearchHindi, isNotEmpty);
+      final incirclesQuad = ConceptFormulaRepository.getById('quad_tangency_two_incircles');
+      expect(incirclesQuad, isNotNull);
+      expect(incirclesQuad!.practiceQuestions.length, 8);
 
-      final fracSearchNumber = ConceptFormulaRepository.search('14.28%');
-      expect(fracSearchNumber, isNotEmpty);
+      final areaRatioParallelogram = ConceptFormulaRepository.getById('quad_area_ratio_parallelogram_midpoints');
+      expect(areaRatioParallelogram, isNotNull);
+      expect(areaRatioParallelogram!.practiceQuestions.length, 8);
+
+      final newQuadQuestions = [
+        ...midpointsTrapezium.practiceQuestions,
+        ...incirclesQuad.practiceQuestions,
+        ...areaRatioParallelogram.practiceQuestions,
+      ];
+      expect(newQuadQuestions.length, 24);
+
+      for (final q in newQuadQuestions) {
+        expect(q.prompt, isNotEmpty);
+        expect(q.options.length, 4);
+        expect(q.options.contains(q.correctAnswer), isTrue,
+            reason: 'Question ${q.id} correct answer "${q.correctAnswer}" not in options ${q.options}');
+        expect(q.explanation, isNotEmpty);
+        expect(q.examBadge, isNotNull);
+      }
+    });
+
+    test('Pythagoras Triplets concept guide and PYQs verification', () {
+      final pythConcept = ConceptFormulaRepository.getById('tri_pythagoras_triplets_guide');
+      expect(pythConcept, isNotNull);
+      expect(pythConcept!.pillar, ConceptPillar.triangles);
+      expect(pythConcept.practiceQuestions.length, 11);
+
+      for (final q in pythConcept.practiceQuestions) {
+        expect(q.prompt, isNotEmpty);
+        expect(q.options.length, 4);
+        expect(q.options.contains(q.correctAnswer), isTrue,
+            reason: 'Question ${q.id} correct answer "${q.correctAnswer}" not in options ${q.options}');
+        expect(q.explanation, isNotEmpty);
+        expect(q.examBadge, isNotNull);
+      }
+    });
+
+    test('Search finds keywords across all new topics', () {
+      expect(ConceptFormulaRepository.search('समांतर'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('arithmetic'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('भिन्न'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('14.28%'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('trapezium'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('incircle'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('पाइथागोरस'), isNotEmpty);
+      expect(ConceptFormulaRepository.search('triplet'), isNotEmpty);
     });
   });
 }
