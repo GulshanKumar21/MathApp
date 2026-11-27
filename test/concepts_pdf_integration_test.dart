@@ -132,17 +132,36 @@ void main() {
       }
     });
 
-    test('Trigonometry Identities repository data verification (7 Concepts, 85 PYQs)', () {
+    test('Trigonometry Complete Master Guide & Foundations verification (14 Concepts, 295 PYQs)', () {
       final trigConcepts = ConceptFormulaRepository.getByPillar(ConceptPillar.trigonometry);
-      expect(trigConcepts.length, 7);
+      expect(trigConcepts.length, 14);
 
       final allTrigQuestions = trigConcepts.expand((c) => c.practiceQuestions).toList();
-      expect(allTrigQuestions.length, 85);
+      expect(allTrigQuestions.length, 295);
+
+      // Verify Foundations & Master Guide (PDF 1 & 2: 7 Concepts, 210 PYQs)
+      expect(ConceptFormulaRepository.getById('trig_ratios_standard_angles'), isNotNull);
+      expect(ConceptFormulaRepository.getById('trig_quadrant_allied_angles'), isNotNull);
+      expect(ConceptFormulaRepository.getById('trig_identities_basic_higher'), isNotNull);
+      expect(ConceptFormulaRepository.getById('trig_sum_identities'), isNotNull);
+      expect(ConceptFormulaRepository.getById('trig_diff_identities'), isNotNull);
+      expect(ConceptFormulaRepository.getById('trig_special_angle_values'), isNotNull);
+      expect(ConceptFormulaRepository.getById('trig_complementary_angles'), isNotNull);
+
+      // Verify Advanced Identities (7 Concepts, 85 PYQs)
+      expect(ConceptFormulaRepository.getById('trig_double_angle'), isNotNull);
+      expect(ConceptFormulaRepository.getById('trig_triple_angle'), isNotNull);
+      expect(ConceptFormulaRepository.getById('trig_product_sum_cd'), isNotNull);
+      expect(ConceptFormulaRepository.getById('trig_properties_special_values'), isNotNull);
+      expect(ConceptFormulaRepository.getById('trig_reciprocal_sums_min_max'), isNotNull);
+      expect(ConceptFormulaRepository.getById('trig_product_to_sum_series'), isNotNull);
+      expect(ConceptFormulaRepository.getById('trig_sum_to_product_triangle'), isNotNull);
 
       for (final q in allTrigQuestions) {
         expect(q.prompt, isNotEmpty);
         expect(q.options.length, 4);
-        expect(q.options.contains(q.correctAnswer), isTrue);
+        expect(q.options.contains(q.correctAnswer), isTrue,
+            reason: 'Question ${q.id} correct answer "${q.correctAnswer}" not in options ${q.options}');
         expect(q.explanation, isNotEmpty);
         expect(q.examBadge, isNotNull);
       }

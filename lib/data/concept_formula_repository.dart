@@ -7,6 +7,7 @@ import 'quadrilateral_theorems_data.dart';
 import 'pythagoras_triplets_concept_data.dart';
 import 'algebra_concept_formulas.dart';
 import 'trigonometry_concept_formulas.dart';
+import 'trigonometry_foundations_concept_formulas.dart';
 import 'mensuration_2d_concept_formulas.dart';
 import 'mensuration_3d_concept_formulas.dart';
 import 'squares_cubes_concept_formulas.dart';
@@ -1272,8 +1273,9 @@ class ConceptFormulaRepository {
     ...AlgebraConceptFormulas.formulas,
 
     // =========================================================================
-    // 9th MAIN TOPIC: TRIGONOMETRY IDENTITIES & PYQs (7 Concepts, 85 PYQs)
+    // 9th MAIN TOPIC: TRIGONOMETRY (14 Concepts, 295 PYQs)
     // =========================================================================
+    ...TrigonometryFoundationsConceptFormulas.formulas,
     ...TrigonometryConceptFormulas.formulas,
 
     // =========================================================================
