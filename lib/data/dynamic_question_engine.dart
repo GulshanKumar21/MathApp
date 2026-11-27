@@ -1016,12 +1016,17 @@ class DynamicQuestionEngine {
   // Strictly guarantees:
   // 1. Zero duplicate questions in the drill set (e.g. 10 * 4 appears at most 1 time in a 10 or 20 question set)
   // 2. Fresh shuffled order and a non-identical starting question on restart / re-entry (never starts with same Q twice in a row)
-  static List<QuestionModel> generateTableQuestions(int tableNumber, {int count = 10, int maxMultiplier = 10}) {
+  static List<QuestionModel> generateTableQuestions(int tableNumber, {int count = 10, int maxMultiplier = 9}) {
     List<QuestionModel> list = [];
-    final int safeMax = maxMultiplier < 2 ? 10 : maxMultiplier;
+    final int safeMax = maxMultiplier < 2 ? 9 : maxMultiplier;
     
-    // Multipliers strictly between 1 and safeMax (foundation drill: 1..10, extended: 1..safeMax)
-    final List<int> pool = List<int>.generate(safeMax, (i) => i + 1)..shuffle(_rnd);
+    // Multipliers strictly between 2 and safeMax (foundation drill: 2..9, extended: 2..safeMax)
+    final List<int> pool;
+    if (safeMax <= 9) {
+      pool = [2, 3, 4, 5, 6, 7, 8, 9]..shuffle(_rnd);
+    } else {
+      pool = List<int>.generate(safeMax - 1, (i) => i + 2)..shuffle(_rnd);
+    }
 
     List<int> validMultipliers = [];
     if (count <= pool.length) {
@@ -1096,14 +1101,14 @@ class DynamicQuestionEngine {
     required int startTable,
     required int endTable,
     int count = 10,
-    int maxMultiplier = 10,
+    int maxMultiplier = 9,
   }) {
     final rnd = _rnd;
     final List<int> tablePool = List.generate(endTable - startTable + 1, (i) => startTable + i);
     tablePool.shuffle(rnd);
 
-    final int safeMax = maxMultiplier < 2 ? 10 : maxMultiplier;
-    final List<int> multipliers = List.generate(safeMax, (i) => i + 1); // 1 to safeMax
+    final int safeMax = maxMultiplier < 2 ? 9 : maxMultiplier;
+    final List<int> multipliers = List.generate(safeMax - 1, (i) => i + 2); // 2 to safeMax
     multipliers.shuffle(rnd);
 
     // Build candidate pairs to guarantee strictly unique questions
@@ -1194,7 +1199,12 @@ class DynamicQuestionEngine {
     final rnd = _rnd;
 
     final int safeMax = maxMultiplier < 2 ? 12 : maxMultiplier;
-    final List<int> multipliers = List.generate(safeMax, (i) => i + 1); // 1 to safeMax
+    // Multipliers strictly between 2 and safeMax, excluding trivial 1 and 10
+    final List<int> multipliers = [];
+    for (int m = 2; m <= safeMax; m++) {
+      if (m != 10) multipliers.add(m);
+    }
+    if (multipliers.isEmpty) multipliers.addAll([2, 3, 4, 5, 6, 7, 8, 9]);
 
     // Build candidate pairs to guarantee uniqueness
     List<(int, int)> candidatePairs = [];

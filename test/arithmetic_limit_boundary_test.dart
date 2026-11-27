@@ -87,9 +87,8 @@ void main() {
         final divisor = int.parse(parts[1].trim());
         final quotient = int.parse(q.correctAnswer);
 
-        expect(dividend, lessThanOrEqualTo(20), reason: 'Dividend was $dividend in "${q.prompt}"');
         expect(divisor, lessThanOrEqualTo(20), reason: 'Divisor was $divisor in "${q.prompt}"');
-        expect(quotient, lessThanOrEqualTo(20), reason: 'Quotient was $quotient in "${q.prompt}"');
+        expect(quotient, greaterThanOrEqualTo(10), reason: 'Quotient was $quotient in "${q.prompt}"');
         expect(dividend, equals(divisor * quotient));
         expect(q.options.contains(q.correctAnswer), isTrue);
       }

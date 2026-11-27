@@ -683,42 +683,9 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
 
   Future<void> _showTrickHintSheet() async {
     final currentQ = _questions[_currentIndex];
-    String title = 'Quick Tip';
-    String trick = 'Break down complex numbers into tens and units (e.g. 24 × 6 = 20 × 6 + 4 × 6 = 120 + 24 = 144).';
-
-    switch (widget.topic.type) {
-      case TopicType.squares:
-        title = 'Square Shortcut Rule';
-        trick = 'Ending in 5: Multiply tens by (tens + 1) and append 25 (e.g. 45²: 4 × 5 = 20 | 25 → 2025).\nNear 50: (25 ± diff) | (diff²).';
-        break;
-      case TopicType.cubes:
-        title = 'Cube Last-Digit Rule';
-        trick = 'Remember unit mappings: 1³→1, 2³→8, 3³→7, 4³→4, 5³→5, 6³→6, 7³→3, 8³→2, 9³→9. Check unit digits to eliminate options instantly!';
-        break;
-      case TopicType.tables:
-      case TopicType.hardMultiplier:
-        title = 'Vedic Multiplication Shortcut';
-        trick = 'Use distribution: a × b = a × (b1 + b2). Or check unit digits: the last digit of the product always equals product of units!';
-        break;
-      case TopicType.addition:
-        title = 'Left-to-Right Addition Rule';
-        trick = 'Add from left to right: highest place value first! (e.g., 68 + 47 = 60+40 + 8+7 = 100 + 15 = 115). Avoids carrying friction.';
-        break;
-      case TopicType.subtraction:
-        title = 'Complement Method';
-        trick = 'Subtract the nearest round number and add back the difference (e.g. 84 - 29 = 84 - 30 + 1 = 55).';
-        break;
-      case TopicType.division:
-        title = 'Split & Reverse Division Rule';
-        trick = 'Ask "what × divisor gives dividend?", or split dividend into friendly multiples (e.g. 168 ÷ 7 = (140 + 28) ÷ 7 = 20 + 4 = 24).';
-        break;
-      case TopicType.fractions:
-        title = 'Percentage & Fraction Conversion Rule';
-        trick = '1/2 = 50%, 1/3 = 33.33%, 1/4 = 25%, 1/5 = 20%, 1/6 = 16.66%, 1/7 = 14.28%, 1/8 = 12.5%. Convert to fractions for lightning mental math!';
-        break;
-      default:
-        break;
-    }
+    final tipData = _computeQuestionTip(currentQ, widget.topic.type);
+    final String title = tipData['title'] ?? 'Quick Tip';
+    final String trick = tipData['trick'] ?? 'Break down numbers into friendly parts.';
 
     if (mounted) {
       setState(() => _isTimerPaused = true);
@@ -730,11 +697,12 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
         backgroundColor: AppTheme.surface,
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
         builder: (ctx) => Padding(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          padding: const EdgeInsets.all(20),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               Row(
                 children: [
                   Container(
@@ -747,7 +715,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
+                    child: Text(title, style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: Colors.white)),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -788,9 +756,10 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Resume Practice'),
-              ),
-            ],
+                  child: const Text('Resume Practice', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -798,6 +767,172 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen> {
       if (mounted) {
         setState(() => _isTimerPaused = false);
       }
+    }
+  }
+
+  Map<String, String> _computeQuestionTip(QuestionModel q, TopicType type) {
+    final prompt = q.prompt.trim();
+
+    // Check Subtraction: e.g. "65 − 29 = ?" or "43 - 34 = ?"
+    final subMatch = RegExp(r'(\d+)\s*[-−]\s*(\d+)').firstMatch(prompt);
+    if (subMatch != null) {
+      final a = int.tryParse(subMatch.group(1)!) ?? 0;
+      final b = int.tryParse(subMatch.group(2)!) ?? 0;
+      if (a > 0 && b > 0) {
+        final bLast = b % 10;
+        if (bLast >= 6 && b >= 10) {
+          // Complement Method (Round up & compensate)
+          final roundB = ((b ~/ 10) + 1) * 10;
+          final diff = roundB - b;
+          return {
+            'title': 'Complement Subtraction Method',
+            'trick': '⚡ Round & Compensate Method:\n'
+                '1. Round $b up to $roundB (add $diff).\n'
+                '2. $a − $roundB = ${a - roundB}.\n'
+                '3. Add back $diff: ${a - roundB} + $diff = ${a - b}!\n\n'
+                '💡 Mental Shortcut: $a − $b = ($a − $roundB) + $diff = ${a - b}',
+          };
+        } else if (b >= 10) {
+          // Left-to-right Split
+          final tensB = (b ~/ 10) * 10;
+          final unitsB = b % 10;
+          return {
+            'title': 'Left-to-Right Subtraction Rule',
+            'trick': '⚡ Place-Value Subtraction:\n'
+                '1. Subtract tens: $a − $tensB = ${a - tensB}.\n'
+                '2. Subtract units: ${a - tensB} − $unitsB = ${a - b}!\n\n'
+                '💡 Mental Shortcut: $a − $b = ($a − $tensB) − $unitsB = ${a - b}',
+          };
+        } else {
+          return {
+            'title': 'Single-Digit Subtraction Reflex',
+            'trick': '⚡ Instant Recall: $a − $b = ${a - b}.\n'
+                'Visualize on number line: count down $b from $a!',
+          };
+        }
+      }
+    }
+
+    // Check Addition: e.g. "68 + 47 = ?"
+    final addMatch = RegExp(r'(\d+)\s*\+\s*(\d+)').firstMatch(prompt);
+    if (addMatch != null) {
+      final a = int.tryParse(addMatch.group(1)!) ?? 0;
+      final b = int.tryParse(addMatch.group(2)!) ?? 0;
+      if (a > 0 && b > 0) {
+        if (a >= 10 || b >= 10) {
+          final tensA = (a ~/ 10) * 10;
+          final unitsA = a % 10;
+          final tensB = (b ~/ 10) * 10;
+          final unitsB = b % 10;
+          return {
+            'title': 'Left-to-Right Addition Rule',
+            'trick': '⚡ Highest Place Value First:\n'
+                '1. Add tens: $tensA + $tensB = ${tensA + tensB}.\n'
+                '2. Add units: $unitsA + $unitsB = ${unitsA + unitsB}.\n'
+                '3. Combine: ${tensA + tensB} + ${unitsA + unitsB} = ${a + b}!\n\n'
+                '💡 Zero-carry mental speed: Never add right-to-left in mind!',
+          };
+        } else {
+          return {
+            'title': 'Single-Digit Addition Reflex',
+            'trick': '⚡ Instant Recall: $a + $b = ${a + b}.\n'
+                'Look at friendly pairs to 10 for instant answers!',
+          };
+        }
+      }
+    }
+
+    // Check Division: e.g. "168 ÷ 7 = ?" or "168 / 7 = ?"
+    final divMatch = RegExp(r'(\d+)\s*[÷/]\s*(\d+)').firstMatch(prompt);
+    if (divMatch != null) {
+      final a = int.tryParse(divMatch.group(1)!) ?? 0;
+      final b = int.tryParse(divMatch.group(2)!) ?? 0;
+      if (a > 0 && b > 0) {
+        final quotient = a ~/ b;
+        return {
+          'title': 'Split & Reverse Division Rule',
+          'trick': '⚡ Reverse Table Reflex:\n'
+              '1. Think: What × $b = $a?\n'
+              '2. Since $quotient × $b = $a ➔ Ans is $quotient.\n'
+              '3. Or split $a into friendly multiples of $b (e.g. ${(quotient ~/ 10) * 10 * b} + ${(quotient % 10) * b}) ÷ $b = $quotient!',
+        };
+      }
+    }
+
+    // Check Multiplication: e.g. "24 × 6 = ?" or "24 * 6 = ?"
+    final mulMatch = RegExp(r'(\d+)\s*[×*x]\s*(\d+)').firstMatch(prompt);
+    if (mulMatch != null) {
+      final a = int.tryParse(mulMatch.group(1)!) ?? 0;
+      final b = int.tryParse(mulMatch.group(2)!) ?? 0;
+      if (a > 0 && b > 0) {
+        if (a == b) {
+          return {
+            'title': 'Square Shortcut ($a²)',
+            'trick': '⚡ Instant Square: $a × $a = ${a * a}.\n'
+                'Check unit digit: ${a % 10} × ${a % 10} ends in ${(a * a) % 10}!',
+          };
+        } else if (b == 5 || a == 5) {
+          final other = b == 5 ? a : b;
+          return {
+            'title': 'Multiply by 5 Rule',
+            'trick': '⚡ Half & Ten Rule: $other × 5 = ($other ÷ 2) × 10 = ${a * b}.',
+          };
+        } else {
+          final tensB = (b ~/ 10) * 10;
+          final unitsB = b % 10;
+          return {
+            'title': 'Vedic Distribution Shortcut',
+            'trick': '⚡ Distributive Rule:\n'
+                '1. $a × $tensB = ${a * tensB}.\n'
+                '2. $a × $unitsB = ${a * unitsB}.\n'
+                '3. Combine: ${a * tensB} + ${a * unitsB} = ${a * b}!\n\n'
+                '💡 Unit digit check: ${(a % 10)} × ${(b % 10)} ends in ${(a * b) % 10}!',
+          };
+        }
+      }
+    }
+
+    // Fallbacks by TopicType
+    switch (type) {
+      case TopicType.squares:
+        return {
+          'title': 'Square Shortcut Rule',
+          'trick': (q.explanation.isNotEmpty && q.explanation.contains('⚡'))
+              ? q.explanation
+              : 'Ending in 5: Multiply tens by (tens + 1) and append 25 (e.g. 45²: 4 × 5 = 20 | 25 → 2025).\nNear 50: (25 ± diff) | (diff²).',
+        };
+      case TopicType.cubes:
+        return {
+          'title': 'Cube Last-Digit Rule',
+          'trick': (q.explanation.isNotEmpty && q.explanation.contains('⚡'))
+              ? q.explanation
+              : 'Remember unit mappings: 1³→1, 2³→8, 3³→7, 4³→4, 5³→5, 6³→6, 7³→3, 8³→2, 9³→9. Check unit digits to eliminate options instantly!',
+        };
+      case TopicType.fractions:
+        return {
+          'title': 'Percentage & Fraction Conversion Rule',
+          'trick': (q.explanation.isNotEmpty)
+              ? '⚡ Formula: ${q.explanation}\n\nKey Conversions: 1/2 = 50%, 1/3 = 33.33%, 1/4 = 25%, 1/5 = 20%, 1/6 = 16.66%, 1/7 = 14.28%, 1/8 = 12.5%.'
+              : '1/2 = 50%, 1/3 = 33.33%, 1/4 = 25%, 1/5 = 20%, 1/6 = 16.66%, 1/7 = 14.28%, 1/8 = 12.5%. Convert to fractions for lightning mental math!',
+        };
+      case TopicType.triples:
+        return {
+          'title': 'Pythagorean Triplet Shortcut',
+          'trick': (q.explanation.isNotEmpty)
+              ? q.explanation
+              : 'Standard Triplets: (3, 4, 5), (5, 12, 13), (7, 24, 25), (8, 15, 17), (9, 40, 41), (20, 21, 29). Multiplying by k gives another triplet (3k, 4k, 5k)!',
+        };
+      default:
+        if (q.explanation.isNotEmpty) {
+          return {
+            'title': 'Concept Tip & Explanation',
+            'trick': q.explanation,
+          };
+        }
+        return {
+          'title': 'Quick Tip',
+          'trick': 'Break down complex numbers into tens and units (e.g. 24 × 6 = 20 × 6 + 4 × 6 = 120 + 24 = 144).',
+        };
     }
   }
 

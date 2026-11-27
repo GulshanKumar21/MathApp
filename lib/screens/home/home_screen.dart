@@ -19,6 +19,8 @@ import '../leaderboard/leaderboard_screen.dart';
 import '../notifications/notifications_inbox_screen.dart';
 import '../practice/exam_mock_hub_screen.dart';
 import '../practice/calculation_modules_hub_screen.dart';
+import '../concepts/mensuration_formula_book_screen.dart';
+import '../concepts/number_system_formula_book_screen.dart';
 import '../progress/weakness_heatmap_screen.dart';
 import '../revision/table_revision_hub_screen.dart';
 import '../revision/powers_revision_hub_screen.dart';
@@ -257,6 +259,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
             ),
             const SizedBox(height: 22),
 
+            // 7.1. 📖 Dedicated Formula Books (Mensuration & Number System)
+            _buildFormulaBooksHomeCard(context),
+            const SizedBox(height: 20),
+
             // 8. 📚 Calculation Tricks & Learning Vault (Formulas, Vedic Hacks & All 8 Modules)
             _buildCalculationModulesVaultButton(context, state),
           ],
@@ -320,6 +326,177 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
           ],
         ),
       ),
+    );
+  }
+
+  // Dedicated Formula Books Home Card (Mensuration & Number System)
+  Widget _buildFormulaBooksHomeCard(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              '📖 Exam Formula Books',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppTheme.accent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text(
+                'FORMULA MCQs',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.accent),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            // Mensuration Formula Book Card
+            Expanded(
+              child: BouncingCard(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MensurationFormulaBookScreen()),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF2A154A), Color(0xFF190F30)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.4)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8B5CF6).withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.view_in_ar_rounded, color: Color(0xFFA78BFA), size: 20),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text('250 PYQs', style: TextStyle(color: Color(0xFFDDD6FE), fontSize: 9.5, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Mensuration',
+                        style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        '2D & 3D Formulas + MCQs',
+                        style: TextStyle(fontSize: 11, color: Colors.white60),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Number System Formula Book Card
+            Expanded(
+              child: BouncingCard(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const NumberSystemFormulaBookScreen()),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0F2B48), Color(0xFF0A1C30)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.4)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF3B82F6).withValues(alpha: 0.15),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF3B82F6).withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.format_list_numbered_rounded, color: Color(0xFF60A5FA), size: 20),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text('Rules + MCQs', style: TextStyle(color: Color(0xFFBFDBFE), fontSize: 9.5, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Number System',
+                        style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Divisibility, Units, Factors',
+                        style: TextStyle(fontSize: 11, color: Colors.white60),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

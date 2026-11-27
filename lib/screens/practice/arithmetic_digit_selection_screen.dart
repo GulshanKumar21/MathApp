@@ -24,7 +24,14 @@ class ArithmeticDigitSelectionScreen extends StatefulWidget {
 class _ArithmeticDigitSelectionScreenState extends State<ArithmeticDigitSelectionScreen> {
   int _questionCount = 10;
   QuizTimerDifficulty _timerDifficulty = QuizTimerDifficulty.medium;
-  int? _selectedMaxLimit; // null = Standard (All), 20, 50, 100, or custom integer
+  static int? persistedMaxLimit;
+  late int? _selectedMaxLimit;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedMaxLimit = persistedMaxLimit;
+  }
 
   String get _operationTitle {
     switch (widget.type) {
@@ -752,7 +759,7 @@ class _ArithmeticDigitSelectionScreenState extends State<ArithmeticDigitSelectio
         try {
           HapticFeedback.selectionClick();
         } catch (_) {}
-        setState(() => _selectedMaxLimit = limit);
+        setState(() { _selectedMaxLimit = limit; persistedMaxLimit = limit; });
       },
       borderRadius: BorderRadius.circular(8),
       child: AnimatedContainer(
@@ -903,7 +910,7 @@ class _ArithmeticDigitSelectionScreenState extends State<ArithmeticDigitSelectio
     );
 
     if (result != null && mounted) {
-      setState(() => _selectedMaxLimit = result);
+      setState(() { _selectedMaxLimit = result; persistedMaxLimit = result; });
     }
   }
 

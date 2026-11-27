@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/math_models.dart';
 import '../providers/app_state_provider.dart';
 import '../theme/app_theme.dart';
+import '../screens/ai_tutor/ai_tutor_screen.dart';
 
 /// Home card replacing the old Hero banner:
 /// "Daily planner for Speed revision" where students can Add and Remove items to memorize.
@@ -86,6 +87,95 @@ class DailyPlannerCard extends StatelessWidget {
                 label: const Text('Add', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+
+          // Daily Target Row: Maths & Vocab Plans
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.calculate_rounded, color: Color(0xFF10B981), size: 16),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Maths: 20 Qs + 1 Concept',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFA855F7).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFA855F7).withValues(alpha: 0.35)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.menu_book_rounded, color: Color(0xFFA855F7), size: 16),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Vocab: 20 Words',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // AI Tutor Interactive Banner
+          InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AiTutorScreen()),
+              );
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF312E81), Color(0xFF1E1B4B)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.accent.withValues(alpha: 0.5)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.smart_toy_rounded, color: AppTheme.accent, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '🤖 AI Tutor: Got a doubt in Maths or Vocab? Ask now!',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 12),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           if (items.isEmpty)

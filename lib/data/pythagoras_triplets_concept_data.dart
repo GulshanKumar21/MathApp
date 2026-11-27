@@ -187,5 +187,117 @@ class PythagorasTripletsConceptData {
         ),
       ],
     ),
+    // =========================================================================
+    // CONCEPT 20: APPLICATIONS OF TRIPLETS | त्रिक के महत्वपूर्ण अनुप्रयोग
+    // =========================================================================
+    ConceptFormulaModel(
+      id: 'tri_pythagoras_applications',
+      pillar: ConceptPillar.triangles,
+      title: 'Applications of Triplets | त्रिक के अनुप्रयोग',
+      subtitle: 'Circle Chords, Tangents, Rhombus, Trapezium, Cone, Trig & Speed-Time',
+      formula: 'Circle Chords (r² = d² + (c/2)²), DCT (D² − (R−r)²), Rhombus (s² = (d₁/2)² + (d₂/2)²), Cone (l² = r² + h²), Trig (a sin θ + b cos θ = c ⇒ tan θ = a/b)',
+      diagramType: null,
+      keyConditions: [
+        '1. Circle Chords: Perpendicular from center bisects chord: r² = d² + (chord/2)² ⇒ (d, chord/2, r) is a triplet.',
+        '2. Direct Common Tangents (DCT): DCT = √[D² − (R − r)²] ⇒ (R − r, DCT, D) forms a triplet.',
+        '3. Concentric Circles: Chord of outer circle tangent to inner circle has length 2√(R² − r²); Annulus area = π(c/2)².',
+        '4. Rhombus: Diagonals bisect at 90°: Side s = √[(d₁/2)² + (d₂/2)²] ⇒ (d₁/2, d₂/2, s) is a triplet. Area = 2 × (d₁/2) × (d₂/2).',
+        '5. Isosceles Trapezium: Slant leg, vertical height, and (b₁ − b₂)/2 form a right triangle: ((b₁−b₂)/2, h, slant side).',
+        '6. Right Circular Cone: Radius r, vertical height h, and slant height l form triplet (r, h, l) with l = √(r² + h²).',
+        '7. Rectangle Diagonal: Diagonal D = √(L² + B²) ⇒ (L, B, D) forms a triplet.',
+        '8. Trigonometry Shortcut: If a sin θ + b cos θ = c where a² + b² = c², then sin θ = a/c, cos θ = b/c, and tan θ = a/b.',
+        '9. Speed-Time Displacement: If two objects move perpendicularly with speeds u and v, relative separation speed is √(u² + v²).',
+      ],
+      explanation:
+          'Pythagorean triplets are not just about right triangles—they are the cornerstone of lightning-fast solutions across Geometry, Mensuration 2D & 3D, Trigonometry, and Arithmetic. Instead of calculating square roots, identifying the underlying triplet gives instant answers in SSC CGL, CHSL, and Railway exams.\n\nपाइथागोरस त्रिक का प्रयोग ज्यामिति, क्षेत्रमिति, त्रिकोणमिति और चाल-दूरी में सेकंडों में उत्तर पाने के लिए किया जाता है।',
+      solvedExamples: [
+        SolvedExampleModel(
+          problem: 'Application in Circle Chords: A chord of length 24 cm is drawn in a circle of radius 13 cm. Find its distance from the center.\nवृत्त की जीवा में अनुप्रयोग: 13 सेमी त्रिज्या वाले वृत्त में 24 सेमी लम्बी जीवा खींची गई है। केंद्र से इसकी दूरी ज्ञात कीजिए।',
+          steps: [
+            'Half chord = 24 / 2 = 12 cm.',
+            'Hypotenuse = radius = 13 cm.',
+            'Recognize triplet (5, 12, 13): Missing side = 5 cm.',
+            'Distance from center = 5 cm.',
+          ],
+          answer: '5 cm',
+          shortcutTip: 'Triplet (5, 12, 13) gives distance = 5 cm in 2 seconds without using √[13² − 12²]!',
+        ),
+        SolvedExampleModel(
+          problem: 'Application in Rhombus: The diagonals of a rhombus are 16 cm and 30 cm. Find its perimeter and area.\nसमचतुर्भुज में अनुप्रयोग: एक समचतुर्भुज के विकर्ण 16 सेमी और 30 सेमी हैं। इसका परिमाप और क्षेत्रफल ज्ञात कीजिए।',
+          steps: [
+            'Half-diagonals: d₁/2 = 8 cm, d₂/2 = 15 cm.',
+            'Recognize triplet (8, 15, 17): Side s = 17 cm.',
+            'Perimeter = 4 × 17 = 68 cm.',
+            'Area = 1/2 × 16 × 30 = 240 cm².',
+          ],
+          answer: 'Perimeter = 68 cm, Area = 240 cm²',
+          shortcutTip: 'Half-diagonals (8, 15) immediately trigger hypotenuse side = 17 cm! Perimeter = 4 × 17 = 68 cm.',
+        ),
+        SolvedExampleModel(
+          problem: 'Application in Direct Common Tangent: Two circles of radii 12 cm and 5 cm have centers 25 cm apart. Find the length of their direct common tangent.\nउभयनिष्ठ स्पर्श रेखा: 12 सेमी और 5 सेमी त्रिज्या वाले दो वृत्तों के केंद्रों के बीच की दूरी 25 सेमी है। उनकी उभयनिष्ठ अनुस्पर्श रेखा की लम्बाई ज्ञात कीजिए।',
+          steps: [
+            'Difference of radii = R − r = 12 − 5 = 7 cm.',
+            'Center distance D = 25 cm.',
+            'Recognize triplet (7, 24, 25): Missing side = 24 cm.',
+            'Length of DCT = 24 cm.',
+          ],
+          answer: '24 cm',
+          shortcutTip: 'DCT = √[D² − (R−r)²]. Triplet (7, 24, 25) with 7 and 25 directly yields DCT = 24 cm!',
+        ),
+        SolvedExampleModel(
+          problem: 'Application in Right Circular Cone: A cone has base radius 7 cm and vertical height 24 cm. Find its curved surface area (CSA).\nलम्ब वृत्तीय शंकु: एक शंकु की आधार त्रिज्या 7 सेमी और ऊंचाई 24 सेमी है। इसका वक्र पृष्ठीय क्षेत्रफल ज्ञात कीजिए।',
+          steps: [
+            'Radius r = 7 cm, height h = 24 cm.',
+            'Recognize triplet (7, 24, 25): Slant height l = 25 cm.',
+            'CSA = π r l = (22/7) × 7 × 25 = 550 cm².',
+          ],
+          answer: '550 cm²',
+          shortcutTip: 'Triplet (7, 24, 25) gives slant height l = 25 cm instantly! CSA = 22 × 25 = 550 cm².',
+        ),
+        SolvedExampleModel(
+          problem: 'Application in Trigonometry: If 20 sin θ + 21 cos θ = 29, find the value of tan θ.\nत्रिकोणमिति में अनुप्रयोग: यदि 20 sin θ + 21 cos θ = 29 है, तो tan θ का मान ज्ञात कीजिए।',
+          steps: [
+            'Check coefficients: 20² + 21² = 400 + 441 = 841 = 29².',
+            'Since (20, 21, 29) forms a Pythagorean triplet, divide by 29: (20/29) sin θ + (21/29) cos θ = 1.',
+            'sin θ = 20/29 and cos θ = 21/29.',
+            'tan θ = sin θ / cos θ = 20/21.',
+          ],
+          answer: '20/21',
+          shortcutTip: 'Standard rule: If a sin θ + b cos θ = c with a² + b² = c², then tan θ = a / b = 20/21 directly!',
+        ),
+      ],
+      practiceQuestions: [
+        QuestionModel(
+          id: 'pyth_app_q1',
+          topicId: 'tri_pythagoras_applications',
+          examBadge: 'SSC CGL',
+          difficulty: 1,
+          prompt: 'A chord of length 30 cm is drawn in a circle of radius 17 cm. Find its perpendicular distance from the center.\nएक 17 सेमी त्रिज्या वाले वृत्त में 30 सेमी लम्बी जीवा खींची गई है। केंद्र से इसकी लम्बवत दूरी ज्ञात कीजिए।',
+          options: ['6 cm', '8 cm', '10 cm', '12 cm'],
+          correctAnswer: '8 cm',
+          explanation: 'Half chord = 15 cm, radius = 17 cm. Triplet (8, 15, 17) gives distance = 8 cm. Option (B).',
+        ),
+        QuestionModel(
+          id: 'pyth_app_q2',
+          topicId: 'tri_pythagoras_applications',
+          examBadge: 'SSC CHSL',
+          difficulty: 1,
+          prompt: 'The perimeter of a rhombus is 100 cm and one of its diagonals is 40 cm. Find the length of the other diagonal.\nएक समचतुर्भुज का परिमाप 100 सेमी है और इसका एक विकर्ण 40 सेमी है। दूसरे विकर्ण की लम्बाई ज्ञात कीजिए।',
+          options: ['20 cm', '25 cm', '30 cm', '35 cm'],
+          correctAnswer: '30 cm',
+          explanation: 'Side = 100/4 = 25 cm. Half diagonal = 20 cm. Triplet (15, 20, 25) [5 × (3,4,5)] gives half other diagonal = 15 cm. Full diagonal = 30 cm. Option (C).',
+        ),
+        QuestionModel(
+          id: 'pyth_app_q3',
+          topicId: 'tri_pythagoras_applications',
+          examBadge: 'RRB NTPC',
+          difficulty: 2,
+          prompt: 'A right circular cone has volume 1232 cm³ and base radius 7 cm. Find its slant height.\nएक लम्ब वृत्तीय शंकु का आयतन 1232 सेमी³ और आधार त्रिज्या 7 सेमी है। इसकी तिर्यक ऊंचाई ज्ञात कीजिए।',
+          options: ['24 cm', '25 cm', '26 cm', '28 cm'],
+          correctAnswer: '25 cm',
+          explanation: 'Vol = 1/3 π r² h ⇒ 1232 = (1/3) × (22/7) × 49 × h ⇒ h = 24 cm. Triplet (7, 24, 25) gives slant height = 25 cm. Option (B).',
+        ),
+      ],
+    ),
   ];
 }

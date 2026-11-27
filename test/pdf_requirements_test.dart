@@ -47,10 +47,10 @@ void main() {
     }
   });
 
-  test('6 & 8. Topics combine Tables & Multiply and rename Chauraha to Crossroads', () {
+  test('6 & 8. Tables and Multiplication have separate dedicated sections and Crossroads', () {
     final topics = ContentRepository.getDefaultTopics();
-    expect(topics.any((t) => t.title.contains('Tables & Speed Multiply')), isTrue);
-    expect(topics.any((t) => t.id == 'hard_multiplier'), isFalse);
+    expect(topics.any((t) => t.id == 'tables'), isTrue);
+    expect(topics.any((t) => t.id == 'hard_multiplier'), isTrue);
     expect(topics.any((t) => t.title.toLowerCase().contains('chauraha')), isFalse);
     expect(topics.any((t) => t.title.contains('Crossroads')), isTrue);
 

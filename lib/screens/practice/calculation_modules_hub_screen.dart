@@ -25,10 +25,11 @@ class _CalculationModulesHubScreenState extends State<CalculationModulesHubScree
   final List<String> _categories = [
     'All',
     'Add & Subtract',
-    'Tables & Multiply',
+    'Tables (पहाड़े)',
+    'Multiplication (गुणा)',
+    'Division',
     'Squares & Cubes',
     'Fractions',
-    'Division',
     'Pythagorean Triples',
     'Product Crossroads',
   ];
@@ -123,8 +124,11 @@ class _CalculationModulesHubScreenState extends State<CalculationModulesHubScree
     if (_selectedCategory == 'Add & Subtract') {
       return allTopics.where((t) => t.type == TopicType.addition || t.type == TopicType.subtraction).toList();
     }
-    if (_selectedCategory == 'Tables & Multiply') {
-      return allTopics.where((t) => t.type == TopicType.tables || t.type == TopicType.hardMultiplier).toList();
+    if (_selectedCategory == 'Tables (पहाड़े)' || _selectedCategory == 'Tables') {
+      return allTopics.where((t) => t.type == TopicType.tables).toList();
+    }
+    if (_selectedCategory == 'Multiplication (गुणा)' || _selectedCategory == 'Multiplication') {
+      return allTopics.where((t) => t.type == TopicType.hardMultiplier).toList();
     }
     if (_selectedCategory == 'Squares & Cubes') {
       return allTopics.where((t) => t.type == TopicType.squares || t.type == TopicType.cubes).toList();

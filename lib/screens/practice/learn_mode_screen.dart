@@ -15,6 +15,7 @@ import '../../widgets/interactive_triangle_visualizer.dart';
 import '../../services/notification_service.dart';
 import '../../services/voice_reciter_helper.dart';
 import '../../widgets/voice_studio_modal.dart';
+import '../../data/fraction_percentage_concept_formulas.dart';
 
 class LearnModeScreen extends StatefulWidget {
   final TopicModel topic;
@@ -1279,6 +1280,52 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
           _bulletExplanation(
             '3. High-Yield Eighths (8ths):',
             '• 1/8 = 12.5% | 3/8 = 37.5% | 5/8 = 62.5% | 7/8 = 87.5%',
+          ),
+          _bulletExplanation(
+            '4. Core Derived Fractions (व्युत्पन्न भिन्न):',
+            '• 4/7 = 57.14% | 5/7 = 71.42%\n• 5/6 = 83.33% | 7/12 = 58.33% | 11/12 = 91.66%',
+          ),
+          _bulletExplanation(
+            '5. Base Shift Rule (A × B = Constant):',
+            'If Price increases by +a/b, Consumption must decrease by -a/(a+b) to keep Expenditure constant.\nExample: +25% (+1/4) increase requires -20% (-1/5) decrease!',
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEC4899),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              icon: const Icon(Icons.quiz_rounded, size: 18),
+              label: const Text(
+                '🎯 Practice All 25 Fractions PYQs (SSC & Railway)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              onPressed: () {
+                final allFracQuestions = FractionPercentageConceptFormulas.formulas
+                    .expand((f) => f.practiceQuestions)
+                    .toList();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PracticeQuizScreen(
+                      topic: TopicModel(
+                        id: 'fraction_pyqs',
+                        title: '🎯 Fractions Exam PYQs',
+                        subtitle: 'Authentic CGL, CHSL, NTPC Questions',
+                        type: TopicType.fractions,
+                        iconName: 'percent_rounded',
+                      ),
+                      customQuestions: allFracQuestions,
+                      questionCount: allFracQuestions.length,
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
