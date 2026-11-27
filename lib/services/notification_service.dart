@@ -1,7 +1,6 @@
 // ignore_for_file: depend_on_referenced_packages
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,7 +29,6 @@ Future<void> notificationTapBackground(NotificationResponse response) async {
   }
 }
 
-
 typedef MistakeResolvedCallback = void Function(String prompt, String answer);
 
 
@@ -40,6 +38,7 @@ const int _kMathAlarmId = 7003;
 const int _kAdminBroadcastId = 7004;
 const int _kInstantTestId = 7005;
 const int _kMasteredId = 7006;
+const int _kActiveRecallNotificationId = 7010;
 
 // Channel IDs
 const String _kRecallChannel = 'prepvanta_recall_v1';
@@ -84,9 +83,6 @@ class NotificationService {
   /// Provider sets this to get notified when a mistake is resolved.
   MistakeResolvedCallback? onMistakeResolved;
 
-  /// Track IDs currently being re-posted to avoid double-fire.
-  final Set<int> _repostingIds = {};
-
   // ─────────────────────────────── INIT ────────────────────────────────────
 
   Future<void> init() async {
@@ -112,6 +108,33 @@ class NotificationService {
     await _createChannels();
     await _requestPermissions();
     _isInitialized = true;
+
+    // One-time startup purge of legacy/stuck notifications & queue deduplication
+    try {
+      await _plugin.cancelAll();
+      final prefs = await SharedPreferences.getInstance();
+      final rawQueue = prefs.getStringList(_kPendingQueue) ?? [];
+      if (rawQueue.isNotEmpty) {
+        final List<String> sanitized = [];
+        final Set<String> seen = {};
+        for (final item in rawQueue) {
+          final parts = item.split('|');
+          if (parts.length < 2) continue;
+          final f = cleanPrompt(parts[0]);
+          final a = parts[1].trim();
+          if (f.isNotEmpty && !seen.contains(f) && !_isSolved(prefs, f)) {
+            seen.add(f);
+            sanitized.add('$f|$a');
+          }
+        }
+        await prefs.setStringList(_kPendingQueue, sanitized);
+        if (sanitized.isNotEmpty) {
+          await prefs.setString('currently_displayed_recall_formula', sanitized.first.split('|')[0]);
+        } else {
+          await prefs.remove('currently_displayed_recall_formula');
+        }
+      }
+    } catch (_) {}
 
     // Cold-start tap
     final launchDetails = await _plugin.getNotificationAppLaunchDetails();
@@ -154,15 +177,18 @@ class NotificationService {
     s = s.replaceAll(RegExp(r'\?$'), '').trim();
     s = s.replaceAll(RegExp(r'=$'), '').trim();
     s = s.replaceAll(RegExp(r':$'), '').trim();
+    // Normalize multiplication signs (x, X, *, ×) to standard '×'
+    s = s.replaceAll(RegExp(r'\s*[\*xX×]\s*'), ' × ');
+    // Normalize subtraction signs (−, –, -) to standard '-'
+    s = s.replaceAll(RegExp(r'\s*[−–]\s*'), ' - ');
+    // Collapse any repeated whitespace
+    s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
     return s;
   }
 
   int getNotificationIdForPrompt(String formula) {
     return formula.hashCode.abs() % 900000 + 10000;
   }
-
-  int _hashPrompt(String formula) =>
-      formula.hashCode.abs() % 900000 + 10000;
 
   bool _isAnswerCorrect(String typed, String correct) {
     String clean(String s) =>
@@ -292,12 +318,27 @@ class NotificationService {
       onMistakeResolved?.call(formula, correctAnswer);
 
       final queue = prefs.getStringList(_kPendingQueue) ?? [];
-      queue.removeWhere((e) => e.startsWith('$formula|') || e == formula);
+      final target = cleanPrompt(formula);
+      queue.removeWhere((e) => cleanPrompt(e.split('|')[0]) == target || e == formula);
       await prefs.setStringList(_kPendingQueue, queue);
 
+      await cancelNotification(notifId);
+      await cancelNotification(_kActiveRecallNotificationId);
+
       if (queue.isNotEmpty) {
-        final nextFormula = queue.first.split('|')[0];
+        final nextParts = queue.first.split('|');
+        final nextFormula = nextParts[0];
+        final nextAns = nextParts.length > 1 ? nextParts[1] : '';
         await prefs.setString('currently_displayed_recall_formula', nextFormula);
+
+        // Schedule next question in line
+        final nextDue = _applyQuietHours(DateTime.now().add(const Duration(minutes: 60)));
+        await prefs.setString('$_kRecallDuePrefix$nextFormula', nextDue.toIso8601String());
+        await _scheduleRecallAtTime(
+          formula: nextFormula,
+          correctAnswer: nextAns,
+          dueAt: nextDue,
+        );
       } else {
         await prefs.remove('currently_displayed_recall_formula');
       }
@@ -317,12 +358,16 @@ class NotificationService {
         await prefs.setString(
             '$_kRecallDuePrefix$formula', nextDue.toIso8601String());
       }
-      await cancelNotification(notifId);
     } else {
       await prefs.setInt('$_kRepStagePrefix$formula', 1);
       final resetDue = DateTime.now().add(const Duration(minutes: 60));
       await prefs.setString(
           '$_kRecallDuePrefix$formula', resetDue.toIso8601String());
+      await _scheduleRecallAtTime(
+        formula: formula,
+        correctAnswer: correctAnswer,
+        dueAt: resetDue,
+      );
     }
   }
 
@@ -549,7 +594,7 @@ class NotificationService {
   // ─────────────────────────────── STICKY RECALL ───────────────────────────
 
   Future<void> _showStickyRecallNotification({
-    required int id,
+    int? id,
     required String formula,
     required String correctAnswer,
     bool silent = false,
@@ -563,15 +608,18 @@ class NotificationService {
       'correctAnswer': correctAnswer,
     });
 
+    final targetId = id ?? _kActiveRecallNotificationId;
+
     final androidDetails = AndroidNotificationDetails(
       _kRecallChannel,
       'Spaced Recall',
       channelDescription: 'PrepVanta spaced revision reminders',
       importance: Importance.max,
       priority: Priority.max,
-      ongoing: true,
-      autoCancel: false,
-      additionalFlags: Int32List.fromList([34]), // FLAG_ONGOING_EVENT(2)|FLAG_NO_CLEAR(32)
+      ongoing: false,
+      autoCancel: true,
+      category: AndroidNotificationCategory.reminder,
+      groupKey: 'prepvanta_recall_group',
       dismissIsolate: NotificationDismissedIsolate.background,
       playSound: !silent,
       enableVibration: !silent,
@@ -594,7 +642,7 @@ class NotificationService {
     );
 
     await _plugin.show(
-      id: id,
+      id: targetId,
       title: '$prefix📚 Revision: $formula = ?',
       body: 'Tap "✏️ Type Answer" below to solve here',
       notificationDetails: NotificationDetails(android: androidDetails),
@@ -604,10 +652,9 @@ class NotificationService {
 
   // ─────────────────────────────── HANDLE DISMISSED ────────────────────────
 
-  /// Called when sticky notification is dismissed. Re-posts after 5 s.
+  /// Called when notification is dismissed by user swipe. Snoozes gently for 1 hour.
   Future<void> handleNotificationDismissed(int? id, String? payload) async {
-    if (payload == null || payload.isEmpty || id == null) return;
-    if (_repostingIds.contains(id)) return;
+    if (payload == null || payload.isEmpty) return;
 
     Map<String, dynamic> data;
     try {
@@ -624,69 +671,22 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     if (_isSolved(prefs, formula)) return;
 
-    // Respect active snooze
-    final snoozeStr = prefs.getString('$_kSnoozeUntilPrefix$formula');
-    if (snoozeStr != null) {
-      final until = DateTime.tryParse(snoozeStr);
-      if (until != null && DateTime.now().isBefore(until)) return;
+    // Respect user swipe: gracefully snooze for 1 hour (no instant re-post, no duplicate spam)
+    final snoozeUntil = _applyQuietHours(DateTime.now().add(const Duration(hours: 1)));
+    await prefs.setString('$_kSnoozeUntilPrefix$formula', snoozeUntil.toIso8601String());
+    await prefs.setString('$_kRecallDuePrefix$formula', snoozeUntil.toIso8601String());
+
+    if (id != null) {
+      await _plugin.cancel(id: id);
+      await _plugin.cancel(id: id + 500000);
     }
+    await _plugin.cancel(id: _kActiveRecallNotificationId);
 
-    _repostingIds.add(id);
-    // Instant re-post (100ms yield to allow Android system to finish clearing the dismissed slot)
-    await Future.delayed(const Duration(milliseconds: 100));
-    _repostingIds.remove(id);
-
-    if (_isSolved(prefs, formula)) return;
-
-    // Re-show immediately
-    await _showStickyRecallNotification(
-      id: id,
+    await _scheduleRecallAtTime(
       formula: formula,
       correctAnswer: correctAnswer,
-      silent: true,
-      prefix: '🔁 ',
+      dueAt: snoozeUntil,
     );
-
-    // Backup alarm +5 min
-    final backupTime =
-        _applyQuietHours(DateTime.now().add(const Duration(minutes: 5)));
-    try {
-      await _plugin.zonedSchedule(
-        id: id + 500000,
-        title: '📚 Missed Revision',
-        body: '$formula = ?  •  Write your answer',
-        scheduledDate: _tzFrom(backupTime),
-        notificationDetails: NotificationDetails(
-          android: AndroidNotificationDetails(
-            _kRecallChannel,
-            'Spaced Recall',
-            importance: Importance.max,
-            priority: Priority.max,
-            ongoing: true,
-            autoCancel: false,
-            additionalFlags: Int32List.fromList([34]),
-            dismissIsolate: NotificationDismissedIsolate.background,
-            actions: <AndroidNotificationAction>[
-              AndroidNotificationAction(
-                'SUBMIT_ANSWER',
-                '✏️ Type Answer',
-                showsUserInterface: false,
-                cancelNotification: false,
-                allowGeneratedReplies: false,
-                inputs: <AndroidNotificationActionInput>[
-                  const AndroidNotificationActionInput(
-                    label: 'Type your answer…',
-                    allowFreeFormInput: true,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        payload: payload,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      );
-    } catch (_) {}
   }
 
   // ─────────────────────────────── HANDLE TYPED ANSWER ─────────────────────
@@ -715,10 +715,11 @@ class NotificationService {
         await _plugin.cancel(id: id);
         await _plugin.cancel(id: id + 500000);
       }
+      await cancelNotification(_kActiveRecallNotificationId);
       await _removePendingQueueEntry(formula);
 
       // Brief celebratory feedback in notification shade (auto-cancels after 3.5s)
-      final alertId = (id ?? _hashPrompt(formula)) + 700000;
+      final alertId = (id ?? _kActiveRecallNotificationId) + 700000;
       await _plugin.show(
         id: alertId,
         title: '🎉 Correct! $formula = $correctAnswer',
@@ -752,21 +753,34 @@ class NotificationService {
             DateTime.now().add(Duration(minutes: delayMin)));
         await prefs.setString(
             '$_kRecallDuePrefix$formula', dueAt.toIso8601String());
-        await _scheduleRecallAtTime(
-          formula: formula,
-          correctAnswer: correctAnswer,
-          dueAt: dueAt,
-        );
       } else {
         // All 8 stages done — mastered
         await prefs.setBool('$_kIsSolvedPrefix$formula', true);
         await _removePendingQueueEntry(formula);
         await notifyCalculationMastered(prompt: formula, answer: correctAnswer);
       }
+
+      // Promote next question if queue has more items!
+      final queue = prefs.getStringList(_kPendingQueue) ?? [];
+      if (queue.isNotEmpty) {
+        final nextParts = queue.first.split('|');
+        final nextFormula = nextParts[0];
+        final nextAns = nextParts.length > 1 ? nextParts[1] : '';
+        await prefs.setString('currently_displayed_recall_formula', nextFormula);
+        final nextDue = _applyQuietHours(DateTime.now().add(const Duration(minutes: 60)));
+        await prefs.setString('$_kRecallDuePrefix$nextFormula', nextDue.toIso8601String());
+        await _scheduleRecallAtTime(
+          formula: nextFormula,
+          correctAnswer: nextAns,
+          dueAt: nextDue,
+        );
+      } else {
+        await prefs.remove('currently_displayed_recall_formula');
+      }
     } else {
       // ❌ Wrong — reshow with error
       await _showStickyRecallNotification(
-        id: id ?? _hashPrompt(formula),
+        id: _kActiveRecallNotificationId,
         formula: formula,
         correctAnswer: correctAnswer,
         silent: true,
@@ -807,18 +821,31 @@ class NotificationService {
       {bool postImmediately = false}) async {
     if (mistakes.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
-    final queue = prefs.getStringList(_kPendingQueue) ?? [];
+    final rawQueue = prefs.getStringList(_kPendingQueue) ?? [];
     final now = DateTime.now();
 
+    // 1. Clean and deduplicate existing queue
+    final List<String> queue = [];
+    final Set<String> seen = {};
+    for (final item in rawQueue) {
+      final parts = item.split('|');
+      if (parts.length < 2) continue;
+      final f = cleanPrompt(parts[0]);
+      if (f.isNotEmpty && !seen.contains(f) && !_isSolved(prefs, f)) {
+        seen.add(f);
+        queue.add('$f|${parts[1].trim()}');
+      }
+    }
+
+    // 2. Add new unique mistakes
     for (final m in mistakes) {
       final formula = cleanPrompt(m.prompt);
       if (formula.isEmpty) continue;
       if (_isSolved(prefs, formula)) continue;
 
-      // Deduplication
-      final existing = queue.indexWhere((e) => e.startsWith('$formula|'));
-      if (existing < 0) {
-        queue.add('$formula|${m.correctAnswer}');
+      if (!seen.contains(formula)) {
+        seen.add(formula);
+        queue.add('$formula|${m.correctAnswer.trim()}');
       }
 
       if (!prefs.containsKey('$_kRepStagePrefix$formula')) {
@@ -826,27 +853,30 @@ class NotificationService {
         await prefs.setString(
             '$_kRecallOriginalPrefix$formula', now.toIso8601String());
       }
+    }
+    await prefs.setStringList(_kPendingQueue, queue);
+
+    // 3. Strict 1-by-1 serial delivery: schedule/show ONLY active (first) formula
+    if (queue.isNotEmpty) {
+      final activeParts = queue.first.split('|');
+      final activeFormula = activeParts[0];
+      final activeAns = activeParts.length > 1 ? activeParts[1] : '';
+      await prefs.setString('currently_displayed_recall_formula', activeFormula);
 
       if (postImmediately) {
         await _showStickyRecallNotification(
-          id: _hashPrompt(formula),
-          formula: formula,
-          correctAnswer: m.correctAnswer,
+          id: _kActiveRecallNotificationId,
+          formula: activeFormula,
+          correctAnswer: activeAns,
         );
       } else {
         final dueAt =
             _applyQuietHours(now.add(const Duration(minutes: 60)));
         await prefs.setString(
-            '$_kRecallDuePrefix$formula', dueAt.toIso8601String());
+            '$_kRecallDuePrefix$activeFormula', dueAt.toIso8601String());
         await _scheduleRecallAtTime(
-            formula: formula, correctAnswer: m.correctAnswer, dueAt: dueAt);
+            formula: activeFormula, correctAnswer: activeAns, dueAt: dueAt);
       }
-    }
-    await prefs.setStringList(_kPendingQueue, queue);
-    if (prefs.getString('currently_displayed_recall_formula') == null &&
-        queue.isNotEmpty) {
-      final activeFormula = queue.first.split('|')[0];
-      await prefs.setString('currently_displayed_recall_formula', activeFormula);
     }
   }
 
@@ -885,29 +915,47 @@ class NotificationService {
         : applyQuietHoursGuard(now.add(Duration(minutes: delayMinutes)));
     await prefs.setString('$_kRecallDuePrefix$cleaned', dueAt.toIso8601String());
 
-    final queue = prefs.getStringList(_kPendingQueue) ?? [];
-    final entry = '$cleaned|$correctAnswer';
-    if (!queue.any((e) => e.startsWith('$cleaned|'))) {
+    final rawQueue = prefs.getStringList(_kPendingQueue) ?? [];
+    final List<String> queue = [];
+    final Set<String> seen = {};
+    for (final item in rawQueue) {
+      final parts = item.split('|');
+      if (parts.length < 2) continue;
+      final f = cleanPrompt(parts[0]);
+      if (f.isNotEmpty && !seen.contains(f) && !_isSolved(prefs, f)) {
+        seen.add(f);
+        queue.add('$f|${parts[1].trim()}');
+      }
+    }
+
+    final entry = '$cleaned|${correctAnswer.trim()}';
+    if (!seen.contains(cleaned)) {
+      seen.add(cleaned);
       queue.add(entry);
       await prefs.setStringList(_kPendingQueue, queue);
     }
 
-    if (prefs.getString('currently_displayed_recall_formula') == null) {
-      await prefs.setString('currently_displayed_recall_formula', cleaned);
+    final currentActive = prefs.getString('currently_displayed_recall_formula');
+    final bool isThisActive = currentActive == null || currentActive == cleaned;
+    if (currentActive == null && queue.isNotEmpty) {
+      await prefs.setString('currently_displayed_recall_formula', queue.first.split('|')[0]);
     }
 
-    if (postImmediately) {
-      await _showStickyRecallNotification(
-        id: _hashPrompt(cleaned),
-        formula: cleaned,
-        correctAnswer: correctAnswer,
-      );
-    } else {
-      await _scheduleRecallAtTime(
-        formula: cleaned,
-        correctAnswer: correctAnswer,
-        dueAt: dueAt,
-      );
+    // Serial 1-by-1: ONLY post or schedule if this question is the active (first) in queue!
+    if (isThisActive && queue.isNotEmpty && queue.first.split('|')[0] == cleaned) {
+      if (postImmediately) {
+        await _showStickyRecallNotification(
+          id: _kActiveRecallNotificationId,
+          formula: cleaned,
+          correctAnswer: correctAnswer,
+        );
+      } else {
+        await _scheduleRecallAtTime(
+          formula: cleaned,
+          correctAnswer: correctAnswer,
+          dueAt: dueAt,
+        );
+      }
     }
   }
 
@@ -917,9 +965,10 @@ class NotificationService {
     required String formula,
     required String correctAnswer,
     required DateTime dueAt,
+    int? id,
   }) async {
     if (!_isInitialized) return;
-    final id = _hashPrompt(formula);
+    final targetId = id ?? _kActiveRecallNotificationId;
     final payload = jsonEncode({
       'type': 'recall',
       'formula': formula,
@@ -928,19 +977,20 @@ class NotificationService {
 
     try {
       await _plugin.zonedSchedule(
-        id: id,
+        id: targetId,
         title: '📚 Revision: $formula = ?',
         body: 'Tap "✏️ Type Answer" below to solve here',
         scheduledDate: _tzFrom(dueAt),
-        notificationDetails: NotificationDetails(
+        notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
             _kRecallChannel,
             'Spaced Recall',
             importance: Importance.max,
             priority: Priority.max,
-            ongoing: true,
-            autoCancel: false,
-            additionalFlags: Int32List.fromList([34]),
+            ongoing: false,
+            autoCancel: true,
+            category: AndroidNotificationCategory.reminder,
+            groupKey: 'prepvanta_recall_group',
             dismissIsolate: NotificationDismissedIsolate.background,
             actions: <AndroidNotificationAction>[
               AndroidNotificationAction(
@@ -950,7 +1000,7 @@ class NotificationService {
                 cancelNotification: false,
                 allowGeneratedReplies: false,
                 inputs: <AndroidNotificationActionInput>[
-                  const AndroidNotificationActionInput(
+                  AndroidNotificationActionInput(
                     label: 'Type your answer…',
                     allowFreeFormInput: true,
                   ),
@@ -972,34 +1022,68 @@ class NotificationService {
   Future<void> rescheduleAllPendingMistakeAlarms() async {
     if (!_isInitialized) return;
     final prefs = await SharedPreferences.getInstance();
-    final queue = prefs.getStringList(_kPendingQueue) ?? [];
 
-    for (final entry in queue) {
-      final parts = entry.split('|');
+    // 1. Cancel any active notification
+    await cancelNotification(_kActiveRecallNotificationId);
+
+    // 2. Read and deduplicate queue
+    final rawQueue = prefs.getStringList(_kPendingQueue) ?? [];
+    final List<String> queue = [];
+    final Set<String> seen = {};
+    for (final item in rawQueue) {
+      final parts = item.split('|');
       if (parts.length < 2) continue;
-      final formula = parts[0];
-      final correctAnswer = parts[1];
-      if (_isSolved(prefs, formula)) continue;
-
-      final dueStr = prefs.getString('$_kRecallDuePrefix$formula');
-      DateTime dueAt;
-      if (dueStr != null) {
-        dueAt = DateTime.tryParse(dueStr) ??
-            DateTime.now().add(const Duration(hours: 1));
-      } else {
-        dueAt = DateTime.now().add(const Duration(hours: 1));
-      }
-
-      // If overdue by >10 min, trigger soon
-      if (dueAt
-          .isBefore(DateTime.now().subtract(const Duration(minutes: 10)))) {
-        dueAt = _applyQuietHours(
-            DateTime.now().add(const Duration(minutes: 2)));
-      }
-
-      await _scheduleRecallAtTime(
-          formula: formula, correctAnswer: correctAnswer, dueAt: dueAt);
+      final f = cleanPrompt(parts[0]);
+      if (f.isEmpty || seen.contains(f) || _isSolved(prefs, f)) continue;
+      seen.add(f);
+      queue.add('$f|${parts[1].trim()}');
     }
+    await prefs.setStringList(_kPendingQueue, queue);
+
+    if (queue.isEmpty) {
+      await prefs.remove('currently_displayed_recall_formula');
+      return;
+    }
+
+    // 3. Take ONLY the single active item (queue.first)
+    final parts = queue.first.split('|');
+    final formula = parts[0];
+    final correctAnswer = parts[1];
+    await prefs.setString('currently_displayed_recall_formula', formula);
+
+    // Respect snooze
+    final snoozeStr = prefs.getString('$_kSnoozeUntilPrefix$formula');
+    if (snoozeStr != null) {
+      final until = DateTime.tryParse(snoozeStr);
+      if (until != null && DateTime.now().isBefore(until)) {
+        await _scheduleRecallAtTime(
+          formula: formula,
+          correctAnswer: correctAnswer,
+          dueAt: until,
+        );
+        return;
+      }
+    }
+
+    final dueStr = prefs.getString('$_kRecallDuePrefix$formula');
+    DateTime dueAt;
+    if (dueStr != null) {
+      dueAt = DateTime.tryParse(dueStr) ??
+          DateTime.now().add(const Duration(hours: 1));
+    } else {
+      dueAt = DateTime.now().add(const Duration(hours: 1));
+    }
+
+    // If overdue by >10 min, trigger soon (only this ONE single question)
+    if (dueAt.isBefore(DateTime.now().subtract(const Duration(minutes: 10)))) {
+      dueAt = _applyQuietHours(DateTime.now().add(const Duration(minutes: 5)));
+    }
+
+    await _scheduleRecallAtTime(
+      formula: formula,
+      correctAnswer: correctAnswer,
+      dueAt: dueAt,
+    );
   }
 
   // ─────────────────────────────── FORCE POST ALL NOW ──────────────────────
@@ -1008,23 +1092,20 @@ class NotificationService {
     if (!_isInitialized) return 0;
     final prefs = await SharedPreferences.getInstance();
     final queue = prefs.getStringList(_kPendingQueue) ?? [];
-    int count = 0;
+    if (queue.isEmpty) return 0;
 
-    for (final entry in queue) {
-      final parts = entry.split('|');
-      if (parts.length < 2) continue;
-      final formula = parts[0];
-      final correctAnswer = parts[1];
-      if (_isSolved(prefs, formula)) continue;
+    final parts = queue.first.split('|');
+    if (parts.length < 2) return 0;
+    final formula = parts[0];
+    final correctAnswer = parts[1];
+    if (_isSolved(prefs, formula)) return 0;
 
-      await _showStickyRecallNotification(
-        id: _hashPrompt(formula),
-        formula: formula,
-        correctAnswer: correctAnswer,
-      );
-      count++;
-    }
-    return count;
+    await _showStickyRecallNotification(
+      id: _kActiveRecallNotificationId,
+      formula: formula,
+      correctAnswer: correctAnswer,
+    );
+    return 1;
   }
 
   // ─────────────────────────────── MASTERED ────────────────────────────────
@@ -1374,7 +1455,15 @@ class NotificationService {
   Future<void> _removePendingQueueEntry(String formula) async {
     final prefs = await SharedPreferences.getInstance();
     final queue = prefs.getStringList(_kPendingQueue) ?? [];
-    queue.removeWhere((e) => e.startsWith('$formula|'));
+    final target = cleanPrompt(formula);
+    queue.removeWhere((e) => cleanPrompt(e.split('|')[0]) == target || e == formula);
     await prefs.setStringList(_kPendingQueue, queue);
+
+    if (queue.isNotEmpty) {
+      final nextFormula = queue.first.split('|')[0];
+      await prefs.setString('currently_displayed_recall_formula', nextFormula);
+    } else {
+      await prefs.remove('currently_displayed_recall_formula');
+    }
   }
 }
