@@ -31,6 +31,7 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
   bool _flashcardRevealed = false;
   String? _copiedFormulaId;
   final Set<String> _expandedShortcuts = {};
+  bool _browseAllConcepts = false;
 
   final List<String> _quickFilterKeywords = [
     'Intercept',
@@ -347,6 +348,7 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
 
     final allFormulas = ConceptFormulaRepository.formulas;
     final totalQuestions = allFormulas.fold(0, (sum, f) => sum + f.practiceQuestions.length);
+    final bool isBrowsingSpecificPillar = _selectedPillar != null || query.isNotEmpty || _onlyShowStarred || _browseAllConcepts;
 
     return Scaffold(
       backgroundColor: const Color(0xFF090D16),
@@ -576,112 +578,198 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
 
                   const SizedBox(height: 8),
 
-                  // 5. Pillars Category Chips (5 Pillars + Saved Filter)
-                  SizedBox(
-                    height: 40,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      physics: const BouncingScrollPhysics(),
-                      children: [
-                        _buildCategoryChip(
-                          label: 'All Topics (${allFormulas.length})',
-                          icon: Icons.all_inclusive_rounded,
-                          isSelected: _selectedPillar == null && !_onlyShowStarred,
-                          onTap: () => setState(() {
-                            _selectedPillar = null;
-                            _onlyShowStarred = false;
-                          }),
-                          color: AppTheme.accent,
-                        ),
-                        ...ConceptPillar.values.map((pillar) {
-                          final pillarCount = ConceptFormulaRepository.getByPillar(pillar).length;
-                          return _buildCategoryChip(
-                            label: '${pillar.ordinalLabel.split(" ")[0]} ${pillar.shortName} ($pillarCount)',
-                            icon: _getPillarIcon(pillar),
-                            isSelected: _selectedPillar == pillar,
-                            onTap: () => setState(() {
-                              _selectedPillar = _selectedPillar == pillar ? null : pillar;
-                              _onlyShowStarred = false;
-                            }),
-                            color: _getPillarColor(pillar),
-                          );
-                        }),
-                        _buildCategoryChip(
-                          label: '★ Saved (${state.starredFormulas.length})',
-                          icon: Icons.bookmark_rounded,
-                          isSelected: _onlyShowStarred,
-                          onTap: () => setState(() {
-                            _onlyShowStarred = !_onlyShowStarred;
-                            if (_onlyShowStarred) _selectedPillar = null;
-                          }),
-                          color: Colors.amber,
-                        ),
-                      ],
-                    ),
-                  ),
+                  // If a specific topic is selected: show Selected Topic Header Card
+                  if (_selectedPillar != null)
+                    _buildSelectedTopicHeader(_selectedPillar!, items.length),
 
-                  const SizedBox(height: 8),
-
-                  // 6. Active results counter
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'SHOWING ${items.length} ${items.length == 1 ? "CONCEPT" : "CONCEPTS"}${_selectedPillar != null ? " • ${_selectedPillar!.displayName.toUpperCase()}" : ""}',
-                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Colors.white38, letterSpacing: 0.6),
-                        ),
-                        if (query.isNotEmpty || _selectedPillar != null || _onlyShowStarred)
+                  // Active results counter & breadcrumb (when viewing specific topic, search, starred, or browse all)
+                  if (isBrowsingSpecificPillar)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'SHOWING ${items.length} ${items.length == 1 ? "CONCEPT" : "CONCEPTS"}${_selectedPillar != null ? " • ${_selectedPillar!.displayName.toUpperCase()}" : (_onlyShowStarred ? " • STARRED" : (query.isNotEmpty ? " • SEARCH RESULTS" : ""))}',
+                            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Colors.white38, letterSpacing: 0.6),
+                          ),
                           InkWell(
                             onTap: () => setState(() {
                               _searchController.clear();
                               _selectedPillar = null;
                               _onlyShowStarred = false;
+                              _browseAllConcepts = false;
                             }),
-                            child: const Text(
-                              'Clear Filters',
-                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.accent),
+                            child: Row(
+                              children: const [
+                                Icon(Icons.grid_view_rounded, size: 12, color: AppTheme.accent),
+                                SizedBox(width: 4),
+                                Text(
+                                  'All Topics',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.accent),
+                                ),
+                              ],
                             ),
                           ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
 
                   const SizedBox(height: 6),
                 ],
               ),
             ),
 
-            // 7. Formula / Concept Cards List (All in the same unified scroll!)
-            if (items.isEmpty)
+            // IF on Main All-Topics Overview: Show the Topic Cards Grid!
+            if (!isBrowsingSpecificPillar) ...[
+              // Header for Topic Cards Grid
               SliverToBoxAdapter(
-                child: _buildEmptyState(query),
-              )
-            else if (_viewMode == 0)
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, idx) => _buildDetailedFormulaCard(items[idx], state),
-                    childCount: items.length,
-                  ),
-                ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, idx) => _buildCheatSheetFormulaCard(items[idx], state),
-                    childCount: items.length,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 4,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              color: AppTheme.accent,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            '📚 All Math Topics & Pillars',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accent.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppTheme.accent.withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          '${ConceptPillar.values.length} TOPICS',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.accent,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
 
+              // All 11 Topic Cards in a Beautiful 2-Column Grid
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 2, 16, 18),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 1.18,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, idx) => _buildTopicPillarCard(ConceptPillar.values[idx]),
+                    childCount: ConceptPillar.values.length,
+                  ),
+                ),
+              ),
+
+              // Bottom Option to browse all 105 concepts in one list if desired
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 48),
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white70,
+                      side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      backgroundColor: const Color(0xFF13192B),
+                    ),
+                    icon: const Icon(Icons.list_alt_rounded, size: 18, color: AppTheme.accent),
+                    label: const Text(
+                      'Browse All 105 Concepts in One List',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    onPressed: () => setState(() => _browseAllConcepts = true),
+                  ),
+                ),
+              ),
+            ] else ...[
+              // TOPIC / SEARCH / STARRED CONCEPTS LIST
+              if (items.isEmpty)
+                SliverToBoxAdapter(
+                  child: _buildEmptyState(query),
+                )
+              else if (_viewMode == 0)
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, idx) => _buildDetailedFormulaCard(items[idx], state),
+                      childCount: items.length,
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, idx) => _buildCheatSheetFormulaCard(items[idx], state),
+                      childCount: items.length,
+                    ),
+                  ),
+                ),
+
+              // Bottom Return Button
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 48),
+                  child: Center(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: AppTheme.accent.withValues(alpha: 0.5)),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        backgroundColor: const Color(0xFF13192B),
+                      ),
+                      icon: const Icon(Icons.grid_view_rounded, size: 16, color: AppTheme.accent),
+                      label: const Text(
+                        '← Back to All Topics (सभी 11 टॉपिक्स देखें)',
+                        style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _selectedPillar = null;
+                          _browseAllConcepts = false;
+                          _searchController.clear();
+                          _onlyShowStarred = false;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
+
             const SliverToBoxAdapter(
-              child: SizedBox(height: 48),
+              child: SizedBox(height: 32),
             ),
           ],
         ),
@@ -853,6 +941,280 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  String _getPillarHindiName(ConceptPillar pillar) {
+    switch (pillar) {
+      case ConceptPillar.linesAndAngle:
+        return 'रेखाएँ एवं कोण';
+      case ConceptPillar.quadrilaterals:
+        return 'चतुर्भुज';
+      case ConceptPillar.circle:
+        return 'वृत्त';
+      case ConceptPillar.mensuration:
+        return 'क्षेत्रमिति 2D & 3D';
+      case ConceptPillar.triangles:
+        return 'त्रिभुज';
+      case ConceptPillar.arithmeticProgression:
+        return 'समांतर श्रेणी (A.P.)';
+      case ConceptPillar.fractionPercentage:
+        return 'भिन्न एवं प्रतिशत';
+      case ConceptPillar.algebra:
+        return 'बीजगणित';
+      case ConceptPillar.trigonometry:
+        return 'त्रिकोणमिति';
+      case ConceptPillar.squaresAndCubes:
+        return 'वर्ग, घन एवं मूल';
+      case ConceptPillar.heightAndDistance:
+        return 'ऊंचाई एवं दूरी';
+    }
+  }
+
+  Widget _buildSelectedTopicHeader(ConceptPillar pillar, int conceptCount) {
+    final color = _getPillarColor(pillar);
+    final icon = _getPillarIcon(pillar);
+    final formulas = ConceptFormulaRepository.getByPillar(pillar);
+    final totalQ = formulas.fold(0, (sum, f) => sum + f.practiceQuestions.length);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            color.withValues(alpha: 0.22),
+            const Color(0xFF13192B),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Back Button to return to all topics
+              InkWell(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  setState(() {
+                    _selectedPillar = null;
+                    _browseAllConcepts = false;
+                  });
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.arrow_back_rounded, size: 14, color: Colors.white),
+                      SizedBox(width: 5),
+                      Text(
+                        'All Topics',
+                        style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: color.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  pillar.ordinalLabel.toUpperCase(),
+                  style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: color.withValues(alpha: 0.45)),
+                ),
+                child: Icon(icon, color: color, size: 26),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      pillar.displayName,
+                      style: const TextStyle(
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _getPillarHindiName(pillar),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: color,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '$conceptCount Concepts • $totalQ Solved Practice MCQs',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white.withValues(alpha: 0.65),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopicPillarCard(ConceptPillar pillar) {
+    final color = _getPillarColor(pillar);
+    final icon = _getPillarIcon(pillar);
+    final formulasInPillar = ConceptFormulaRepository.getByPillar(pillar);
+    final count = formulasInPillar.length;
+    final hindiName = _getPillarHindiName(pillar);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () {
+        HapticFeedback.lightImpact();
+        setState(() {
+          _selectedPillar = pillar;
+          _browseAllConcepts = false;
+          _onlyShowStarred = false;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              color.withValues(alpha: 0.16),
+              const Color(0xFF13192B),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: color.withValues(alpha: 0.35), width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: color.withValues(alpha: 0.4)),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: color.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    pillar.ordinalLabel.split(' ')[0], // '1st', '2nd', etc.
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  pillar.shortName.split(' (')[0],
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    height: 1.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  hindiName,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Text(
+                  '$count Concepts',
+                  style: const TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w700),
+                ),
+                const Spacer(),
+                Icon(Icons.arrow_forward_ios_rounded, size: 11, color: color),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
