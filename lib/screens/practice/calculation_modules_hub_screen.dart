@@ -32,6 +32,11 @@ class _CalculationModulesHubScreenState extends State<CalculationModulesHubScree
     'Fractions',
     'Pythagorean Triples',
     'Product Crossroads',
+    'LCM & HCF',
+    'Divisibility',
+    'Number System',
+    'Square Root & Surds',
+    'Trigonometry',
   ];
 
   @override
@@ -144,6 +149,21 @@ class _CalculationModulesHubScreenState extends State<CalculationModulesHubScree
     }
     if (_selectedCategory == 'Product Crossroads') {
       return allTopics.where((t) => t.type == TopicType.productChauraha).toList();
+    }
+    if (_selectedCategory == 'LCM & HCF') {
+      return allTopics.where((t) => t.type == TopicType.lcmHcf).toList();
+    }
+    if (_selectedCategory == 'Divisibility') {
+      return allTopics.where((t) => t.type == TopicType.divisibility).toList();
+    }
+    if (_selectedCategory == 'Number System') {
+      return allTopics.where((t) => t.type == TopicType.numberSystem).toList();
+    }
+    if (_selectedCategory == 'Square Root & Surds') {
+      return allTopics.where((t) => t.type == TopicType.squareRootSurds).toList();
+    }
+    if (_selectedCategory == 'Trigonometry') {
+      return allTopics.where((t) => t.type == TopicType.trigonometry).toList();
     }
     return allTopics;
   }
@@ -565,6 +585,16 @@ class _CalculationModulesHubScreenState extends State<CalculationModulesHubScree
         return const Color(0xFFEF4444);
       case TopicType.productChauraha:
         return const Color(0xFFF59E0B);
+      case TopicType.lcmHcf:
+        return const Color(0xFF06B6D4);
+      case TopicType.divisibility:
+        return const Color(0xFFEAB308);
+      case TopicType.numberSystem:
+        return const Color(0xFF10B981);
+      case TopicType.squareRootSurds:
+        return const Color(0xFFF97316);
+      case TopicType.trigonometry:
+        return const Color(0xFFEC4899);
       case TopicType.custom:
         return const Color(0xFF06B6D4);
     }
@@ -592,6 +622,16 @@ class _CalculationModulesHubScreenState extends State<CalculationModulesHubScree
         return Icons.bolt_rounded;
       case TopicType.productChauraha:
         return Icons.alt_route_rounded;
+      case TopicType.lcmHcf:
+        return Icons.hub_rounded;
+      case TopicType.divisibility:
+        return Icons.fact_check_rounded;
+      case TopicType.numberSystem:
+        return Icons.tag_rounded;
+      case TopicType.squareRootSurds:
+        return Icons.functions_rounded;
+      case TopicType.trigonometry:
+        return Icons.architecture_rounded;
       case TopicType.custom:
         return Icons.calculate_rounded;
     }

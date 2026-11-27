@@ -1,5 +1,10 @@
 import 'dart:math';
 import '../models/math_models.dart';
+import 'lcm_hcf_concept_data.dart';
+import 'divisibility_rules_concept_data.dart';
+import 'number_system_concept_data.dart';
+import 'square_root_surds_concept_data.dart';
+import 'trigonometry_solutions_data.dart';
 
 class DynamicQuestionEngine {
   static final Random _rnd = Random();
@@ -36,6 +41,26 @@ class DynamicQuestionEngine {
       if (!_recentlyServedPrompts.contains(q.prompt) && !result.any((item) => item.prompt == q.prompt)) {
         _recentlyServedPrompts.add(q.prompt);
         result.add(q);
+      }
+    }
+
+    // Safety fallback: If pool ran out of strictly unique prompts, fill remainder up to count
+    if (result.length < count) {
+      int fillAttempts = 0;
+      while (result.length < count && fillAttempts < 50) {
+        fillAttempts++;
+        QuestionModel q = _createSingleQuestion(type, difficultyLevel);
+        result.add(QuestionModel(
+          id: '${q.id}_f$fillAttempts',
+          topicId: q.topicId,
+          prompt: q.prompt,
+          correctAnswer: q.correctAnswer,
+          options: q.options,
+          explanation: q.explanation,
+          difficulty: q.difficulty,
+          examBadge: q.examBadge,
+          diagramType: q.diagramType,
+        ));
       }
     }
 
@@ -656,6 +681,26 @@ class DynamicQuestionEngine {
             explanation: '⚡ Reverse table: $divisor × $quotient = $dividend ➔ Quotient = $quotient',
           );
         }
+
+      case TopicType.lcmHcf:
+        final lcmList = LcmHcfConceptData.questions;
+        return lcmList[_rnd.nextInt(lcmList.length)];
+
+      case TopicType.divisibility:
+        final divList = DivisibilityRulesConceptData.questions;
+        return divList[_rnd.nextInt(divList.length)];
+
+      case TopicType.numberSystem:
+        final numList = NumberSystemConceptData.questions;
+        return numList[_rnd.nextInt(numList.length)];
+
+      case TopicType.squareRootSurds:
+        final sqrList = SquareRootSurdsConceptData.questions;
+        return sqrList[_rnd.nextInt(sqrList.length)];
+
+      case TopicType.trigonometry:
+        final trigList = TrigonometrySolutionsData.questions;
+        return trigList[_rnd.nextInt(trigList.length)];
 
       default:
         return QuestionModel(

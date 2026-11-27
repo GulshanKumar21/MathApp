@@ -16,6 +16,11 @@ import '../../services/notification_service.dart';
 import '../../services/voice_reciter_helper.dart';
 import '../../widgets/voice_studio_modal.dart';
 import '../../data/fraction_percentage_concept_formulas.dart';
+import '../../data/lcm_hcf_concept_data.dart';
+import '../../data/divisibility_rules_concept_data.dart';
+import '../../data/number_system_concept_data.dart';
+import '../../data/square_root_surds_concept_data.dart';
+import '../../data/trigonometry_solutions_data.dart';
 
 class LearnModeScreen extends StatefulWidget {
   final TopicModel topic;
@@ -410,6 +415,16 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
         return _buildTriplesView();
       case TopicType.hardMultiplier:
         return _buildHardMultiplierView();
+      case TopicType.lcmHcf:
+        return _buildLcmHcfView();
+      case TopicType.divisibility:
+        return _buildDivisibilityView();
+      case TopicType.numberSystem:
+        return _buildNumberSystemView();
+      case TopicType.squareRootSurds:
+        return _buildSquareRootSurdsView();
+      case TopicType.trigonometry:
+        return _buildTrigonometryView();
       default:
         return _buildGenericTopicView(widget.topic);
     }
@@ -2734,6 +2749,364 @@ class _LearnModeScreenState extends State<LearnModeScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // --- PDF INTEGRATION CONCEPT VIEWS ---
+
+  Widget _buildLcmHcfView() {
+    return _buildConceptRulesListView(
+      title: 'LCM & HCF Master Guide',
+      subtitle: 'Bilingual Core Rules, Remainder Models & 98 Exam MCQs',
+      accentColor: const Color(0xFF06B6D4),
+      icon: Icons.hub_rounded,
+      rules: LcmHcfConceptData.coreRules,
+      practiceButtonLabel: '⚡ Start LCM & HCF Practice Drill',
+    );
+  }
+
+  Widget _buildDivisibilityView() {
+    return _buildConceptRulesListView(
+      title: 'Rule of Divisibility Guide',
+      subtitle: '2–16, 72, 88, 144, Digital Sum, Repeating Patterns & 59 PYQs',
+      accentColor: const Color(0xFFEAB308),
+      icon: Icons.fact_check_rounded,
+      rules: DivisibilityRulesConceptData.coreRules,
+      practiceButtonLabel: '⚡ Start Divisibility Practice Drill',
+    );
+  }
+
+  Widget _buildNumberSystemView() {
+    return _buildConceptRulesListView(
+      title: 'Number System Formula Hub',
+      subtitle: 'Classifications, Series Sums, Unit Digit Cyclicity & 205 MCQs',
+      accentColor: const Color(0xFF10B981),
+      icon: Icons.tag_rounded,
+      rules: NumberSystemConceptData.coreRules,
+      practiceButtonLabel: '⚡ Start Number System Practice Drill',
+    );
+  }
+
+  Widget _buildSquareRootSurdsView() {
+    return _buildConceptRulesListView(
+      title: 'Square Root & Surds Hub',
+      subtitle: 'Infinite Radicals, Alternating Signs, Nested Products & 79 MCQs',
+      accentColor: const Color(0xFFF97316),
+      icon: Icons.functions_rounded,
+      rules: SquareRootSurdsConceptData.coreRules,
+      practiceButtonLabel: '⚡ Start Square Root & Surds Drill',
+    );
+  }
+
+  Widget _buildTrigonometryView() {
+    return _buildConceptRulesListView(
+      title: 'Trigonometry Exam Solutions Hub',
+      subtitle: 'Ratios, Angles, ASTC Quadrants, Identities & 263 PYQs',
+      accentColor: const Color(0xFFEC4899),
+      icon: Icons.architecture_rounded,
+      rules: TrigonometrySolutionsData.coreRules,
+      practiceButtonLabel: '⚡ Start Trigonometry Practice Drill',
+    );
+  }
+
+  Widget _buildConceptRulesListView({
+    required String title,
+    required String subtitle,
+    required Color accentColor,
+    required IconData icon,
+    required List<Map<String, dynamic>> rules,
+    required String practiceButtonLabel,
+  }) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+      children: [
+        // Top Banner Card
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                accentColor.withValues(alpha: 0.25),
+                AppTheme.surfaceElevated,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: accentColor.withValues(alpha: 0.4), width: 1.2),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: accentColor, size: 26),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.75),
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accentColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 3,
+                  ),
+                  icon: const Icon(Icons.bolt_rounded, size: 20),
+                  label: Text(
+                    practiceButtonLabel,
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.3),
+                  ),
+                  onPressed: _startGenericQuiz,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+
+        // Section Title
+        Row(
+          children: [
+            Container(
+              width: 4,
+              height: 18,
+              decoration: BoxDecoration(
+                color: accentColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Essential Concepts & Exam Rules (${rules.length})',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Rules List
+        ...rules.map((rule) {
+          final tag = rule['tag'] as String? ?? 'RULE';
+          final rTitle = rule['title'] as String? ?? '';
+          final formula = rule['formula'] as String? ?? '';
+          final hindi = rule['hindi'] as String? ?? '';
+          final examples = rule['examples'] as String? ?? '';
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceElevated,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.surfaceLight.withValues(alpha: 0.6)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Tag Pill
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: accentColor.withValues(alpha: 0.4), width: 1),
+                  ),
+                  child: Text(
+                    tag,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: accentColor,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Rule Title
+                Text(
+                  rTitle,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Formula Box
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.functions_rounded, size: 14, color: accentColor),
+                          const SizedBox(width: 6),
+                          const Text(
+                            'FORMULA / नियम',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white54,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        formula,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.gold,
+                          fontFamily: 'monospace',
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Hindi Concept Explanation
+                if (hindi.isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                    ),
+                    child: Text(
+                      hindi,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white70,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+
+                // Examples Box
+                if (examples.isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: accentColor.withValues(alpha: 0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.lightbulb_outline_rounded, size: 14, color: accentColor),
+                            const SizedBox(width: 6),
+                            Text(
+                              'EXAM SHORTCUT / EXAMPLE',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: accentColor,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          examples,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.white,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }),
+
+        // Bottom CTA
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.surfaceElevated,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(color: accentColor.withValues(alpha: 0.5)),
+              ),
+            ),
+            icon: Icon(Icons.play_circle_fill_rounded, color: accentColor),
+            label: Text(
+              practiceButtonLabel,
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: accentColor),
+            ),
+            onPressed: _startGenericQuiz,
+          ),
+        ),
+      ],
     );
   }
 }

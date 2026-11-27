@@ -716,6 +716,46 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         'color': const Color(0xFF34D399), // Mint Emerald
         'tag': '% CONVERT',
       },
+      {
+        'title': 'LCM & HCF',
+        'sub': 'Fractions, Co-prime & 4 Remainder Rules',
+        'type': TopicType.lcmHcf,
+        'icon': Icons.hub_rounded,
+        'color': const Color(0xFF06B6D4), // Cyan Accent
+        'tag': 'LCM & HCF',
+      },
+      {
+        'title': 'Divisibility Rules',
+        'sub': '2–16, 72, 88, 144 & Remainder Rules',
+        'type': TopicType.divisibility,
+        'icon': Icons.fact_check_rounded,
+        'color': const Color(0xFFEAB308), // Amber Gold
+        'tag': 'DIVISIBILITY',
+      },
+      {
+        'title': 'Number System',
+        'sub': 'Unit Digit, Series Σn & Trailing Zeroes',
+        'type': TopicType.numberSystem,
+        'icon': Icons.tag_rounded,
+        'color': const Color(0xFF10B981), // Emerald Green
+        'tag': 'NUM SYSTEM',
+      },
+      {
+        'title': 'Square Root & Surds',
+        'sub': 'Surds, Infinite Radicals & Roots',
+        'type': TopicType.squareRootSurds,
+        'icon': Icons.functions_rounded,
+        'color': const Color(0xFFF97316), // Vibrant Orange
+        'tag': 'SURDS & √',
+      },
+      {
+        'title': 'Trigonometry',
+        'sub': 'Ratios, Triplets, Quadrants & Maxima',
+        'type': TopicType.trigonometry,
+        'icon': Icons.architecture_rounded,
+        'color': const Color(0xFFEC4899), // Pink Violet
+        'tag': 'TRIGONOMETRY',
+      },
     ];
 
     return Container(

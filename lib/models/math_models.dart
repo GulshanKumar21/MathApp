@@ -11,6 +11,11 @@ enum TopicType {
   subtraction,
   division,
   productChauraha, // ✖️ Important Products & Multiplier Crossroads (108, 144, 180, Base 25)
+  lcmHcf, // 🎯 LCM & HCF (Fractions, Co-prime Ratios & 4 Remainder Models)
+  divisibility, // ⚡ Rule of Divisibility (2–16, 72, 88, 144, Digital Sum)
+  numberSystem, // 🔢 Number System (Basic, Series, Unit Digit, Trailing Zeroes)
+  squareRootSurds, // 📐 Square Root & Surds (Infinite Radicals, Surds & Perfect Squares)
+  trigonometry, // 📐 Trigonometry (Ratios, Triplets, Quadrants, Identities & Maxima)
   custom,
 }
 
