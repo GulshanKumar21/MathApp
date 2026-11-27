@@ -1,6 +1,7 @@
 // ignore_for_file: depend_on_referenced_packages
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -608,7 +609,7 @@ class NotificationService {
       'correctAnswer': correctAnswer,
     });
 
-    final targetId = id ?? _kActiveRecallNotificationId;
+    final targetId = id ?? getNotificationIdForPrompt(formula);
 
     final androidDetails = AndroidNotificationDetails(
       _kRecallChannel,
@@ -616,10 +617,10 @@ class NotificationService {
       channelDescription: 'PrepVanta spaced revision reminders',
       importance: Importance.max,
       priority: Priority.max,
-      ongoing: false,
-      autoCancel: true,
+      ongoing: true,
+      autoCancel: false,
+      additionalFlags: Int32List.fromList([34]),
       category: AndroidNotificationCategory.reminder,
-      groupKey: 'prepvanta_recall_group',
       dismissIsolate: NotificationDismissedIsolate.background,
       playSound: !silent,
       enableVibration: !silent,
@@ -652,7 +653,7 @@ class NotificationService {
 
   // ─────────────────────────────── HANDLE DISMISSED ────────────────────────
 
-  /// Called when notification is dismissed by user swipe. Snoozes gently for 1 hour.
+  /// Called when notification is dismissed. Immediately re-posts right at present time.
   Future<void> handleNotificationDismissed(int? id, String? payload) async {
     if (payload == null || payload.isEmpty) return;
 
@@ -671,21 +672,13 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     if (_isSolved(prefs, formula)) return;
 
-    // Respect user swipe: gracefully snooze for 1 hour (no instant re-post, no duplicate spam)
-    final snoozeUntil = _applyQuietHours(DateTime.now().add(const Duration(hours: 1)));
-    await prefs.setString('$_kSnoozeUntilPrefix$formula', snoozeUntil.toIso8601String());
-    await prefs.setString('$_kRecallDuePrefix$formula', snoozeUntil.toIso8601String());
-
-    if (id != null) {
-      await _plugin.cancel(id: id);
-      await _plugin.cancel(id: id + 500000);
-    }
-    await _plugin.cancel(id: _kActiveRecallNotificationId);
-
-    await _scheduleRecallAtTime(
+    // Immediately re-post at present time!
+    final notifId = id ?? getNotificationIdForPrompt(formula);
+    await _showStickyRecallNotification(
+      id: notifId,
       formula: formula,
       correctAnswer: correctAnswer,
-      dueAt: snoozeUntil,
+      silent: true,
     );
   }
 
@@ -706,30 +699,27 @@ class NotificationService {
     final correctAnswer = (data['correctAnswer'] as String?) ?? '';
     if (formula.isEmpty) return;
 
+    final targetId = id ?? getNotificationIdForPrompt(formula);
+
     if (_isAnswerCorrect(typedAnswer, correctAnswer)) {
       // ✅ Correct
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('$_kIsSolvedPrefix$formula', true);
 
-      if (id != null) {
-        await _plugin.cancel(id: id);
-        await _plugin.cancel(id: id + 500000);
-      }
-      await cancelNotification(_kActiveRecallNotificationId);
       await _removePendingQueueEntry(formula);
 
-      // Brief celebratory feedback in notification shade (auto-cancels after 3.5s)
-      final alertId = (id ?? _kActiveRecallNotificationId) + 700000;
+      // CRITICAL FIX: Update the EXACT SAME targetId to stop the RemoteInput spinner!
       await _plugin.show(
-        id: alertId,
+        id: targetId,
         title: '🎉 Correct! $formula = $correctAnswer',
         body: 'Mistake resolved! Revision schedule updated.',
         notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
-            _kGeneralChannel,
-            'General',
+            _kRecallChannel,
+            'Spaced Recall',
             importance: Importance.high,
             priority: Priority.high,
+            ongoing: false,
             autoCancel: true,
             timeoutAfter: 3500,
           ),
@@ -778,9 +768,9 @@ class NotificationService {
         await prefs.remove('currently_displayed_recall_formula');
       }
     } else {
-      // ❌ Wrong — reshow with error
+      // ❌ Wrong — reshow with error on the EXACT SAME targetId to stop spinner and refresh prompt
       await _showStickyRecallNotification(
-        id: _kActiveRecallNotificationId,
+        id: targetId,
         formula: formula,
         correctAnswer: correctAnswer,
         silent: true,
@@ -856,26 +846,34 @@ class NotificationService {
     }
     await prefs.setStringList(_kPendingQueue, queue);
 
-    // 3. Strict 1-by-1 serial delivery: schedule/show ONLY active (first) formula
     if (queue.isNotEmpty) {
-      final activeParts = queue.first.split('|');
-      final activeFormula = activeParts[0];
-      final activeAns = activeParts.length > 1 ? activeParts[1] : '';
-      await prefs.setString('currently_displayed_recall_formula', activeFormula);
+      await prefs.setString('currently_displayed_recall_formula', queue.first.split('|')[0]);
+    }
+
+    // 3. Post / schedule every unique mistake together ("sb ko ak sath hi bhejo")
+    for (final item in queue) {
+      final parts = item.split('|');
+      final formula = parts[0];
+      final ans = parts.length > 1 ? parts[1] : '';
+      final notifId = getNotificationIdForPrompt(formula);
 
       if (postImmediately) {
         await _showStickyRecallNotification(
-          id: _kActiveRecallNotificationId,
-          formula: activeFormula,
-          correctAnswer: activeAns,
+          id: notifId,
+          formula: formula,
+          correctAnswer: ans,
         );
       } else {
         final dueAt =
             _applyQuietHours(now.add(const Duration(minutes: 60)));
         await prefs.setString(
-            '$_kRecallDuePrefix$activeFormula', dueAt.toIso8601String());
+            '$_kRecallDuePrefix$formula', dueAt.toIso8601String());
         await _scheduleRecallAtTime(
-            formula: activeFormula, correctAnswer: activeAns, dueAt: dueAt);
+          id: notifId,
+          formula: formula,
+          correctAnswer: ans,
+          dueAt: dueAt,
+        );
       }
     }
   }
@@ -968,7 +966,7 @@ class NotificationService {
     int? id,
   }) async {
     if (!_isInitialized) return;
-    final targetId = id ?? _kActiveRecallNotificationId;
+    final targetId = id ?? getNotificationIdForPrompt(formula);
     final payload = jsonEncode({
       'type': 'recall',
       'formula': formula,
@@ -981,18 +979,18 @@ class NotificationService {
         title: '📚 Revision: $formula = ?',
         body: 'Tap "✏️ Type Answer" below to solve here',
         scheduledDate: _tzFrom(dueAt),
-        notificationDetails: const NotificationDetails(
+        notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
             _kRecallChannel,
             'Spaced Recall',
             importance: Importance.max,
             priority: Priority.max,
-            ongoing: false,
-            autoCancel: true,
+            ongoing: true,
+            autoCancel: false,
+            additionalFlags: Int32List.fromList([34]),
             category: AndroidNotificationCategory.reminder,
-            groupKey: 'prepvanta_recall_group',
             dismissIsolate: NotificationDismissedIsolate.background,
-            actions: <AndroidNotificationAction>[
+            actions: const <AndroidNotificationAction>[
               AndroidNotificationAction(
                 'SUBMIT_ANSWER',
                 '✏️ Type Answer',
@@ -1094,18 +1092,23 @@ class NotificationService {
     final queue = prefs.getStringList(_kPendingQueue) ?? [];
     if (queue.isEmpty) return 0;
 
-    final parts = queue.first.split('|');
-    if (parts.length < 2) return 0;
-    final formula = parts[0];
-    final correctAnswer = parts[1];
-    if (_isSolved(prefs, formula)) return 0;
+    int posted = 0;
+    for (final item in queue) {
+      final parts = item.split('|');
+      if (parts.length < 2) continue;
+      final formula = parts[0];
+      final correctAnswer = parts[1];
+      if (_isSolved(prefs, formula)) continue;
 
-    await _showStickyRecallNotification(
-      id: _kActiveRecallNotificationId,
-      formula: formula,
-      correctAnswer: correctAnswer,
-    );
-    return 1;
+      final notifId = getNotificationIdForPrompt(formula);
+      await _showStickyRecallNotification(
+        id: notifId,
+        formula: formula,
+        correctAnswer: correctAnswer,
+      );
+      posted++;
+    }
+    return posted;
   }
 
   // ─────────────────────────────── MASTERED ────────────────────────────────
