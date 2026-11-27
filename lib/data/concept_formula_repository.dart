@@ -1,6 +1,8 @@
 import '../models/concept_formula_model.dart';
 import '../models/math_models.dart';
 import 'triangle_concept_formulas.dart';
+import 'ap_concept_formulas.dart';
+import 'fraction_percentage_concept_formulas.dart';
 
 class ConceptFormulaRepository {
   static final List<ConceptFormulaModel> formulas = [
@@ -1416,6 +1418,16 @@ class ConceptFormulaRepository {
     // 5th MAIN TOPIC: TRIANGLES (SSC & Railway: 18 Concepts, 80+ MCQs)
     // =========================================================================
     ...triangleConceptFormulas,
+
+    // =========================================================================
+    // 6th MAIN TOPIC: ARITHMETIC PROGRESSION (A.P.) (SSC & Railway: 5 Concepts, 22 PYQs)
+    // =========================================================================
+    ...APConceptFormulas.formulas,
+
+    // =========================================================================
+    // 7th MAIN TOPIC: FRACTION & PERCENTAGE CONVERSIONS (SSC & Railway: 4 Concepts, 25 PYQs)
+    // =========================================================================
+    ...FractionPercentageConceptFormulas.formulas,
   ];
 
   static List<ConceptFormulaModel> getByPillar(ConceptPillar pillar) {

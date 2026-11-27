@@ -6,6 +6,8 @@ enum ConceptPillar {
   circle,
   mensuration,
   triangles,
+  arithmeticProgression,
+  fractionPercentage,
 }
 
 extension ConceptPillarExtension on ConceptPillar {
@@ -21,6 +23,10 @@ extension ConceptPillarExtension on ConceptPillar {
         return 4;
       case ConceptPillar.triangles:
         return 5;
+      case ConceptPillar.arithmeticProgression:
+        return 6;
+      case ConceptPillar.fractionPercentage:
+        return 7;
     }
   }
 
@@ -36,6 +42,10 @@ extension ConceptPillarExtension on ConceptPillar {
         return '4th Topic';
       case ConceptPillar.triangles:
         return '5th Topic';
+      case ConceptPillar.arithmeticProgression:
+        return '6th Topic';
+      case ConceptPillar.fractionPercentage:
+        return '7th Topic';
     }
   }
 
@@ -51,6 +61,10 @@ extension ConceptPillarExtension on ConceptPillar {
         return 'Mensuration';
       case ConceptPillar.triangles:
         return 'Triangles';
+      case ConceptPillar.arithmeticProgression:
+        return 'Arithmetic Progression (A.P.)';
+      case ConceptPillar.fractionPercentage:
+        return 'Fraction & Percentage Chart';
     }
   }
 
@@ -66,6 +80,10 @@ extension ConceptPillarExtension on ConceptPillar {
         return 'Mensuration';
       case ConceptPillar.triangles:
         return 'Triangles';
+      case ConceptPillar.arithmeticProgression:
+        return 'A.P. (समांतर श्रेणी)';
+      case ConceptPillar.fractionPercentage:
+        return 'Fractions (भिन्न-प्रतिशत)';
     }
   }
 
@@ -81,6 +99,10 @@ extension ConceptPillarExtension on ConceptPillar {
         return 'view_in_ar_rounded';
       case ConceptPillar.triangles:
         return 'change_history_rounded';
+      case ConceptPillar.arithmeticProgression:
+        return 'stacked_line_chart_rounded';
+      case ConceptPillar.fractionPercentage:
+        return 'percent_rounded';
     }
   }
 }

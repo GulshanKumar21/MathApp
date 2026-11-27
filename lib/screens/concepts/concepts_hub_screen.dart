@@ -69,6 +69,10 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
         return const Color(0xFF8B5CF6); // Purple / Violet
       case ConceptPillar.triangles:
         return const Color(0xFFF43F5E); // Rose Coral
+      case ConceptPillar.arithmeticProgression:
+        return const Color(0xFF3B82F6); // Electric Blue
+      case ConceptPillar.fractionPercentage:
+        return const Color(0xFFEC4899); // Vibrant Pink
     }
   }
 
@@ -84,6 +88,10 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
         return Icons.view_in_ar_rounded;
       case ConceptPillar.triangles:
         return Icons.change_history_rounded;
+      case ConceptPillar.arithmeticProgression:
+        return Icons.stacked_line_chart_rounded;
+      case ConceptPillar.fractionPercentage:
+        return Icons.percent_rounded;
     }
   }
 
@@ -370,7 +378,7 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '5 Pillars • 30 Theorems & Exam Formulas',
+                    '${ConceptPillar.values.length} Pillars • Quantitative Aptitude & Formulas',
                     style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
                   ),
                 ],
@@ -701,19 +709,19 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Geometry & Mensuration Mastery Hub',
+            'Math Concepts & Speed Formula Hub',
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.3),
           ),
           const SizedBox(height: 3),
           const Text(
-            'All theorems, high-res vector figures, shortcuts & speed drills in one place.',
+            'Bilingual theory, high-frequency charts, shortcut tricks & PYQ drills.',
             style: TextStyle(fontSize: 11, color: Colors.white60),
           ),
           const SizedBox(height: 10),
           // 4 Metric Pills
           Row(
             children: [
-              _heroStatPill(Icons.account_balance_rounded, '5 Pillars', const Color(0xFF06B6D4)),
+              _heroStatPill(Icons.account_balance_rounded, '${ConceptPillar.values.length} Pillars', const Color(0xFF06B6D4)),
               const SizedBox(width: 6),
               _heroStatPill(Icons.functions_rounded, '$totalConcepts Concepts', const Color(0xFFF43F5E)),
               const SizedBox(width: 6),

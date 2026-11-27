@@ -38,6 +38,10 @@ class _ConceptDetailScreenState extends State<ConceptDetailScreen> {
         return const Color(0xFF8B5CF6); // Purple
       case ConceptPillar.triangles:
         return const Color(0xFFF43F5E); // Rose Coral
+      case ConceptPillar.arithmeticProgression:
+        return const Color(0xFF3B82F6); // Electric Blue
+      case ConceptPillar.fractionPercentage:
+        return const Color(0xFFEC4899); // Vibrant Pink
     }
   }
 
