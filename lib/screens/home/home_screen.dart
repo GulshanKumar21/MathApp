@@ -426,7 +426,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
               children: [
                 const Expanded(
                   child: Text(
-                    '📖 8 Complete Modules with Speed Tricks',
+                    '📖 14 Complete Modules with Speed Tricks',
                     style: TextStyle(
                       fontSize: 11.5,
                       color: Colors.white,
@@ -472,7 +472,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     );
   }
 
-  // --- 🎯 1. CORE CALCULATION PRACTICE SECTION (ALL 8 MODULES ON THE OUTSIDE AT THE TOP!) ---
+  // --- 🎯 1. CORE CALCULATION PRACTICE SECTION (ALL 14 MODULES ON THE OUTSIDE AT THE TOP!) ---
   Widget _buildCoreCalculationPracticeSection(BuildContext context, AppStateProvider state) {
     final modules = [
       {
@@ -492,6 +492,14 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         'tag': '1D–4D',
       },
       {
+        'title': 'Multiplication',
+        'sub': '1, 2, 3 & 4-Digit Speed Multiply',
+        'type': TopicType.hardMultiplier,
+        'icon': Icons.close_rounded,
+        'color': const Color(0xFFF43F5E), // Vibrant Rose/Coral
+        'tag': '1D–4D',
+      },
+      {
         'title': 'Division',
         'sub': '1, 2, 3 & 4-Digit Rapid Divide',
         'type': TopicType.division,
@@ -500,12 +508,12 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         'tag': '1D–4D',
       },
       {
-        'title': 'Tables & Multiply',
-        'sub': 'Tables 1–50 & 1D–4D Speed Multiply',
+        'title': 'Tables (1–50)',
+        'sub': 'Tables 1–50 & Voice Studio',
         'type': TopicType.tables,
         'icon': Icons.grid_view_rounded,
         'color': const Color(0xFF818CF8), // Indigo Accent
-        'tag': '1–50 & ×',
+        'tag': '1–50',
       },
       {
         'title': 'Pythagorean Triples',
@@ -666,7 +674,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
           ),
           const SizedBox(height: 14),
 
-          // 2-Column Grid of All 8 Core Calculation Modules (Clean Horizontal Pill Cards)
+          // 2-Column Grid of All 14 Core Calculation Modules (Clean Horizontal Pill Cards)
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),

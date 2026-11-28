@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../data/concept_examiner_traps.dart';
 import '../../models/concept_formula_model.dart';
 import '../../models/math_models.dart';
 import '../../providers/app_state_provider.dart';
 import '../../widgets/concept_geometry_painter.dart';
 import '../../widgets/math_formula_view.dart';
+import '../ai_tutor/ai_tutor_screen.dart';
 import '../practice/practice_quiz_screen.dart';
 
 class ConceptDetailScreen extends StatefulWidget {
@@ -25,6 +29,76 @@ class _ConceptDetailScreenState extends State<ConceptDetailScreen> {
   final Set<String> _revealedSolutions = {};
   final Set<String> _revealedFigures = {};
   int _viewMode = 0; // 0 = ⚡ Speed Revision (Shortcuts), 1 = 📖 In-Depth Theory (Full)
+
+  final FlutterTts _flutterTts = FlutterTts();
+  bool _isPlayingAudio = false;
+  bool _isBlinderActive = false;
+  bool _isFormulaRevealed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initTts();
+  }
+
+  void _initTts() {
+    _flutterTts.setLanguage('hi-IN');
+    _flutterTts.setSpeechRate(0.48);
+    _flutterTts.setPitch(1.0);
+    _flutterTts.setCompletionHandler(() {
+      if (mounted) setState(() => _isPlayingAudio = false);
+    });
+    _flutterTts.setErrorHandler((_) {
+      if (mounted) setState(() => _isPlayingAudio = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _flutterTts.stop();
+    super.dispose();
+  }
+
+  Future<void> _toggleAudioCapsule() async {
+    if (_isPlayingAudio) {
+      await _flutterTts.stop();
+      if (mounted) setState(() => _isPlayingAudio = false);
+    } else {
+      final trap = ConceptExaminerTrapRepository.getTrapForConcept(widget.formula);
+      setState(() => _isPlayingAudio = true);
+      await _flutterTts.speak(trap.audioSummary);
+    }
+  }
+
+  Future<void> _launchYouTubeExplanation() async {
+    final cleanTitle = widget.formula.title.replaceAll(RegExp(r'[|()]'), ' ');
+    final query = Uri.encodeComponent('$cleanTitle formula concept trick SSC CGL maths');
+    final url = Uri.parse('https://www.youtube.com/results?search_query=$query');
+    try {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      try {
+        await launchUrl(url, mode: LaunchMode.platformDefault);
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open YouTube app')),
+          );
+        }
+      }
+    }
+  }
+
+  void _askAiTutor() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AiTutorScreen(
+          initialQuery: 'Explain ${widget.formula.title} and formula ${widget.formula.formula} in simple Hinglish with 1 exam shortcut trick.',
+        ),
+      ),
+    );
+  }
 
   Color get _pillarColor {
     switch (widget.formula.pillar) {
@@ -708,7 +782,7 @@ class _ConceptDetailScreenState extends State<ConceptDetailScreen> {
   Widget _buildFormulaHeroCard(Color color) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -731,6 +805,7 @@ class _ConceptDetailScreenState extends State<ConceptDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Top row: EXAM FORMULA tag + Quick Actions (Audio, Blinder, Copy)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -744,40 +819,544 @@ class _ConceptDetailScreenState extends State<ConceptDetailScreen> {
                   ),
                 ],
               ),
-              InkWell(
-                onTap: _copyFormula,
-                borderRadius: BorderRadius.circular(6),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
+              Row(
+                children: [
+                  // 1. Audio Capsule Button
+                  InkWell(
+                    onTap: _toggleAudioCapsule,
                     borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _isPlayingAudio ? const Color(0xFFEF4444).withValues(alpha: 0.25) : color.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: _isPlayingAudio ? const Color(0xFFEF4444) : color.withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _isPlayingAudio ? Icons.stop_rounded : Icons.volume_up_rounded,
+                            size: 13,
+                            color: _isPlayingAudio ? const Color(0xFFFCA5A5) : color,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _isPlayingAudio ? 'Stop' : 'Listen',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _isPlayingAudio ? const Color(0xFFFCA5A5) : color,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.copy_rounded, size: 13, color: Colors.white70),
-                      SizedBox(width: 4),
-                      Text('Copy', style: TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w600)),
-                    ],
+                  const SizedBox(width: 6),
+                  // 2. Active Recall Blinder Toggle
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _isBlinderActive = !_isBlinderActive;
+                        _isFormulaRevealed = !_isBlinderActive;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _isBlinderActive ? const Color(0xFFF59E0B).withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: _isBlinderActive ? const Color(0xFFF59E0B) : Colors.white12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _isBlinderActive ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                            size: 13,
+                            color: _isBlinderActive ? const Color(0xFFF59E0B) : Colors.white70,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _isBlinderActive ? 'Blind' : 'Test',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _isBlinderActive ? const Color(0xFFF59E0B) : Colors.white70,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  // 3. Copy button
+                  InkWell(
+                    onTap: _copyFormula,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.copy_rounded, size: 12, color: Colors.white70),
+                          SizedBox(width: 3),
+                          Text('Copy', style: TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
           const SizedBox(height: 14),
-          Center(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
+
+          // Formula Display or Active Recall Challenge Box
+          if (_isBlinderActive && !_isFormulaRevealed)
+            InkWell(
+              onTap: () => setState(() => _isFormulaRevealed = true),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4), width: 1.2),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.psychology_rounded, color: Color(0xFFF59E0B), size: 28),
+                    const SizedBox(height: 6),
+                    const Text(
+                      '🧠 Active Recall Challenge',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Can you recall the formula in your mind?\nTap to reveal & verify your answer!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 11.5, color: Colors.white60),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.touch_app_rounded, size: 14, color: Color(0xFFF59E0B)),
+                          SizedBox(width: 5),
+                          Text('Tap to Reveal Formula', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFF59E0B))),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else ...[
+            Container(
+              width: double.infinity,
+              alignment: Alignment.center,
               child: MathFormulaView(
                 formula: widget.formula.formula,
                 formulaId: widget.formula.id,
-                fontSize: 16.0,
+                fontSize: 15.0,
                 color: Colors.white,
                 accentColor: color,
                 isHero: true,
               ),
             ),
+            if (_isBlinderActive && _isFormulaRevealed) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    const Text(
+                      'Recalled correctly?',
+                      style: TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w600),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Awesome memory! Formula marked as Mastered! ⭐'),
+                            duration: Duration(seconds: 1),
+                            backgroundColor: Color(0xFF10B981),
+                          ),
+                        );
+                        setState(() {
+                          _isBlinderActive = false;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF10B981)),
+                        ),
+                        child: const Text('✅ I Knew It!', style: TextStyle(fontSize: 11, color: Color(0xFF10B981), fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        context.read<AppStateProvider>().toggleStarFormula(widget.formula.id);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Added to Saved Formulas for quick revision! 📌'),
+                            duration: Duration(seconds: 1),
+                            backgroundColor: Color(0xFFEF4444),
+                          ),
+                        );
+                        setState(() {
+                          _isBlinderActive = false;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFEF4444)),
+                        ),
+                        child: const Text('❌ Need Revision', style: TextStyle(fontSize: 11, color: Color(0xFFEF4444), fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+
+          // Audio Playing Indicator Bar
+          if (_isPlayingAudio) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: color.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.graphic_eq_rounded, color: Color(0xFF38BDF8), size: 16),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      '30s Hinglish Audio Capsule Playing...',
+                      style: TextStyle(fontSize: 11.5, color: Color(0xFF38BDF8), fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: _toggleAudioCapsule,
+                    child: const Text('Stop ✕', style: TextStyle(fontSize: 11.5, color: Colors.white70, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormulaToPyqCard(Color color) {
+    if (widget.formula.practiceQuestions.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF101B2B),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.35), width: 1.2),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.bolt_rounded, color: Color(0xFF38BDF8), size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Text('🔥 HIGH-YIELD PYQs', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: Color(0xFF38BDF8), letterSpacing: 0.5)),
+                    SizedBox(width: 5),
+                    Text('• SSC CGL & CHSL', style: TextStyle(fontSize: 9.5, color: Colors.white54)),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Solve ${widget.formula.practiceQuestions.length} Questions on this exact formula',
+                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          ElevatedButton(
+            onPressed: _launchPracticeQuiz,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF38BDF8),
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              elevation: 0,
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Solve', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5)),
+                SizedBox(width: 2),
+                Icon(Icons.arrow_forward_rounded, size: 12),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExaminerTrapCard(Color color) {
+    final trap = ConceptExaminerTrapRepository.getTrapForConcept(widget.formula);
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1610),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 17),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'EXAMINER TRAP & SILLY MISTAKE ALERT',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFFFBBF24),
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: const Text('❌', style: TextStyle(fontSize: 10)),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'जहाँ 90% बच्चे गलती करते हैं (Negative Trap):',
+                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFF87171)),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      trap.trap,
+                      style: const TextStyle(fontSize: 11.5, color: Colors.white, height: 1.35),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Divider(height: 1, color: Colors.white12),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: const Text('✅', style: TextStyle(fontSize: 10)),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'टॉपर की ट्रिक (2-Second Sanity Check):',
+                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF34D399)),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      trap.topperHack,
+                      style: const TextStyle(fontSize: 11.5, color: Colors.white, height: 1.35),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDoubtHelpCard(Color color) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF13192B),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.help_outline_rounded, color: Color(0xFFF43F5E), size: 16),
+              SizedBox(width: 6),
+              Text(
+                'समझ नहीं आया? (STILL CONFUSED?)',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white70,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              // 1. YouTube Video Button
+              Expanded(
+                child: InkWell(
+                  onTap: _launchYouTubeExplanation,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.5)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.play_circle_fill_rounded, color: Color(0xFFEF4444), size: 18),
+                        SizedBox(width: 6),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'Watch Video',
+                            style: TextStyle(
+                              color: Color(0xFFFCA5A5),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // 2. Ask AI Tutor Button
+              Expanded(
+                child: InkWell(
+                  onTap: _askAiTutor,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.5)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.smart_toy_rounded, color: Color(0xFFA78BFA), size: 18),
+                        SizedBox(width: 6),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'Ask AI Tutor',
+                            style: TextStyle(
+                              color: Color(0xFFDDD6FE),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -822,6 +1401,9 @@ class _ConceptDetailScreenState extends State<ConceptDetailScreen> {
 
         // 1. Master Formula Hero Card
         _buildFormulaHeroCard(color),
+        _buildFormulaToPyqCard(color),
+        _buildExaminerTrapCard(color),
+        _buildDoubtHelpCard(color),
         const SizedBox(height: 16),
 
         // 2. Direct Exam Shortcut Trick (Topper's 5-Second Solver)
@@ -1054,6 +1636,9 @@ class _ConceptDetailScreenState extends State<ConceptDetailScreen> {
 
         // Highlight Formula Hero Card
         _buildFormulaHeroCard(color),
+        _buildFormulaToPyqCard(color),
+        _buildExaminerTrapCard(color),
+        _buildDoubtHelpCard(color),
         const SizedBox(height: 20),
 
         // Concept Explanation & Overview

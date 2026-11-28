@@ -129,22 +129,70 @@ class MathFormulaView extends StatelessWidget {
   Widget _buildDynamicFallback(String rawFormula, double fs, Color color, Color accent) {
     final clauses = rawFormula.split('|');
 
+    if (isHero && clauses.length > 1) {
+      // In Hero view with multiple formula clauses:
+      // Stack each equation cleanly with a subtle separator so each formula
+      // is prominently displayed and readable without horizontal scrolling!
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          for (int i = 0; i < clauses.length; i++) ...[
+            if (i > 0)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Container(
+                  width: 32,
+                  height: 1.5,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+              ),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: _parseSingleClause(clauses[i].trim(), fs, color),
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+
+    if (isHero) {
+      return FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: _parseSingleClause(rawFormula.trim(), fs, color),
+        ),
+      );
+    }
+
     return Wrap(
       spacing: 6,
-      runSpacing: 8,
+      runSpacing: 6,
       crossAxisAlignment: WrapCrossAlignment.center,
-      alignment: isHero ? WrapAlignment.center : WrapAlignment.start,
+      alignment: WrapAlignment.start,
       children: clauses.asMap().entries.map((entry) {
         final idx = entry.key;
         final clause = entry.value.trim();
 
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            if (idx > 0) buildClauseDivider(color: accent),
-            ..._parseSingleClause(clause, fs, color),
-          ],
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (idx > 0) buildClauseDivider(color: accent),
+              ..._parseSingleClause(clause, fs, color),
+            ],
+          ),
         );
       }).toList(),
     );

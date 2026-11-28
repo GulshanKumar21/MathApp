@@ -1,7 +1,10 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../data/concept_examiner_traps.dart';
 import '../../models/concept_formula_model.dart';
 import '../../models/math_models.dart';
 import '../../theme/app_theme.dart';
@@ -32,6 +35,62 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
   String? _copiedFormulaId;
   final Set<String> _expandedShortcuts = {};
   bool _browseAllConcepts = false;
+
+  // 🚀 New Revolutionary Features
+  final FlutterTts _flutterTts = FlutterTts();
+  String? _playingAudioId;
+  bool _isBlinderMode = false;
+  final Set<String> _revealedFormulaIds = {};
+  final Set<String> _expandedTrapIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _initTts();
+  }
+
+  void _initTts() {
+    _flutterTts.setLanguage('hi-IN');
+    _flutterTts.setSpeechRate(0.48);
+    _flutterTts.setPitch(1.0);
+    _flutterTts.setCompletionHandler(() {
+      if (mounted) setState(() => _playingAudioId = null);
+    });
+    _flutterTts.setErrorHandler((_) {
+      if (mounted) setState(() => _playingAudioId = null);
+    });
+  }
+
+  @override
+  void dispose() {
+    _flutterTts.stop();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _playCardAudio(ConceptFormulaModel item) async {
+    if (_playingAudioId == item.id) {
+      await _flutterTts.stop();
+      if (mounted) setState(() => _playingAudioId = null);
+    } else {
+      final trap = ConceptExaminerTrapRepository.getTrapForConcept(item);
+      setState(() => _playingAudioId = item.id);
+      await _flutterTts.speak(trap.audioSummary);
+    }
+  }
+
+  Future<void> _launchYouTubeVideo(String title) async {
+    final cleanTitle = title.replaceAll(RegExp(r'[|()]'), ' ');
+    final query = Uri.encodeComponent('$cleanTitle formula concept trick SSC CGL maths');
+    final url = Uri.parse('https://www.youtube.com/results?search_query=$query');
+    try {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      try {
+        await launchUrl(url, mode: LaunchMode.platformDefault);
+      } catch (_) {}
+    }
+  }
 
   final List<String> _quickFilterKeywords = [
     'Intercept',
@@ -460,12 +519,6 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
                     child: _buildHeroCard(allFormulas.length, totalQuestions, state.starredFormulas.length),
                   ),
 
-                  // 1.1 Dedicated Formula Books Hub (Mensuration & Number System)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                    child: _buildFormulaBooksCards(context),
-                  ),
-
                   // 2. Interactive Flashcard (Active Recall Widget)
                   if (_showFlashcard && allFormulas.isNotEmpty)
                     Padding(
@@ -531,6 +584,16 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
                                 tooltip: 'Speed Revision Sheet',
                                 isSelected: _viewMode == 1,
                                 onTap: () => setState(() => _viewMode = 1),
+                              ),
+                              _viewModeButton(
+                                icon: _isBlinderMode ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                tooltip: _isBlinderMode ? 'Active Recall: ON' : 'Active Recall: OFF (Hide formulas)',
+                                isSelected: _isBlinderMode,
+                                activeColor: const Color(0xFFF59E0B),
+                                onTap: () => setState(() {
+                                  _isBlinderMode = !_isBlinderMode;
+                                  if (!_isBlinderMode) _revealedFormulaIds.clear();
+                                }),
                               ),
                             ],
                           ),
@@ -674,7 +737,7 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
 
               // All 11 Topic Cards in a Beautiful 2-Column Grid
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 2, 16, 18),
+                padding: const EdgeInsets.fromLTRB(16, 2, 16, 14),
                 sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
@@ -685,6 +748,79 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
                   delegate: SliverChildBuilderDelegate(
                     (context, idx) => _buildTopicPillarCard(ConceptPillar.values[idx]),
                     childCount: ConceptPillar.values.length,
+                  ),
+                ),
+              ),
+
+              // Dedicated Number System Formula Book Card (Rules, Unit Digits, Divisibility)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const NumberSystemFormulaBookScreen()),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF0C2A4A), Color(0xFF0F172A)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.5)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF3B82F6).withValues(alpha: 0.15),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF3B82F6).withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.format_list_numbered_rounded, color: Color(0xFF60A5FA), size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text('Number System Formula Book', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                                    SizedBox(width: 6),
+                                    Text('Rules + MCQs', style: TextStyle(color: Color(0xFFBFDBFE), fontSize: 10, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                                SizedBox(height: 2),
+                                Text('Divisibility, Unit Digits, Remainders & Factor Theorems', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF3B82F6),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text('Open ➔', style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -777,172 +913,7 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
     );
   }
 
-  Widget _buildFormulaBooksCards(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: const [
-            Icon(Icons.menu_book_rounded, color: AppTheme.accent, size: 16),
-            SizedBox(width: 6),
-            Text(
-              'Exam Formula Books | फ़ॉर्मूला बुक्स',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            // Mensuration Formula Book Card
-            Expanded(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MensurationFormulaBookScreen()),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF2E1065), Color(0xFF1E1B4B)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.5)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF8B5CF6).withValues(alpha: 0.25),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.view_in_ar_rounded, color: Color(0xFFA78BFA), size: 18),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              '250 PYQs',
-                              style: TextStyle(color: Color(0xFFDDD6FE), fontSize: 9.5, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Mensuration',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
-                      const Text(
-                        '2D & 3D Formulas + MCQs',
-                        style: TextStyle(color: Colors.white60, fontSize: 10.5),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            // Number System Formula Book Card
-            Expanded(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const NumberSystemFormulaBookScreen()),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF0C2A4A), Color(0xFF0F172A)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.5)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF3B82F6).withValues(alpha: 0.15),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF3B82F6).withValues(alpha: 0.25),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.format_list_numbered_rounded, color: Color(0xFF60A5FA), size: 18),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              'Rules + MCQs',
-                              style: TextStyle(color: Color(0xFFBFDBFE), fontSize: 9.5, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Number System',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
-                      const Text(
-                        'Divisibility, Units, Factors',
-                        style: TextStyle(color: Colors.white60, fontSize: 10.5),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+
 
   String _getPillarHindiName(ConceptPillar pillar) {
     switch (pillar) {
@@ -1096,6 +1067,50 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
               ),
             ],
           ),
+          if (pillar == ConceptPillar.mensuration) ...[
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MensurationFormulaBookScreen()),
+                );
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E1065).withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.5)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.menu_book_rounded, color: Color(0xFFA78BFA), size: 18),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('📖 Mensuration Formula Book (250 PYQs)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                          Text('2D & 3D Interactive Charts + Formula MCQs Mode', style: TextStyle(color: Colors.white70, fontSize: 10.5)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8B5CF6),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text('Open ➔', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1554,7 +1569,9 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
     required String tooltip,
     required bool isSelected,
     required VoidCallback onTap,
+    Color? activeColor,
   }) {
+    final effectiveColor = activeColor ?? AppTheme.accent;
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -1563,13 +1580,13 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
         child: Container(
           padding: const EdgeInsets.all(7),
           decoration: BoxDecoration(
-            color: isSelected ? AppTheme.accent.withValues(alpha: 0.25) : Colors.transparent,
+            color: isSelected ? effectiveColor.withValues(alpha: 0.25) : Colors.transparent,
             borderRadius: BorderRadius.circular(9),
           ),
           child: Icon(
             icon,
             size: 17,
-            color: isSelected ? AppTheme.accent : Colors.white54,
+            color: isSelected ? effectiveColor : Colors.white54,
           ),
         ),
       ),
@@ -1768,73 +1785,222 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
                 ],
                 const SizedBox(height: 10),
 
-                // Formula Banner Pill with Fractions and Copy Button
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFF0F172A),
-                        color.withValues(alpha: 0.12),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                // Formula Banner Pill with Fractions and Copy Button (or Active Recall Blinder)
+                if (_isBlinderMode && !_revealedFormulaIds.contains(item.id))
+                  InkWell(
+                    onTap: () => setState(() => _revealedFormulaIds.add(item.id)),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: color.withValues(alpha: 0.35), width: 1.2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4), width: 1.2),
                       ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.visibility_off_rounded, color: Color(0xFFF59E0B), size: 15),
+                          SizedBox(width: 8),
+                          Text(
+                            '👁️ Active Recall: Tap to Reveal Formula',
+                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFFF59E0B)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF0F172A),
+                          color.withValues(alpha: 0.12),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: color.withValues(alpha: 0.35), width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
                           child: MathFormulaView(
                             formula: item.formula,
                             formulaId: item.id,
-                            fontSize: 12.5,
+                            fontSize: 12.0,
                             color: Colors.white,
                             accentColor: color,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      InkWell(
-                        onTap: () => _copyFormulaText(item.id, item.formula),
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isCopied ? const Color(0xFF10B981).withValues(alpha: 0.2) : color.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                isCopied ? Icons.check_circle_rounded : Icons.copy_rounded,
-                                size: 13,
-                                color: isCopied ? const Color(0xFF10B981) : color,
-                              ),
-                              if (isCopied) ...[
-                                const SizedBox(width: 4),
-                                const Text('Copied', style: TextStyle(fontSize: 10, color: Color(0xFF10B981), fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 8),
+                        InkWell(
+                          onTap: () => _copyFormulaText(item.id, item.formula),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isCopied ? const Color(0xFF10B981).withValues(alpha: 0.2) : color.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isCopied ? Icons.check_circle_rounded : Icons.copy_rounded,
+                                  size: 13,
+                                  color: isCopied ? const Color(0xFF10B981) : color,
+                                ),
+                                if (isCopied) ...[
+                                  const SizedBox(width: 4),
+                                  const Text('Copied', style: TextStyle(fontSize: 10, color: Color(0xFF10B981), fontWeight: FontWeight.bold)),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+
+                const SizedBox(height: 8),
+
+                // Revolutionary Feature Row: 🎙️ 30s Audio & ⚠️ Examiner Trap
+                Row(
+                  children: [
+                    // Audio Button
+                    InkWell(
+                      onTap: () => _playCardAudio(item),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: _playingAudioId == item.id
+                              ? const Color(0xFFEF4444).withValues(alpha: 0.25)
+                              : color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _playingAudioId == item.id ? const Color(0xFFEF4444) : color.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _playingAudioId == item.id ? Icons.stop_rounded : Icons.volume_up_rounded,
+                              size: 13,
+                              color: _playingAudioId == item.id ? const Color(0xFFFCA5A5) : color,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _playingAudioId == item.id ? 'Stop Audio' : '🎙️ 30s Audio',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: _playingAudioId == item.id ? const Color(0xFFFCA5A5) : color,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Examiner Trap Toggle
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          if (_expandedTrapIds.contains(item.id)) {
+                            _expandedTrapIds.remove(item.id);
+                          } else {
+                            _expandedTrapIds.add(item.id);
+                          }
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: _expandedTrapIds.contains(item.id)
+                              ? const Color(0xFFF59E0B).withValues(alpha: 0.22)
+                              : const Color(0xFF1E1610),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, size: 13, color: Color(0xFFFBBF24)),
+                            const SizedBox(width: 4),
+                            Text(
+                              _expandedTrapIds.contains(item.id) ? 'Hide Trap' : '⚠️ Examiner Trap',
+                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFFBBF24)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // YouTube Video Button
+                    InkWell(
+                      onTap: () => _launchYouTubeVideo(item.title),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.4)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.play_circle_fill_rounded, size: 13, color: Color(0xFFEF4444)),
+                            SizedBox(width: 4),
+                            Text(
+                              'Video',
+                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFFFCA5A5)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+                if (_expandedTrapIds.contains(item.id)) ...[
+                  const SizedBox(height: 8),
+                  Builder(builder: (context) {
+                    final trap = ConceptExaminerTrapRepository.getTrapForConcept(item);
+                    return Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF18120C),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('❌ Negative Trap: ${trap.trap}', style: const TextStyle(fontSize: 11, color: Colors.white, height: 1.3)),
+                          const SizedBox(height: 5),
+                          Text('✅ Topper Trick: ${trap.topperHack}', style: const TextStyle(fontSize: 11, color: Color(0xFF34D399), height: 1.3, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
 
                 // Inline Shortcut Tip Expansion Dropdown (Clean, No Duplicate Icons)
                 if (item.solvedExamples.isNotEmpty && item.solvedExamples.first.shortcutTip.isNotEmpty) ...[
@@ -2064,16 +2230,12 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: color.withValues(alpha: 0.25)),
                   ),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    child: MathFormulaView(
-                      formula: item.formula,
-                      formulaId: item.id,
-                      fontSize: 11.5,
-                      color: Colors.white,
-                      accentColor: color,
-                    ),
+                  child: MathFormulaView(
+                    formula: item.formula,
+                    formulaId: item.id,
+                    fontSize: 11.5,
+                    color: Colors.white,
+                    accentColor: color,
                   ),
                 ),
                 if (shortcut.isNotEmpty) ...[
