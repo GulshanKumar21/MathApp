@@ -8,6 +8,7 @@ import '../../models/concept_formula_model.dart';
 import '../../models/math_models.dart';
 import '../../providers/app_state_provider.dart';
 import '../../widgets/concept_geometry_painter.dart';
+import '../../widgets/interactive_formula_lab_sheet.dart';
 import '../../widgets/math_formula_view.dart';
 import '../ai_tutor/ai_tutor_screen.dart';
 import '../practice/practice_quiz_screen.dart';
@@ -34,6 +35,8 @@ class _ConceptDetailScreenState extends State<ConceptDetailScreen> {
   bool _isPlayingAudio = false;
   bool _isBlinderActive = false;
   bool _isFormulaRevealed = false;
+  String? _selectedReverseAnswer;
+  bool? _isReverseCorrect;
 
   @override
   void initState() {
@@ -1246,6 +1249,236 @@ class _ConceptDetailScreenState extends State<ConceptDetailScreen> {
               ),
             ],
           ),
+
+          // Desi Jugaad & Mnemonic Pill
+          if (trap.desiJugaad.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1B4B),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF818CF8).withValues(alpha: 0.4)),
+              ),
+              child: Text(
+                trap.desiJugaad,
+                style: const TextStyle(fontSize: 12, color: Color(0xFFC7D2FE), fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+
+          // Confusing Formulas Duel Box
+          if (trap.confusingTwinTitle != null && trap.confusingTwinComparison != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF121E2C),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.35)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    trap.confusingTwinTitle!,
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: Color(0xFF38BDF8)),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    trap.confusingTwinComparison!,
+                    style: const TextStyle(fontSize: 11, color: Colors.white70, height: 1.35),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormulaLabButton(Color color) {
+    final id = widget.formula.id.toLowerCase();
+    final bool isLabApplicable = widget.formula.pillar == ConceptPillar.mensuration ||
+        widget.formula.pillar == ConceptPillar.triangles ||
+        widget.formula.pillar == ConceptPillar.circle ||
+        id.contains('rect') ||
+        id.contains('tri') ||
+        id.contains('circle') ||
+        id.contains('cone');
+
+    if (!isLabApplicable) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 14),
+      child: InkWell(
+        onTap: () => InteractiveFormulaLabSheet.show(context, widget.formula),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF0C2A4A), Color(0xFF13192B)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.5), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF38BDF8).withValues(alpha: 0.12),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.science_rounded, color: Color(0xFF38BDF8), size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text('🧪 Live Formula Lab', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white)),
+                        SizedBox(width: 6),
+                        Text('SLIDERS & TRIPLET TEST', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8))),
+                      ],
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Drag variables live, reshape figure & auto-detect triplets',
+                      style: TextStyle(fontSize: 11, color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF38BDF8), size: 14),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReverseChallengeCard(Color color) {
+    final trap = ConceptExaminerTrapRepository.getTrapForConcept(widget.formula);
+    if (trap.reverseChallengeProblem == null) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF13192B),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _isReverseCorrect == true
+              ? const Color(0xFF10B981)
+              : (_isReverseCorrect == false ? const Color(0xFFEF4444) : const Color(0xFF8B5CF6).withValues(alpha: 0.4)),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.refresh_rounded, color: Color(0xFFA78BFA), size: 17),
+              SizedBox(width: 6),
+              Text(
+                '🔄 REVERSE ENGINEER CHALLENGE (उल्टा सोचो)',
+                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: Color(0xFFDDD6FE), letterSpacing: 0.6),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            trap.reverseChallengeProblem!,
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white, height: 1.3),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: (trap.reverseChallengeOptions ?? []).map((opt) {
+              final isChosen = _selectedReverseAnswer == opt;
+              final isTarget = opt == trap.reverseChallengeAnswer;
+
+              Color bg = const Color(0xFF1E293B);
+              Color border = Colors.white12;
+              Color text = Colors.white;
+
+              if (_selectedReverseAnswer != null) {
+                if (isTarget) {
+                  bg = const Color(0xFF10B981).withValues(alpha: 0.25);
+                  border = const Color(0xFF10B981);
+                  text = const Color(0xFF6EE7B7);
+                } else if (isChosen) {
+                  bg = const Color(0xFFEF4444).withValues(alpha: 0.25);
+                  border = const Color(0xFFEF4444);
+                  text = const Color(0xFFFCA5A5);
+                }
+              }
+
+              return InkWell(
+                onTap: _selectedReverseAnswer != null
+                    ? null
+                    : () {
+                        setState(() {
+                          _selectedReverseAnswer = opt;
+                          _isReverseCorrect = (opt == trap.reverseChallengeAnswer);
+                        });
+                        try {
+                          if (_isReverseCorrect == true) {
+                            HapticFeedback.lightImpact();
+                          } else {
+                            HapticFeedback.heavyImpact();
+                          }
+                        } catch (_) {}
+                      },
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: border),
+                  ),
+                  child: Text(
+                    opt,
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: text),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          if (_selectedReverseAnswer != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              _isReverseCorrect == true
+                  ? '🎯 Correct! You can reverse-engineer formulas like an SSC topper!'
+                  : '❌ Incorrect! The correct reverse value is: ${trap.reverseChallengeAnswer}',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.bold,
+                color: _isReverseCorrect == true ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1402,7 +1635,9 @@ class _ConceptDetailScreenState extends State<ConceptDetailScreen> {
         // 1. Master Formula Hero Card
         _buildFormulaHeroCard(color),
         _buildFormulaToPyqCard(color),
+        _buildFormulaLabButton(color),
         _buildExaminerTrapCard(color),
+        _buildReverseChallengeCard(color),
         _buildDoubtHelpCard(color),
         const SizedBox(height: 16),
 
@@ -1637,7 +1872,9 @@ class _ConceptDetailScreenState extends State<ConceptDetailScreen> {
         // Highlight Formula Hero Card
         _buildFormulaHeroCard(color),
         _buildFormulaToPyqCard(color),
+        _buildFormulaLabButton(color),
         _buildExaminerTrapCard(color),
+        _buildReverseChallengeCard(color),
         _buildDoubtHelpCard(color),
         const SizedBox(height: 20),
 

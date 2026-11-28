@@ -12,6 +12,7 @@ import '../../providers/app_state_provider.dart';
 import '../../data/concept_formula_repository.dart';
 import '../practice/practice_quiz_screen.dart';
 import '../../widgets/concept_geometry_painter.dart';
+import '../../widgets/interactive_formula_lab_sheet.dart';
 import '../../widgets/math_formula_view.dart';
 import 'concept_detail_screen.dart';
 import 'mensuration_formula_book_screen.dart';
@@ -1976,6 +1977,33 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
                         ),
                       ),
                     ),
+                    if (item.pillar == ConceptPillar.mensuration || item.pillar == ConceptPillar.triangles || item.pillar == ConceptPillar.circle) ...[
+                      const SizedBox(width: 8),
+                      // Live Formula Lab Button
+                      InkWell(
+                        onTap: () => InteractiveFormulaLabSheet.show(context, item),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.4)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.science_rounded, size: 13, color: Color(0xFF38BDF8)),
+                              SizedBox(width: 4),
+                              Text(
+                                'Lab',
+                                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF7DD3FC)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 if (_expandedTrapIds.contains(item.id)) ...[
@@ -1996,6 +2024,10 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
                           Text('❌ Negative Trap: ${trap.trap}', style: const TextStyle(fontSize: 11, color: Colors.white, height: 1.3)),
                           const SizedBox(height: 5),
                           Text('✅ Topper Trick: ${trap.topperHack}', style: const TextStyle(fontSize: 11, color: Color(0xFF34D399), height: 1.3, fontWeight: FontWeight.w600)),
+                          if (trap.desiJugaad.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(trap.desiJugaad, style: const TextStyle(fontSize: 11, color: Color(0xFFC7D2FE), fontWeight: FontWeight.bold)),
+                          ],
                         ],
                       ),
                     );
