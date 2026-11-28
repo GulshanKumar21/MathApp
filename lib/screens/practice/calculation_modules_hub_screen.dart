@@ -6,6 +6,7 @@ import '../../providers/app_state_provider.dart';
 import 'learn_mode_screen.dart';
 import 'practice_quiz_screen.dart';
 import 'arithmetic_digit_selection_screen.dart';
+import 'topic_drill_selection_screen.dart';
 import '../revision/table_revision_hub_screen.dart';
 import '../revision/powers_revision_hub_screen.dart';
 import '../revision/product_chauraha_hub_screen.dart';
@@ -525,6 +526,19 @@ class _CalculationModulesHubScreenState extends State<CalculationModulesHubScree
                           context,
                           MaterialPageRoute(
                             builder: (_) => ArithmeticDigitSelectionScreen(type: topic.type),
+                          ),
+                        );
+                      } else if (topic.type == TopicType.fractions ||
+                          topic.type == TopicType.lcmHcf ||
+                          topic.type == TopicType.divisibility ||
+                          topic.type == TopicType.numberSystem ||
+                          topic.type == TopicType.triples ||
+                          topic.type == TopicType.squareRootSurds ||
+                          topic.type == TopicType.trigonometry) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TopicDrillSelectionScreen(type: topic.type),
                           ),
                         );
                       } else {

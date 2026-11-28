@@ -25,6 +25,7 @@ import '../revision/powers_revision_hub_screen.dart';
 import '../revision/pdf_sheet_hub_screen.dart';
 import '../revision/product_chauraha_hub_screen.dart';
 import '../practice/arithmetic_digit_selection_screen.dart';
+import '../practice/topic_drill_selection_screen.dart';
 import '../../widgets/mental_speedometer_card.dart';
 import '../tricks/interactive_vedic_simulator_screen.dart';
 import '../auth/auth_screen.dart';
@@ -977,6 +978,24 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         context,
         MaterialPageRoute(
           builder: (_) => ArithmeticDigitSelectionScreen(type: type),
+        ),
+      );
+      return;
+    }
+
+    // 🎯 For Fractions, LCM/HCF, Divisibility, Number System, Triples, Square Roots, Trigonometry:
+    // Open dedicated Topic Drill Selection Screen (Sub-categories, Question Count & Speed Timers)!
+    if (type == TopicType.fractions ||
+        type == TopicType.lcmHcf ||
+        type == TopicType.divisibility ||
+        type == TopicType.numberSystem ||
+        type == TopicType.triples ||
+        type == TopicType.squareRootSurds ||
+        type == TopicType.trigonometry) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TopicDrillSelectionScreen(type: type),
         ),
       );
       return;
