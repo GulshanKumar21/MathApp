@@ -697,7 +697,6 @@ class _TableRevisionHubScreenState extends State<TableRevisionHubScreen> {
 
                 return GestureDetector(
                   onTap: () {
-                    final prevSelected = _selectedTable;
                     _stopRecital();
                     setState(() {
                       _selectedTable = t;

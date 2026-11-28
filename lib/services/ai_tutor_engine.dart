@@ -1080,9 +1080,8 @@ class AiTutorEngine {
     final matches = ConceptFormulaRepository.search(query);
     if (matches.isNotEmpty) {
       final concept = matches.first;
-      final trap = ConceptExaminerTraps.getTrapFor(concept.id);
-      final audio = ConceptExaminerTraps.getAudioScriptFor(concept.id);
-      final rhyme = ConceptExaminerTraps.getJugaadRhymeFor(concept.id);
+      final trap = ConceptExaminerTrapRepository.getTrapForConcept(concept);
+      final rhyme = trap.desiJugaad;
 
       List<String> steps = [
         '📖 Core Principle: ${concept.explanation.split('\n').first}',
@@ -1101,16 +1100,13 @@ class AiTutorEngine {
       String trick = '';
       if (concept.solvedExamples.isNotEmpty && concept.solvedExamples.first.shortcutTip.isNotEmpty) {
         trick = '⚡ Topper Trick: ${concept.solvedExamples.first.shortcutTip}';
-      } else if (rhyme != null) {
-        trick = '🎯 Desi Mnemonic Rhyme: "$rhyme"';
+      } else if (rhyme.isNotEmpty) {
+        trick = rhyme;
       } else {
         trick = '⚡ Speed Revision: Memorize key conditions and check options with unit digits / triplet scaling.';
       }
 
-      String? pitfall;
-      if (trap != null) {
-        pitfall = trap.trapWarning;
-      }
+      final String pitfall = trap.trap.isNotEmpty ? trap.trap : 'Do not skip boundary conditions in Tier-II questions.';
 
       return {
         'topic': concept.title,
@@ -1118,7 +1114,7 @@ class AiTutorEngine {
         'formula': concept.formula,
         'steps': steps,
         'speedTrick': trick,
-        'pitfall': pitfall ?? 'Do not skip boundary conditions in Tier-II questions.',
+        'pitfall': pitfall,
         'answer': concept.solvedExamples.isNotEmpty ? concept.solvedExamples.first.answer : 'Concept Verified',
       };
     }
@@ -1152,6 +1148,25 @@ class AiTutorEngine {
 
   /// 24. Vocabulary & English Search
   static Map<String, dynamic>? _trySearchVocabulary(String lower) {
+    if (lower.contains('discreet') || lower.contains('discrete')) {
+      return {
+        'topic': 'Blackbook Homophones: Discreet vs Discrete (शब्द-भेद)',
+        'category': 'English Vocabulary (Blackbook)',
+        'formula': 'Discreet (ee = keep secret / cautious) vs Discrete (t separates e = separate / distinct)',
+        'steps': [
+          '1. DISCREET (Adjective): Careful, prudent, secretive in speech or action.',
+          '   Hindi: विचारशील, सावधान, गुप्त रखने वाला।',
+          '   Example: "She made discreet inquiries about his job offer."',
+          '2. DISCRETE (Adjective): Individually separate, distinct, disconnected.',
+          '   Hindi: अलग, भिन्न, पृथक।',
+          '   Example: "Speech sounds are produced as a continuous signal rather than discrete units."',
+        ],
+        'speedTrick': '⚡ Memory Hook: In "discrEEt", the two "e"s are hiding together inside = secretive! In "discrE-T-E", the "T" separates the two "e"s = separate/distinct!',
+        'pitfall': 'SSC frequently tests this pair in Error Spotting and Cloze Test sentences.',
+        'answer': 'Discreet = Prudent / Secretive; Discrete = Distinct / Separate',
+      };
+    }
+
     // 1. Homonyms check
     for (final h in BlackbookVocabularyBank.topHomonyms) {
       if (lower.contains(h.word1.toLowerCase()) || lower.contains(h.word2.toLowerCase())) {
@@ -1160,16 +1175,14 @@ class AiTutorEngine {
           'category': 'English Vocabulary (Blackbook)',
           'formula': '${h.word1} (${h.meaning1})  vs  ${h.word2} (${h.meaning2})',
           'steps': [
-            '1. ${h.word1.toUpperCase()} (${h.partOfSpeech1}): ${h.meaning1}',
-            '   Hindi: ${h.hindiMeaning1}',
-            '   Example: "${h.example1}"',
-            '2. ${h.word2.toUpperCase()} (${h.partOfSpeech2}): ${h.meaning2}',
-            '   Hindi: ${h.hindiMeaning2}',
-            '   Example: "${h.example2}"',
+            '1. ${h.word1.toUpperCase()} (${h.pos1}): ${h.meaning1}',
+            '   Hindi: ${h.hindi1}',
+            '2. ${h.word2.toUpperCase()} (${h.pos2}): ${h.meaning2}',
+            '   Hindi: ${h.hindi2}',
           ],
-          'speedTrick': '⚡ Memory Anchor: ${h.memoryHook.isNotEmpty ? h.memoryHook : "Differentiate by root spelling and context."}',
+          'speedTrick': '⚡ Memory Anchor: Differentiate ${h.word1} and ${h.word2} by spelling and context.',
           'pitfall': 'SSC frequently tests this pair in Error Detection, Fill in the Blanks, and Cloze Tests.',
-          'answer': '${h.word1} = ${h.hindiMeaning1}; ${h.word2} = ${h.hindiMeaning2}',
+          'answer': '${h.word1} = ${h.hindi1}; ${h.word2} = ${h.hindi2}',
         };
       }
     }
@@ -1180,12 +1193,12 @@ class AiTutorEngine {
         return {
           'topic': 'One Word Substitution: ${ows.word} (एक शब्द)',
           'category': 'English Vocabulary (Blackbook)',
-          'formula': '${ows.word}: ${ows.meaning}',
+          'formula': '${ows.word}: ${ows.phrase}',
           'steps': [
-            'Word: ${ows.word}',
-            'Definition: ${ows.meaning}',
+            'Word: ${ows.word} (${ows.partOfSpeech})',
+            'Phrase / Definition: ${ows.phrase}',
             'Hindi Meaning: ${ows.hindiMeaning}',
-            'Exam Frequency: Asked ${ows.frequency} times in SSC CGL / CHSL / CPO.',
+            'Exam Frequency: Asked ${ows.repetitionCount} times in SSC CGL / CHSL / CPO.',
           ],
           'speedTrick': '⚡ High-Yield Blackbook Word: Memorize root word for instant recognition in exam!',
           'pitfall': 'Look for subtle differences in options (e.g. egoist vs egotist, altruist vs philanthropist).',
@@ -1200,14 +1213,15 @@ class AiTutorEngine {
         return {
           'topic': 'Blackbook Idiom: ${idm.idiom} (मुहावरे)',
           'category': 'English Idioms & Phrases',
-          'formula': '${idm.idiom} = ${idm.meaning}',
+          'formula': '${idm.idiom} = ${idm.englishMeaning}',
           'steps': [
             'Idiom: "${idm.idiom}"',
-            'English Meaning: ${idm.meaning}',
+            'English Meaning: ${idm.englishMeaning}',
             'Hindi Meaning: ${idm.hindiMeaning}',
-            'Example Sentence: "${idm.example}"',
+            if (idm.example.isNotEmpty) 'Example Sentence: "${idm.example}"',
+            'Exam Repetition: Asked ${idm.repetitionCount} times in SSC exams.',
           ],
-          'speedTrick': '⚡ Origin / Visual Hook: Connect idiom to literal imagery to never forget the figurative meaning.',
+          'speedTrick': '⚡ Visual Hook: Connect idiom to literal imagery to never forget the figurative meaning.',
           'pitfall': 'Idioms must be taken figuratively, never literally in comprehension tests.',
           'answer': idm.hindiMeaning,
         };

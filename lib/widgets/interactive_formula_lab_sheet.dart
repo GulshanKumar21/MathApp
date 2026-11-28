@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/concept_formula_model.dart';
-import '../theme/app_theme.dart';
 
 /// 🧪 Interactive Live Formula Lab Modal
 /// Allows students to drag sliders, see dynamic geometric shapes reshape in real-time,
@@ -175,9 +174,9 @@ class _InteractiveFormulaLabSheetState extends State<InteractiveFormulaLabSheet>
                                 style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFFFDE68A)),
                               ),
                               const SizedBox(height: 2),
-                              const Text(
+                              Text(
                                 'Direct Exam Hack: In SSC CGL, you never square these! Directly write the diagonal as $diagInt cm.',
-                                style: TextStyle(fontSize: 11, color: Colors.white),
+                                style: const TextStyle(fontSize: 11, color: Colors.white),
                               ),
                             ],
                           ),

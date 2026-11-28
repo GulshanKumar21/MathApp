@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../models/product_chauraha_model.dart';
 import '../../data/product_chauraha_repository.dart';
-import '../../theme/app_theme.dart';
 
 /// Interactive Hub for "Important Products (Chauraha)"
 /// Provides:

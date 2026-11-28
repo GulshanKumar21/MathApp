@@ -48,6 +48,9 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
   void initState() {
     super.initState();
     _initTts();
+    if (ConceptFormulaRepository.formulas.isNotEmpty) {
+      _flashcardIndex = math.Random().nextInt(ConceptFormulaRepository.formulas.length);
+    }
   }
 
   void _initTts() {
@@ -105,20 +108,7 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
     'Chord',
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    // Pick a random initial flashcard
-    if (ConceptFormulaRepository.formulas.isNotEmpty) {
-      _flashcardIndex = math.Random().nextInt(ConceptFormulaRepository.formulas.length);
-    }
-  }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
 
   Color _getPillarColor(ConceptPillar pillar) {
     switch (pillar) {
@@ -1594,56 +1584,7 @@ class _ConceptsHubScreenState extends State<ConceptsHubScreen> {
     );
   }
 
-  Widget _buildCategoryChip({
-    required String label,
-    required IconData icon,
-    required bool isSelected,
-    required VoidCallback onTap,
-    required Color color,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            color: isSelected ? color.withValues(alpha: 0.22) : const Color(0xFF13192B),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isSelected ? color : Colors.white.withValues(alpha: 0.1),
-              width: isSelected ? 1.5 : 1.0,
-            ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 13, color: isSelected ? color : Colors.white60),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? color : Colors.white70,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildDetailedFormulaCard(ConceptFormulaModel item, AppStateProvider state) {
     final color = _getPillarColor(item.pillar);

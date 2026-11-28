@@ -10,7 +10,6 @@ import 'admin/admin_panel_screen.dart';
 import 'alarm/math_alarm_hub_screen.dart';
 import 'english/english_hub_screen.dart';
 import 'concepts/concepts_hub_screen.dart';
-import '../services/notification_service.dart';
 
 class MainNavigationHolder extends StatefulWidget {
   const MainNavigationHolder({super.key});
